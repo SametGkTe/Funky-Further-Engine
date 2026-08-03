@@ -11,6 +11,9 @@ import states.StoryMenuState;
 import states.FreeplayState;
 import options.OptionsState;
 
+import mikolka.vslice.StickerSubState;
+import mikolka.vslice.freeplay.FreeplayHostState;
+
 class PauseSubState extends MusicBeatSubstate
 {
 	var grpMenuShit:FlxTypedGroup<Alphabet>;
@@ -342,21 +345,54 @@ class PauseSubState extends MusicBeatSubstate
 					}
 					OptionsState.onPlayState = true;
 				case "Exit to menu":
-					#if DISCORD_ALLOWED DiscordClient.resetClientID(); #end
+					#if DISCORD_ALLOWED
+					DiscordClient.resetClientID();
+					#end
+
 					PlayState.deathCounter = 0;
 					PlayState.seenCutscene = false;
-
 					PlayState.instance.canResync = false;
-					Mods.loadTopMod();
-					if(PlayState.isStoryMode)
-						MusicBeatState.switchState(new StoryMenuState());
-					else
-						MusicBeatState.switchState(new FreeplayState());
-
-					FlxG.sound.playMusic(Paths.music('freakyMenu'));
 					PlayState.changedDifficulty = false;
 					PlayState.chartingMode = false;
+
+					Mods.loadTopMod();
+
+					if (pauseMusic != null)
+						pauseMusic.stop();
+
+					if (FlxG.sound.music != null)
+						FlxG.sound.music.stop();
+
+					if (PlayState.instance.vocals != null)
+						PlayState.instance.vocals.volume = 0;
+
 					FlxG.camera.followLerp = 0;
+
+					if (MenuStyleRouter.isNewStyle())
+					{
+						controls.isInSubstate = true;
+						persistentUpdate = false;
+						persistentDraw = true;
+
+						openSubState(new StickerSubState(null, function(sticker:StickerSubState)
+						{
+							FlxG.sound.playMusic(Paths.music('freakyMenu'));
+
+							if (PlayState.isStoryMode)
+								return cast new mikolka.vslice.states.StoryMenuState(sticker);
+
+							return cast new FreeplayHostState(null, sticker);
+						}));
+					}
+					else
+					{
+						if (PlayState.isStoryMode)
+							MusicBeatState.switchState(new StoryMenuState());
+						else
+							MusicBeatState.switchState(new FreeplayState());
+
+						FlxG.sound.playMusic(Paths.music('freakyMenu'));
+					}
 			}
 		}
 

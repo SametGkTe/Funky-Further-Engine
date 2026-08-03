@@ -19,7 +19,6 @@ import states.TitleState;
 	public var serverConnection:Bool = true;
 	public var menuStyle:String = 'Orjinal';
 	public var mobileControlType:String = "Buttons";
-	
 	public var hideServerConnectionWarning:Bool = false;
 
 	

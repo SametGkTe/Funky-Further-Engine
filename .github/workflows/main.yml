@@ -51,10 +51,10 @@ jobs:
 
           - name: Android
             os: macos-15
-            buildArgs: "android -ONLY_ARMV7"
-            setupCommand: sh ./setup/unix.sh
-            artifactName: androidBuild
-            artifactPath: "export/release/android/bin/app/build/outputs/apk/release/*.apk"
+           buildArgs: "android -armv7 -arm64"
+           setupCommand: sh ./setup/unix.sh
+           artifactName: androidBuild
+           artifactPath: "export/release/android/bin/app/build/outputs/apk/release/*.apk"
 
           - name: iOS
             os: macos-15
@@ -127,11 +127,11 @@ jobs:
       - name: Download iOS Build
         uses: actions/download-artifact@v4
         with:
-          name: iOSBuild
-          path: /home/runner/artifacts/ios
+        name: iOSBuild
+        path: /home/runner/artifacts/ios
 
-      - name: Zip iOS Build
-        run: zip -r /home/runner/ios.zip /home/runner/artifacts/ios
+      - name: Move iOS IPA
+       run: mv /home/runner/artifacts/ios/*.ipa /home/runner/PsychEngine.ipa
 
       - name: Publish Release
         uses: softprops/action-gh-release@v2
@@ -140,9 +140,9 @@ jobs:
           tag_name: "devbuild-${{ needs.get-commit-hash.outputs.commit_hash }}"
           prerelease: true
           files: |
-            /home/runner/windows-x86_64.zip
-            /home/runner/linux-x86_64.zip
-            /home/runner/macos-x86_64.zip
-            /home/runner/macos-arm64.zip
-            /home/runner/android.apk
-            /home/runner/ios.zip
+            /home/runner/Further-Engine-Windows-x86_64.zip
+            /home/runner/Further-Engine-Linux-x86_64.zip
+            /home/runner/Further-Engine-MacOS-x86_64.zip
+            /home/runner/Further-Engine-MacOS-arm64.zip
+            /home/runner/Further-Engine-Android.apk
+            /home/runner/Further-Engine-IOS.ipa

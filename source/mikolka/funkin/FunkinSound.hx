@@ -111,8 +111,6 @@ class FunkinSound extends FlxSound
 							var cap = fp.grpCapsules.activeSongItems[fp.curSelected];
 							if(cap.songData == null || cap.songData.getNativeSongId() != key || fp.busy) return;
 						}
-						
-						trace("Playing preview!");
 						FlxG.sound.playMusic(sound,0);
 						// #if (lime_vorbis && linux)
 						// prevSound?.close();

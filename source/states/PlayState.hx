@@ -2023,10 +2023,34 @@ class PlayState extends MusicBeatState
 
 							if(daNote.isSustainNote && strum.sustainReduce) daNote.clipToStrumNote(strum);
 
-							// Kill extremely late notes and cause misses
 							if (Conductor.songPosition - daNote.strumTime > noteKillOffset)
 							{
-								if (daNote.mustPress && !cpuControlled && !daNote.ignoreNote && !endingSong && (daNote.tooLate || !daNote.wasGoodHit))
+								var shouldMiss:Bool = daNote.mustPress && !cpuControlled && !daNote.ignoreNote && !endingSong && (daNote.tooLate || !daNote.wasGoodHit);
+
+								if (shouldMiss && daNote.isSustainNote && daNote.parent != null && daNote.parent.wasGoodHit)
+								{
+									var parentNote:Note = daNote.parent;
+
+									if (parentNote.tail != null && parentNote.tail.length > 0)
+									{
+										var endNote:Note = parentNote.tail[parentNote.tail.length - 1];
+
+										if (endNote != null)
+										{
+											var totalSustainLength:Float = endNote.strumTime - parentNote.strumTime;
+
+											if (totalSustainLength > 0)
+											{
+												var progressFromParent:Float = (daNote.strumTime - parentNote.strumTime) / totalSustainLength;
+
+												if (progressFromParent >= 0.95)
+													shouldMiss = false;
+											}
+										}
+									}
+								}
+
+								if (shouldMiss)
 									noteMiss(daNote);
 
 								daNote.active = daNote.visible = false;
@@ -2699,6 +2723,10 @@ class PlayState extends MusicBeatState
 	public var transitioning = false;
 	public function endSong()
 	{
+		trace('=== FREEPLAY RETURN DEBUG ===');
+		trace('vsliceResults = ' + ClientPrefs.data.vsliceResults);
+		trace('isNewStyle = ' + MenuStyleRouter.isNewStyle());
+		trace('menuStyle = ' + ClientPrefs.data.menuStyle);
 		#if !android
 		if (touchPad != null)
 			touchPad.visible = false;
@@ -2779,8 +2807,6 @@ class PlayState extends MusicBeatState
 					canResync = false;
 
 					var prevWeekScore:Int = Highscore.getWeekScore(WeekData.getWeekFileName(), storyDifficulty);
-
-					// Story tarafında eski rank çok kritik değil, SHIT bırakabilirsin.
 					var prevWeekRank:ScoringRank = SHIT;
 
 					if (canSaveScore)
@@ -2841,10 +2867,8 @@ class PlayState extends MusicBeatState
 				var prevScore:Int = Highscore.getScore(Song.loadedSongName, storyDifficulty);
 				var prevRank:ScoringRank = SHIT;
 
-				// Eğer sende bu methodlar varsa TAM sürüm:
 				var prevAcc:Float = Highscore.getRating(Song.loadedSongName, storyDifficulty);
-				var prevWasFC:Bool = false; // sende getFCState varsa onunla değiştir
-				// prevWasFC = Highscore.getFCState(Song.loadedSongName, storyDifficulty);
+				var prevWasFC:Bool = false;
 				prevRank = Scoring.calculateRankFromData(prevScore, prevAcc, prevWasFC) ?? SHIT;
 
 				if (canSaveScore)
@@ -2855,6 +2879,8 @@ class PlayState extends MusicBeatState
 				}
 
 				var isNewSongHighscore:Bool = canSaveScore && (songScore > prevScore);
+				var currentRank:ScoringRank = Scoring.calculateRank(currentTallies) ?? SHIT;
+				var hasNewRank:Bool = currentRank > prevRank;
 
 				if (ClientPrefs.data.vsliceResults && !botplay)
 				{
@@ -2862,13 +2888,34 @@ class PlayState extends MusicBeatState
 				}
 				else
 				{
-					MenuStyleRouter.goToFreeplay();
+					var resultParams = hasNewRank ? {
+						fromResults:
+						{
+							oldRank: prevRank,
+							newRank: currentRank,
+							songId: Song.loadedSongName,
+							difficultyId: Difficulty.getString(storyDifficulty, false),
+							playRankAnim: true
+						}
+					} : null;
+
+					if (MenuStyleRouter.isNewStyle())
+					{
+						var nextState = cast new mikolka.vslice.freeplay.FreeplayHostState(resultParams);
+						trace("Switching to VSlice FreeplayHostState directly");
+						FlxG.switchState(nextState);
+					}
+					else
+					{
+						trace("Switching to classic states.FreeplayState");
+						FlxG.switchState(new states.FreeplayState(resultParams));
+					}
+
 					TitleState.playFreakyMusic();
 				}
 
 				changedDifficulty = false;
 			}
-
 			transitioning = true;
 		}
 		return true;
@@ -3147,6 +3194,26 @@ class PlayState extends MusicBeatState
 
 		return FlxSort.byValues(FlxSort.ASCENDING, a.strumTime, b.strumTime);
 	}
+	
+	inline function isLastFivePercentOfSustain(note:Note):Bool
+	{
+		if (note == null || !note.isSustainNote || note.parent == null || note.parent.tail == null || note.parent.tail.length < 1)
+			return false;
+
+		var endNote:Note = note.parent.tail[note.parent.tail.length - 1];
+		if (endNote == null)
+			return false;
+
+		var startTime:Float = note.parent.strumTime;
+		var endTime:Float = endNote.strumTime;
+		var totalLen:Float = endTime - startTime;
+
+		if (totalLen <= 0)
+			return false;
+
+		var progress:Float = (Conductor.songPosition - startTime) / totalLen;
+		return progress >= 0.95;
+	}
 
 	private function onKeyRelease(event:KeyboardEvent):Void
 	{
@@ -3231,18 +3298,28 @@ class PlayState extends MusicBeatState
 		if (startedCountdown && !inCutscene && !boyfriend.stunned && generatedMusic)
 		{
 			if (notes.length > 0) {
-				for (n in notes) { // I can't do a filter here, that's kinda awesome
+				for (n in notes) {
 					var canHit:Bool = (n != null && !strumsBlocked[n.noteData] && n.canBeHit
 						&& n.mustPress && !n.tooLate && !n.wasGoodHit && !n.blockHit);
 
 					if (guitarHeroSustains)
 						canHit = canHit && n.parent != null && n.parent.wasGoodHit;
 
-					if (canHit && n.isSustainNote) {
-						var released:Bool = !holdArray[n.noteData];
-
-						if (!released)
+					if (canHit && n.isSustainNote)
+					{
+						if (holdArray[n.noteData])
+						{
 							goodNoteHit(n);
+						}
+						else
+						{
+							var spr:StrumNote = playerStrums.members[n.noteData];
+							if (spr != null && spr.animation.curAnim != null && spr.animation.curAnim.name != 'static')
+							{
+								spr.playAnim('static');
+								spr.resetAnim = 0;
+							}
+						}
 					}
 				}
 			}
@@ -3275,9 +3352,9 @@ class PlayState extends MusicBeatState
 		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript('noteMiss', [daNote]);
 	}
 
-	function noteMissPress(direction:Int = 1):Void //You pressed a key when there was no notes to press for this key
+	function noteMissPress(direction:Int = 1):Void
 	{
-		if(ClientPrefs.data.ghostTapping) return; //fuck it
+		if(ClientPrefs.data.ghostTapping) return;
 
 		noteMissCommon(direction);
 		FlxG.sound.play(Paths.soundRandom('missnote', 1, 3), FlxG.random.float(0.1, 0.2));
@@ -3287,9 +3364,14 @@ class PlayState extends MusicBeatState
 
 	function noteMissCommon(direction:Int, note:Note = null)
 	{
-		// score and data
 		var subtract:Float = pressMissDamage;
 		if(note != null) subtract = note.missHealth;
+
+		// Sustain note ise hasar çok daha az olsun
+		if (note != null && note.isSustainNote && note.parent != null && note.parent.wasGoodHit)
+		{
+			subtract *= 0.25; // Sustain miss hasarı %75 azalt
+		}
 
 		// GUITAR HERO SUSTAIN CHECK LOL!!!!
 		if (note != null && guitarHeroSustains && note.parent == null) {
@@ -3337,7 +3419,14 @@ class PlayState extends MusicBeatState
 		}
 
 		var lastCombo:Int = combo;
-		combo = 0;
+
+		// Sustain note'u bırakmak combo kırmasın
+		var breakCombo:Bool = true;
+		if (note != null && note.isSustainNote && note.parent != null && note.parent.wasGoodHit)
+			breakCombo = false;
+
+		if (breakCombo)
+			combo = 0;
 
 		health -= subtract * healthLoss;
 		songScore -= 10;

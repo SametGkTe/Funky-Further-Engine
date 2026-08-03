@@ -1,7 +1,10 @@
 package mikolka.vslice.freeplay;
 
-import mikolka.compatibility.VsliceOptions;
+import flixel.FlxSprite;
 import flixel.graphics.FlxGraphic;
+import flixel.text.FlxText;
+import flixel.util.FlxColor;
+import mikolka.compatibility.VsliceOptions;
 import mikolka.compatibility.funkin.FunkinPath as Paths;
 
 /**
@@ -14,7 +17,7 @@ class DifficultySprite extends FlxSprite
 	 */
 	public var difficultyId:String;
 
-	public var hasValidTexture = true;
+	public var hasValidTexture:Bool = true;
 	public var difficultyColor:FlxColor;
 	public var widthOffset:Float = 0;
 
@@ -24,27 +27,54 @@ class DifficultySprite extends FlxSprite
 		difficultyId = diffId;
 
 		var tex:FlxGraphic = null;
+		var loadedAnimated:Bool = false;
+
 		if (Paths.exists('images/freeplay/freeplayDifficulties/freeplay' + diffId + ".xml"))
 		{
-			frames = Paths.getSparrowAtlas('freeplay/freeplayDifficulties/freeplay' + diffId,false);
-			animation.addByPrefix('idle', 'idle0', 24, true);
-			widthOffset = (frames.frames[0].frame.width / 2) - 20; // Animated offset
-			if (VsliceOptions.FLASHBANG)
-				this.animation.play('idle');
+			try
+			{
+				frames = Paths.getSparrowAtlas('freeplay/freeplayDifficulties/freeplay' + diffId, false);
+
+				if (frames != null && frames.frames != null && frames.frames.length > 0)
+				{
+					animation.addByPrefix('idle', 'idle0', 24, true);
+
+					// Frame mutlaka oluşsun
+					animation.play('idle', true);
+
+					// FLASHBANG kapalıysa animasyon dönmesin ama frame kalsın
+					if (!VsliceOptions.FLASHBANG && animation.curAnim != null)
+						animation.curAnim.paused = true;
+
+					updateHitbox();
+					widthOffset = (frameWidth / 2) - 20;
+					loadedAnimated = true;
+				}
+			}
+			catch (e:Dynamic)
+			{
+				trace('Failed loading animated difficulty sprite for $diffId: ' + Std.string(e));
+				loadedAnimated = false;
+			}
 		}
-		else
+
+		if (!loadedAnimated)
 		{
 			tex = Paths.noGpuImage('freeplay/freeplayDifficulties/freeplay' + diffId);
-			if (tex != null) widthOffset = (tex.width / 2) - 20; // standard offset
+			if (tex != null)
+				widthOffset = (tex.width / 2) - 20;
+
 			if (tex == null)
 			{
 				tex = Paths.noGpuImage('menudifficulties/' + diffId);
 				if (tex != null)
-					widthOffset = (tex.width / 2) - 80; // story texture offset
+					widthOffset = (tex.width / 2) - 80;
 			}
 
 			if (tex == null)
 			{
+				hasValidTexture = false;
+
 				var grpFallbackDifficulty = new FlxText(70, 90, 250, difficultyId);
 				grpFallbackDifficulty.setFormat("VCR OSD Mono", 60, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 				grpFallbackDifficulty.borderSize = 2;
@@ -52,21 +82,51 @@ class DifficultySprite extends FlxSprite
 				grpFallbackDifficulty.regenGraphic();
 				@:privateAccess
 				tex = grpFallbackDifficulty.graphic;
-				widthOffset = (tex.width / 2) - 55; // text offset
+				widthOffset = (tex.width / 2) - 55;
 			}
 
-			this.loadGraphic(tex);
+			if (tex != null)
+			{
+				loadGraphic(tex);
+				updateHitbox();
+			}
 		}
 
+		difficultyColor = resolveDifficultyColor(diffId);
+
+		x = -((width / 2) - 106);
+	}
+
+	function resolveDifficultyColor(diffId:String):FlxColor
+	{
+		var id = diffId.toLowerCase();
+
+		// Standart zorluklar için direkt sabit renk
+		switch (id)
+		{
+			case "easy":
+				return 0xFF92D050;
+			case "normal":
+				return 0xFFFFD966;
+			case "hard":
+				return 0xFFFF6B6B;
+			case "erect":
+				return 0xFF7C5CFF;
+			case "nightmare":
+				return 0xFFB00020;
+		}
+
+		// Custom difficulty ise dominantColor dene
 		try
 		{
-			difficultyColor = hasValidTexture ? CoolUtil.dominantColor(this) : FlxColor.GRAY;
+			if (graphic != null || frames != null)
+				return CoolUtil.dominantColor(this);
 		}
-		catch (x)
+		catch (e:Dynamic)
 		{
-			trace('Failed to get prime color for $diffId: ${x.message}');
-			difficultyColor = FlxColor.GRAY;
+			trace('Failed to get prime color for $diffId: ' + Std.string(e));
 		}
-		x = -((width / 2) - 106);
+
+		return FlxColor.GRAY;
 	}
 }

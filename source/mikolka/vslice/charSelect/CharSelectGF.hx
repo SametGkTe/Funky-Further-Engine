@@ -82,45 +82,69 @@ class CharSelectGF extends FlxAtlasSprite
     }
   };
 
-  override public function draw()
-  {
-    if (analyzer != null) drawFFT();
-    super.draw();
-  }
+	override public function draw()
+	{
+		if (analyzer != null && enableVisualizer)
+		{
+			try
+			{
+				drawFFT();
+			}
+			catch (e:Dynamic) {}
+		}
 
-  function drawFFT()
-  {
-    try{
-          if (enableVisualizer)
-    {
-      var levels = analyzer.getLevels();
-      var frame = anim.curSymbol.timeline.get("VIZ_bars").get(anim.curFrame);
-      var elements = frame.getList();
-      var len:Int = cast Math.min(elements.length, 7);
+		try
+		{
+			super.draw();
+		}
+		catch (e:Dynamic)
+		{
+			// Atlas henüz tam yüklenmemişse veya bozuksa sessizce geç
+		}
+	}
 
-      for (i in 0...len)
-      {
-        var animFrame:Int = Math.round(levels[i].value * 12);
+	function drawFFT()
+	{
+		try
+		{
+			if (!enableVisualizer)
+				return;
 
-        #if desktop
-        // Web version scales with the Flixel volume level.
-        // This line brings platform parity but looks worse.
-        // animFrame = Math.round(animFrame * FlxG.sound.volume);
-        #end
+			if (anim == null || anim.curSymbol == null || anim.curSymbol.timeline == null)
+				return;
 
-        animFrame = Math.floor(Math.min(12, animFrame));
-        animFrame = Math.floor(Math.max(0, animFrame));
+			var vizBars = anim.curSymbol.timeline.get("VIZ_bars");
+			if (vizBars == null)
+				return;
 
-        animFrame = Std.int(Math.abs(animFrame - 12)); // shitty dumbass flip, cuz dave got da shit backwards lol!
+			var frame = vizBars.get(anim.curFrame);
+			if (frame == null)
+				return;
 
-        elements[i].symbol.firstFrame = animFrame;
-      }
-    }
-    }
-    catch(x:Exception){
-      // tracing this would waste CPU
-    }
-  }
+			var levels = analyzer.getLevels();
+			var elements = frame.getList();
+			var len:Int = cast Math.min(elements.length, 7);
+
+			for (i in 0...len)
+			{
+				var animFrame:Int = Math.round(levels[i].value * 12);
+
+				#if desktop
+				// animFrame = Math.round(animFrame * FlxG.sound.volume);
+				#end
+
+				animFrame = Math.floor(Math.min(12, animFrame));
+				animFrame = Math.floor(Math.max(0, animFrame));
+				animFrame = Std.int(Math.abs(animFrame - 12));
+
+				elements[i].symbol.firstFrame = animFrame;
+			}
+		}
+		catch (x:Exception)
+		{
+			// silently ignore FFT errors
+		}
+	}
 
   /**
    * @param animInfo Should not be confused with animInInfo!
@@ -164,45 +188,69 @@ class CharSelectGF extends FlxAtlasSprite
     fadeAnimIndex = 0;
   }
 
-  /**
-   * For switching between "GFs" such as gf, nene, etc
-   * @param bf Which BF we are selecting, so that we know the accompyaning GF
-   */
-  public function switchGF(bf:String):Void
-  {
-    var previousGFPath = currentGFPath;
-    if(bf == "locked"){
-      this.visible = false; //? 'locked' is a special character
-      return;//? and ??? doesn't have gf (yet)
-    }
-    var bfObj = PlayerRegistry.instance.fetchEntry(bf);
-    var gfData = bfObj?.getCharSelectData()?.gf;
-    currentGFPath = gfData?.assetPath != null ? gfData?.assetPath : null;
+	public function switchGF(bf:String):Void
+	{
+		var previousGFPath = currentGFPath;
 
-    // We don't need to update any anims if we didn't change GF
-    trace('currentGFPath(${currentGFPath})');
-    if (currentGFPath == null)
-    {
-      this.visible = false;
-      return;
-    }
-    else if (previousGFPath != currentGFPath)
-    {
-      this.visible = true;
-      loadAtlas(currentGFPath);
+		if (bf == "locked")
+		{
+			this.visible = false;
+			return;
+		}
 
-      enableVisualizer = gfData?.visualizer ?? false;
+		var bfObj = PlayerRegistry.instance.fetchEntry(bf);
+		var gfData = bfObj?.getCharSelectData()?.gf;
+		currentGFPath = gfData?.assetPath != null ? gfData?.assetPath : null;
 
-      var animInfoPath = 'images/${gfData?.animInfoPath}'; //? JSFL uses asset system!
+		trace('currentGFPath(${currentGFPath})');
 
-      animInInfo = FramesJSFLParser.parse(animInfoPath + '/In.txt');
-      animOutInfo = FramesJSFLParser.parse(animInfoPath + '/Out.txt');
-    }
+		// Eğer bu karakter V-Slice player değilse → varsayılan gfChill kullan
+		if (currentGFPath == null)
+		{
+			// Base game default GF'e dön
+			var defaultBfObj = PlayerRegistry.instance.fetchEntry("bf");
+			var defaultGfData = defaultBfObj?.getCharSelectData()?.gf;
+			currentGFPath = defaultGfData?.assetPath ?? "charSelect/gfChill";
 
-    playAnimation("idle", true, false, false);
+			// Default animInfoPath
+			var defaultAnimInfoPath = 'images/${defaultGfData?.animInfoPath ?? "charSelect/gfAnimInfo"}';
+			
+			this.visible = true;
 
-    updateHitbox();
-  }
+			if (previousGFPath != currentGFPath)
+			{
+				loadAtlas(currentGFPath);
+				enableVisualizer = false;
+				animInInfo = FramesJSFLParser.parse(defaultAnimInfoPath + '/In.txt');
+				animOutInfo = FramesJSFLParser.parse(defaultAnimInfoPath + '/Out.txt');
+			}
+
+			playAnimation("idle", true, false, false);
+			updateHitbox();
+			return;
+		}
+
+		// Normal V-Slice akış
+		if (previousGFPath != currentGFPath)
+		{
+			this.visible = true;
+			loadAtlas(currentGFPath);
+			enableVisualizer = gfData?.visualizer ?? false;
+			var animInfoPath = 'images/${gfData?.animInfoPath}';
+			animInInfo = FramesJSFLParser.parse(animInfoPath + '/In.txt');
+			animOutInfo = FramesJSFLParser.parse(animInfoPath + '/Out.txt');
+		}
+		
+		if (anim == null || anim.stageInstance == null)
+		{
+			trace('[CharSelectGF] Atlas loaded but invalid for path: ' + currentGFPath);
+			this.visible = false;
+			return;
+		}
+
+		playAnimation("idle", true, false, false);
+		updateHitbox();
+	}
 }
 
 enum FadeStatus

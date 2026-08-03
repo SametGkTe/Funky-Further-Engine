@@ -4,10 +4,19 @@ package mikolka.vslice.charSelect;
 import mobile.objects.TouchZone;
 #end
 
+import openfl.utils.Assets;
+import openfl.utils.AssetType;
+
+#if sys
+import sys.FileSystem;
+import sys.io.File;
+#end
+
+import mikolka.funkin.custom.PsliceRegistry;
+import haxe.io.Path;
 import flixel.group.FlxGroup;
 import mikolka.funkin.custom.mobile.MobileScaleMode;
 import mikolka.compatibility.ModsHelper;
-import mikolka.vslice.ui.obj.ModSelector;
 import mikolka.compatibility.VsliceOptions;
 import mikolka.compatibility.freeplay.FreeplayHelpers;
 import mikolka.vslice.freeplay.FreeplayState;
@@ -22,6 +31,8 @@ import flixel.system.debug.watch.Tracker.TrackerProfile;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxTimer;
+import flixel.text.FlxText;
+import flixel.util.FlxColor;
 import mikolka.funkin.FunkinSound;
 import mikolka.funkin.players.PlayerRegistry;
 import mikolka.funkin.FlxAtlasSprite;
@@ -38,11 +49,32 @@ import mikolka.funkin.FramesJSFLParser;
 import mikolka.funkin.FramesJSFLParser.FramesJSFLInfo;
 import mikolka.funkin.custom.VsliceSubState as MusicBeatSubState;
 import mikolka.compatibility.funkin.FunkinPath as Paths;
+import backend.Paths as BackendPaths;
+import haxe.Json;
+
+enum CharacterType
+{
+	VSLICE;
+	PSYCH;
+}
+
+typedef CharSelectEntry =
+{
+	var id:String;
+	var name:String;
+	var type:CharacterType;
+	var slot:Int;
+	var ?imagePath:String;
+	var ?idleAnim:String;
+	var ?flipX:Bool;
+	var ?scale:Float;
+	var ?isBaseGame:Bool;
+	var ?sourceMod:String;
+}
 
 class CharSelectSubState extends MusicBeatSubState
 {
 	var chrSelectCursor:FlxSprite;
-	var modSelector:ModSelector;
 
 	var cursorBlue:FlxSprite;
 	var cursorDarkBlue:FlxSprite;
@@ -59,11 +91,11 @@ class CharSelectSubState extends MusicBeatSubState
 	var tmrFrames:Int = 60;
 	var playerChill:CharSelectPlayer;
 	var playerChillOut:CharSelectPlayer;
+	var psychCharSprite:FlxSprite;
 	var gfChill:CharSelectGF;
 	var gfChillOut:CharSelectGF;
 	var barthing:FlxAtlasSprite;
 	var dipshitBacking:FlxSprite;
-	var modArrows:Null<ModArrows>;
 	var chooseDipshit:FlxSprite;
 	var dipshitBlur:FlxSprite;
 	var transitionGradient:FlxSprite;
@@ -95,10 +127,58 @@ class CharSelectSubState extends MusicBeatSubState
 	var blackScreen:FunkinSprite;
 	var cutoutSize:Float = 0;
 
+	// Sayfa sistemi ve karakter registry
+	var allCharEntries:Array<CharSelectEntry> = [];
+	var charEntryMap:Map<String, CharSelectEntry> = new Map();
+	public var currentPage:Int = 0;
+	var totalPages:Int = 1;
+	var pageIndicatorText:FlxText;
+	
+	static function fsExists(path:String):Bool
+	{
+		#if sys
+		return FileSystem.exists(path);
+		#else
+		return NativeFileSystem.exists(path);
+		#end
+	}
+
+	static function fsIsDirectory(path:String):Bool
+	{
+		#if sys
+		return FileSystem.exists(path) && FileSystem.isDirectory(path);
+		#else
+		return NativeFileSystem.exists(path);
+		#end
+	}
+
+	static function fsReadDirectory(path:String):Array<String>
+	{
+		#if sys
+		return FileSystem.readDirectory(path);
+		#else
+		return NativeFileSystem.readDirectory(path);
+		#end
+	}
+
+	static function fsGetContent(path:String):String
+	{
+		#if sys
+		return File.getContent(path);
+		#else
+		return NativeFileSystem.getContent(path);
+		#end
+	}
+
+	// Hangi mod context aktifti (geri dönüş için)
+	var originalMod:String = "";
+
 	public function new()
 	{
 		super();
-		var charData = VsliceOptions.LAST_MOD; // ? Added character save store
+		originalMod = ModsHelper.getActiveMod() ?? "";
+
+		var charData = VsliceOptions.LAST_MOD;
 		if (ModsHelper.isModDirEnabled(charData.mod_dir) || charData.mod_dir == '')
 		{
 			ModsHelper.loadModDir(charData.mod_dir);
@@ -107,7 +187,7 @@ class CharSelectSubState extends MusicBeatSubState
 		}
 		loadAvailableCharacters();
 	}
-	
+
 	function debugAvailableChars(label:String):Void
 	{
 		var slots:Array<String> = [];
@@ -126,16 +206,451 @@ class CharSelectSubState extends MusicBeatSubState
 		trace('[CS] ' + label + ' all=' + all.join(" | "));
 	}
 
-	function loadAvailableCharacters():Void
+	// ========== ANA KARAKTER YÜKLEME ==========
+
+	public function loadAvailableCharacters():Void
+	{
+		availableChars = new Map<Int, String>();
+		allCharEntries = [];
+		charEntryMap = new Map();
+
+		var prevMod = ModsHelper.getActiveMod() ?? "";
+
+		loadVSliceCharacters();
+		loadPsychCharacters();
+
+		// Önceki modu geri yükle
+		ModsHelper.loadModDir(prevMod);
+
+		buildPages();
+		applyCurrentPage();
+
+		trace("[CS] loadAvailableCharacters complete. Total entries: " + allCharEntries.length + " Pages: " + totalPages);
+		debugAvailableChars("after loadAvailableCharacters");
+	}
+	
+	function getAllModsFromFolder():Array<String>
+	{
+		var result:Array<String> = [];
+		var modsRoot = PsliceRegistry.resolveModsRoot();
+
+		if (modsRoot == null)
+		{
+			trace("[CS] mods folder not found");
+			return result;
+		}
+
+		trace("[CS] resolved mods root: " + modsRoot);
+
+		for (entry in fsReadDirectory(modsRoot))
+		{
+			if (entry == null || entry.length < 1)
+				continue;
+
+			var playersDir = Path.join([modsRoot, entry, "data", "players"]);
+			var charsDir = Path.join([modsRoot, entry, "characters"]);
+
+			if (fsIsDirectory(playersDir) || fsIsDirectory(charsDir))
+			{
+				result.push(entry);
+			}
+		}
+
+		trace("[CS] All mods from folder: " + result.join(", "));
+		return result;
+	}
+
+	function loadVSliceCharacters():Void
+	{
+		var allPlayerIds:Array<{id:String, mod:String}> = [];
+		var seen:Map<String, Bool> = new Map();
+		var modsRoot = PsliceRegistry.resolveModsRoot();
+
+		inline function addPlayer(id:String, mod:String):Void
+		{
+			if (id == null || id.length < 1 || seen.exists(id))
+				return;
+
+			seen.set(id, true);
+			allPlayerIds.push({id: id, mod: mod});
+		}
+
+		// Base game
+		ModsHelper.loadModDir("");
+
+		var sharedPrefix = BackendPaths.getSharedPath("registry/players/");
+		for (asset in Assets.list(AssetType.TEXT))
+		{
+			if (!asset.endsWith(".json"))
+				continue;
+
+			if (asset.indexOf(sharedPrefix) != 0)
+				continue;
+
+			var relative = asset.substr(sharedPrefix.length);
+			if (relative.indexOf("/") != -1 || relative.indexOf("\\") != -1)
+				continue;
+
+			var id = relative.substr(0, relative.length - 5);
+			addPlayer(id, "");
+		}
+
+		// Mod V-Slice karakterleri
+		if (modsRoot != null)
+		{
+			for (mod in getAllModsFromFolder())
+			{
+				var playersDir = Path.join([modsRoot, mod, "data", "players"]);
+				if (!fsIsDirectory(playersDir))
+					continue;
+
+				for (file in fsReadDirectory(playersDir))
+				{
+					if (!file.endsWith(".json"))
+						continue;
+
+					var id = file.substr(0, file.length - 5);
+					addPlayer(id, mod);
+				}
+			}
+		}
+
+		trace("[CS] V-Slice player IDs found: " + [for (p in allPlayerIds) p.id + "(" + (p.mod == "" ? "base" : p.mod) + ")"].join(", "));
+
+		for (playerInfo in allPlayerIds)
+		{
+			ModsHelper.loadModDir(playerInfo.mod);
+			var player:Null<PlayableCharacter> = PlayerRegistry.instance.fetchEntry(playerInfo.id);
+
+			if (player == null)
+				continue;
+
+			var charSelectData = player.getCharSelectData();
+			var slot:Int = (charSelectData != null && charSelectData.position != null) ? charSelectData.position : -1;
+
+			var entry:CharSelectEntry = {
+				id: playerInfo.id,
+				name: player.getName(),
+				type: VSLICE,
+				slot: slot,
+				isBaseGame: (playerInfo.mod == ""),
+				sourceMod: playerInfo.mod
+			};
+
+			allCharEntries.push(entry);
+			charEntryMap.set(playerInfo.id, entry);
+			trace("[CS] Loaded V-Slice character: " + playerInfo.id + " slot=" + slot + " mod=" + (playerInfo.mod == "" ? "base" : playerInfo.mod));
+		}
+	}
+
+	function loadPsychCharacters():Void
+	{
+		var modsRoot = PsliceRegistry.resolveModsRoot();
+		if (modsRoot == null)
+			return;
+
+		for (mod in getAllModsFromFolder())
+		{
+			var modCharDir = Path.join([modsRoot, mod, "characters"]);
+
+			if (!fsIsDirectory(modCharDir))
+				continue;
+
+			var files = fsReadDirectory(modCharDir);
+			trace("[CS] Psych files in " + mod + ": " + files.join(", "));
+
+			for (file in files)
+			{
+				// Sadece .json uzantılı dosyalar
+				if (!file.endsWith(".json"))
+					continue;
+
+				// Klasör ise atla
+				var fullPath = Path.join([modCharDir, file]);
+				if (fsIsDirectory(fullPath))
+					continue;
+
+				var charId = file.substr(0, file.length - 5);
+
+				if (charEntryMap.exists(charId))
+					continue;
+
+				loadSinglePsychCharacter(charId, fullPath, mod);
+			}
+		}
+	}
+
+	function loadSinglePsychCharacter(charId:String, jsonPath:String, sourceMod:String):Void
+	{
+		try
+		{
+			var content = fsGetContent(jsonPath);
+			if (content == null || content.length < 1)
+				return;
+
+			var json:Dynamic = Json.parse(content);
+			if (json == null)
+				return;
+
+			var imagePath:String = json.image;
+			if (imagePath == null || imagePath.length < 1)
+				return;
+
+			var idleAnim:String = "BF idle dance";
+			var anims:Array<Dynamic> = json.animations;
+			if (anims != null)
+			{
+				for (anim in anims)
+				{
+					var animName:String = anim.anim;
+					if (animName == "idle" || animName == "danceLeft" || animName == "danceRight")
+					{
+						idleAnim = anim.name;
+						break;
+					}
+				}
+			}
+
+			var charName:String = charId.charAt(0).toUpperCase() + charId.substr(1);
+			charName = charName.split("-").join(" ");
+
+			var flipX:Bool = json.flip_x != null ? cast(json.flip_x, Bool) : false;
+			var scale:Float = json.scale != null ? cast(json.scale, Float) : 1.0;
+
+			var entry:CharSelectEntry = {
+				id: charId,
+				name: charName,
+				type: PSYCH,
+				slot: -1,
+				imagePath: imagePath,
+				idleAnim: idleAnim,
+				flipX: flipX,
+				scale: scale,
+				isBaseGame: false,
+				sourceMod: sourceMod
+			};
+
+			allCharEntries.push(entry);
+			charEntryMap.set(charId, entry);
+			trace("[CS] Loaded Psych character: " + charId + " mod=" + sourceMod + " image=" + imagePath);
+		}
+		catch (e)
+		{
+			trace("[CS] Failed to load Psych character: " + charId + " error=" + e);
+		}
+	}
+
+	function isBaseGamePlayer(playerId:String):Bool
+	{
+		#if LEGACY_PSYCH
+		var basePath = "assets/registry/players/" + playerId + ".json";
+		#else
+		var basePath = "assets/shared/registry/players/" + playerId + ".json";
+		#end
+		return NativeFileSystem.exists(basePath) || openfl.utils.Assets.exists(BackendPaths.getSharedPath("registry/players/" + playerId + ".json"), TEXT);
+	}
+
+	// ========== SAYFA SİSTEMİ ==========
+
+	function buildPages():Void
+	{
+		var baseGameChars:Array<CharSelectEntry> = [];
+		var modChars:Array<CharSelectEntry> = [];
+
+		for (entry in allCharEntries)
+		{
+			if (entry.isBaseGame == true)
+				baseGameChars.push(entry);
+			else
+				modChars.push(entry);
+		}
+
+		var usedSlots:Map<Int, Bool> = new Map();
+		var sortedEntries:Array<CharSelectEntry> = [];
+
+		// 1) Base game tercih edilen slotlara
+		for (entry in baseGameChars)
+		{
+			if (entry.slot >= 0 && entry.slot < 9 && !usedSlots.exists(entry.slot))
+			{
+				usedSlots.set(entry.slot, true);
+				sortedEntries.push(entry);
+			}
+		}
+
+		// 2) Mod V-Slice tercih edilen slotlara
+		for (entry in modChars)
+		{
+			if (entry.type == VSLICE && entry.slot >= 0 && entry.slot < 9 && !usedSlots.exists(entry.slot))
+			{
+				usedSlots.set(entry.slot, true);
+				sortedEntries.push(entry);
+			}
+		}
+
+		// 3) Kalan base game -> boş slot
+		for (entry in baseGameChars)
+		{
+			if (!sortedEntries.contains(entry))
+			{
+				var freeSlot = findFreeSlot(usedSlots);
+				if (freeSlot != -1)
+				{
+					entry.slot = freeSlot;
+					usedSlots.set(freeSlot, true);
+				}
+				sortedEntries.push(entry);
+			}
+		}
+
+		// 4) Kalan mod karakterleri -> boş slot
+		for (entry in modChars)
+		{
+			if (!sortedEntries.contains(entry))
+			{
+				var freeSlot = findFreeSlot(usedSlots);
+				if (freeSlot != -1)
+				{
+					entry.slot = freeSlot;
+					usedSlots.set(freeSlot, true);
+				}
+				sortedEntries.push(entry);
+			}
+		}
+
+		// Sayfalara böl
+		allCharEntries = [];
+
+		var firstPage:Array<CharSelectEntry> = [];
+		var overflow:Array<CharSelectEntry> = [];
+
+		for (entry in sortedEntries)
+		{
+			if (entry.slot >= 0 && entry.slot < 9)
+				firstPage.push(entry);
+			else
+				overflow.push(entry);
+		}
+
+		for (entry in firstPage)
+			allCharEntries.push(entry);
+
+		var pageSlotCounter:Int = 0;
+		for (entry in overflow)
+		{
+			entry.slot = pageSlotCounter;
+			pageSlotCounter++;
+			if (pageSlotCounter >= 9)
+				pageSlotCounter = 0;
+			allCharEntries.push(entry);
+		}
+
+		totalPages = Math.ceil(allCharEntries.length / 9);
+		if (totalPages < 1)
+			totalPages = 1;
+
+		trace("[CS] buildPages: " + allCharEntries.length + " chars, " + totalPages + " pages");
+	}
+
+	function findFreeSlot(usedSlots:Map<Int, Bool>):Int
+	{
+		for (i in 0...9)
+		{
+			if (!usedSlots.exists(i))
+				return i;
+		}
+		return -1;
+	}
+
+	function applyCurrentPage():Void
 	{
 		availableChars = new Map<Int, String>();
 
-		availableChars.set(3, "pico");
-		availableChars.set(4, "bf");
+		var startIndex = currentPage * 9;
+		var endIndex = Std.int(Math.min(startIndex + 9, allCharEntries.length));
 
-		trace("[CS] HARDCODED loadAvailableCharacters");
-		debugAvailableChars("after HARDCODE loadAvailableCharacters");
+		for (i in startIndex...endIndex)
+		{
+			var entry = allCharEntries[i];
+			var localSlot = entry.slot;
+			if (currentPage > 0)
+				localSlot = i - startIndex;
+
+			availableChars.set(localSlot, entry.id);
+		}
+
+		trace("[CS] applyCurrentPage: page=" + currentPage + "/" + totalPages);
+		debugAvailableChars("page " + currentPage);
 	}
+
+	function changePage(direction:Int):Void
+	{
+		var newPage = currentPage + direction;
+		if (newPage < 0)
+			newPage = totalPages - 1;
+		if (newPage >= totalPages)
+			newPage = 0;
+
+		if (newPage == currentPage)
+			return;
+
+		currentPage = newPage;
+		applyCurrentPage();
+
+		remove(grpIcons);
+		initLocks();
+		ensureValidCursor();
+
+		updatePageIndicator();
+
+		selectSound.play(true);
+		trace("[CS] changePage -> " + currentPage);
+	}
+
+	public function updatePageIndicator():Void
+	{
+		if (pageIndicatorText != null)
+		{
+			if (totalPages > 1)
+			{
+				pageIndicatorText.visible = true;
+				pageIndicatorText.text = "< PAGE " + (currentPage + 1) + "/" + totalPages + " >  [Q/E]";
+			}
+			else
+			{
+				pageIndicatorText.visible = false;
+			}
+		}
+	}
+
+	// ========== MOD CONTEXT ==========
+
+	function switchToCharMod(charId:String):Void
+	{
+		var entry = charEntryMap.get(charId);
+		if (entry != null && entry.sourceMod != null)
+		{
+			ModsHelper.loadModDir(entry.sourceMod);
+		}
+		else
+		{
+			ModsHelper.loadModDir("");
+		}
+	}
+
+	function getCharType(charId:String):CharacterType
+	{
+		if (charEntryMap.exists(charId))
+			return charEntryMap.get(charId).type;
+		return VSLICE;
+	}
+
+	function getCharEntry(charId:String):Null<CharSelectEntry>
+	{
+		return charEntryMap.get(charId);
+	}
+
+	// ========== CREATE ==========
 
 	var fadeShader:BlueFade = new BlueFade();
 
@@ -150,25 +665,17 @@ class CharSelectSubState extends MusicBeatSubState
 		var bg:FlxSprite = new FlxSprite(cutoutSize + -153, -140);
 		bg.loadGraphic(Paths.image('charSelect/charSelectBG'));
 		bg.scrollFactor.set(0.1, 0.1);
-
 		add(bg);
 
 		var crowd:FlxAtlasSprite = new FlxAtlasSprite(cutoutSize, 0, "charSelect/crowd");
-
 		crowd.anim.play();
-		crowd.anim.onComplete.add(function()
-		{
-			crowd.anim.play();
-		});
+		crowd.anim.onComplete.add(function() { crowd.anim.play(); });
 		crowd.scrollFactor.set(0.3, 0.3);
 		add(crowd);
 
 		var stageSpr:FlxAtlasSprite = new FlxAtlasSprite(cutoutSize + -2, 1, "charSelect/charSelectStage");
 		stageSpr.anim.play("");
-		stageSpr.anim.onComplete.add(function()
-		{
-			stageSpr.anim.play("");
-		});
+		stageSpr.anim.onComplete.add(function() { stageSpr.anim.play(""); });
 		add(stageSpr);
 
 		var curtains:FlxSprite = new FlxSprite(cutoutSize + (-47 - 165), -49 - 50);
@@ -177,12 +684,8 @@ class CharSelectSubState extends MusicBeatSubState
 		add(curtains);
 
 		barthing = new FlxAtlasSprite(0, 0, "charSelect/barThing");
-
 		barthing.anim.play("");
-		barthing.anim.onComplete.add(function()
-		{
-			barthing.anim.play("");
-		});
+		barthing.anim.onComplete.add(function() { barthing.anim.play(""); });
 		barthing.blend = BlendMode.MULTIPLY;
 		barthing.scale.x = 2.5;
 		barthing.scrollFactor.set(0, 0);
@@ -202,18 +705,30 @@ class CharSelectSubState extends MusicBeatSubState
 		function setupPlayerChill(character:String)
 		{
 			gfChill = new CharSelectGF();
-			gfChill.switchGF(character);
 			gfChill.x += cutoutSize;
 			add(gfChill);
 
 			playerChillOut = new CharSelectPlayer(cutoutSize * 2, 0);
-			playerChillOut.switchChar(character);
 			playerChillOut.visible = false;
 			add(playerChillOut);
 
 			playerChill = new CharSelectPlayer(cutoutSize * 2.5, 0);
-			playerChill.switchChar(character);
+			playerChill.visible = false;
 			add(playerChill);
+
+			psychCharSprite = new FlxSprite(cutoutSize + 850, 75);
+			psychCharSprite.visible = false;
+			psychCharSprite.scrollFactor.set(1, 1);
+			add(psychCharSprite);
+
+			var charType = getCharType(character);
+			switch (charType)
+			{
+				case PSYCH:
+					applyPsychPreview(character);
+				case VSLICE:
+					applyVSlicePreview(character);
+			}
 		}
 
 		var startChar:String = curChar;
@@ -238,15 +753,12 @@ class CharSelectSubState extends MusicBeatSubState
 
 		setupPlayerChill(startChar);
 		@:bypassAccessor curChar = startChar;
-		
+
 		trace('[CS] startChar=' + startChar + ' startIndex=' + startIndex + ' cursor=(' + cursorX + ',' + cursorY + ')');
 
 		var speakers:FlxAtlasSprite = new FlxAtlasSprite(cutoutSize - 10, 0, "charSelect/charSelectSpeakers");
 		speakers.anim.play("");
-		speakers.anim.onComplete.add(function()
-		{
-			speakers.anim.play("");
-		});
+		speakers.anim.onComplete.add(function() { speakers.anim.play(""); });
 		speakers.scrollFactor.set(1.8, 1.8);
 		speakers.scale.set(1.05, 1.05);
 		add(speakers);
@@ -254,7 +766,6 @@ class CharSelectSubState extends MusicBeatSubState
 		var fgBlur:FlxSprite = new FlxSprite(cutoutSize + -125, 170);
 		fgBlur.loadGraphic(Paths.image('charSelect/foregroundBlur'));
 		fgBlur.blend = openfl.display.BlendMode.MULTIPLY;
-
 		add(fgBlur);
 
 		dipshitBlur = new FlxSprite(cutoutSize + 419, -65);
@@ -262,7 +773,6 @@ class CharSelectSubState extends MusicBeatSubState
 		dipshitBlur.animation.addByPrefix('idle', "CHOOSE vertical offset instance 1", 24, true);
 		dipshitBlur.blend = BlendMode.ADD;
 		dipshitBlur.animation.play("idle");
-
 		add(dipshitBlur);
 
 		dipshitBacking = new FlxSprite(cutoutSize + 423, -17);
@@ -270,7 +780,6 @@ class CharSelectSubState extends MusicBeatSubState
 		dipshitBacking.animation.addByPrefix('idle', "CHOOSE horizontal offset instance 1", 24, true);
 		dipshitBacking.blend = BlendMode.ADD;
 		dipshitBacking.animation.play("idle");
-
 		add(dipshitBacking);
 
 		dipshitBacking.y += 210;
@@ -280,44 +789,17 @@ class CharSelectSubState extends MusicBeatSubState
 		chooseDipshit.loadGraphic(Paths.image('charSelect/chooseDipshit'));
 		add(chooseDipshit);
 
-		// ? P-SLice code
-		#if MODS_ALLOWED
-		var UICam = new FunkinCamera("special", 0, 0, FlxG.width, FlxG.height);
-		UICam.bgColor = 0x00FFFFFF;
-		FlxG.cameras.add(UICam, false);
-		modSelector = new ModSelector(this);
-		modSelector.camera = UICam;
-		add(modSelector);
-
-		if (modSelector.hasModsAvailable)
-		{
-			modArrows = new ModArrows(cutoutSize, modSelector);
-			add(modArrows);
-		}
-
-		modSelector.y += 80;
-		FlxTween.tween(modSelector, {y: modSelector.y - 80}, 1.3, {ease: FlxEase.expoOut});
-		#end
-		// ?
-
 		chooseDipshit.y += 200;
 		FlxTween.tween(chooseDipshit, {y: chooseDipshit.y - 200}, 1, {ease: FlxEase.expoOut});
 
 		dipshitBlur.y += 220;
 		FlxTween.tween(dipshitBlur, {y: dipshitBlur.y - 220}, 1.2, {ease: FlxEase.expoOut});
 
-		if (modArrows != null)
-		{
-			modArrows.y += 200;
-			FlxTween.tween(modArrows, {y: modArrows.y - 200}, 1.2, {ease: FlxEase.expoOut});
-		}
-
 		chooseDipshit.scrollFactor.set();
 		dipshitBacking.scrollFactor.set();
 		dipshitBlur.scrollFactor.set();
-		modArrows?.scrollFactor.set();
 
-		nametag = new Nametag(curChar);
+		nametag = new Nametag(curChar, charEntryMap);
 		nametag.midpointX += cutoutSize;
 		add(nametag);
 		@:privateAccess
@@ -325,8 +807,15 @@ class CharSelectSubState extends MusicBeatSubState
 			nametag.midpointY += 200;
 			FlxTween.tween(nametag, {midpointY: nametag.midpointY - 200}, 1, {ease: FlxEase.expoOut});
 		}
-
 		nametag.scrollFactor.set();
+
+		// Sayfa göstergesi
+		pageIndicatorText = new FlxText(0, FlxG.height - 85, FlxG.width, "", 24);
+		pageIndicatorText.setFormat(BackendPaths.font("vcr.ttf"), 24, FlxColor.WHITE, CENTER);
+		pageIndicatorText.setBorderStyle(OUTLINE, FlxColor.BLACK, 2);
+		pageIndicatorText.scrollFactor.set();
+		add(pageIndicatorText);
+		updatePageIndicator();
 
 		FlxG.debugger.addTrackerProfile(new TrackerProfile(FlxSprite, ["x", "y", "alpha", "scale", "blend"]));
 		FlxG.debugger.addTrackerProfile(new TrackerProfile(FlxAtlasSprite, ["x", "y"]));
@@ -338,8 +827,6 @@ class CharSelectSubState extends MusicBeatSubState
 		chrSelectCursor = new FlxSprite(0, 0);
 		chrSelectCursor.loadGraphic(Paths.image('charSelect/charSelector'));
 		chrSelectCursor.color = 0xFFFFFF00;
-
-		// FFCC00
 
 		cursorBlue = new FlxSprite(0, 0);
 		cursorBlue.loadGraphic(Paths.image('charSelect/charSelector'));
@@ -370,44 +857,36 @@ class CharSelectSubState extends MusicBeatSubState
 		grpCursors.add(cursorBlue);
 		grpCursors.add(chrSelectCursor);
 
-		selectSound = FunkinSound.load(Paths.sound('CS_select'), 0.7); // ? fix loaders
+		selectSound = FunkinSound.load(Paths.sound('CS_select'), 0.7);
 		selectSound.pitch = 1;
-
 		FlxG.sound.defaultSoundGroup.add(selectSound);
 		FlxG.sound.list.add(selectSound);
 
-		unlockSound = FunkinSound.load(Paths.sound('CS_unlock'), 0); // ? fix loaders
+		unlockSound = FunkinSound.load(Paths.sound('CS_unlock'), 0);
 		unlockSound.pitch = 1;
-
 		unlockSound.play(true);
-
 		FlxG.sound.defaultSoundGroup.add(unlockSound);
 		FlxG.sound.list.add(unlockSound);
 
-		lockedSound = FunkinSound.load(Paths.sound('CS_locked'), 1); // ? fix loaders
+		lockedSound = FunkinSound.load(Paths.sound('CS_locked'), 1);
 		lockedSound.pitch = 1;
-
 		FlxG.sound.defaultSoundGroup.add(lockedSound);
 		FlxG.sound.list.add(lockedSound);
 
-		staticSound = FunkinSound.load(Paths.sound('static loop'), 0.6, true); // ? fix loaders
+		staticSound = FunkinSound.load(Paths.sound('static loop'), 0.6, true);
 		staticSound.pitch = 1;
-
 		FlxG.sound.defaultSoundGroup.add(staticSound);
 		FlxG.sound.list.add(staticSound);
 
-		// playing it here to preload it. not doing this makes a super awkward pause at the end of the intro
-		// TODO: probably make an intro thing for funkinSound itself that preloads the next audio?
 		FunkinSound.playMusic('stayFunky', {
 			startingVolume: 0,
 			overrideExisting: true,
 			restartTrack: true,
 		});
-		// ? I did some tweaks here
+
 		FreeplayHelpers.BPM = 90;
 		initLocks();
 		ensureValidCursor();
-		// ?
 
 		for (index => member in grpIcons.members)
 		{
@@ -421,8 +900,6 @@ class CharSelectSubState extends MusicBeatSubState
 
 		FlxTween.color(chrSelectCursor, 0.2, 0xFFFFFF00, 0xFFFFCC00, {type: PINGPONG});
 
-		// FlxG.debugger.track(chrSelectCursor);
-
 		FlxG.debugger.addTrackerProfile(new TrackerProfile(CharSelectSubState, ["curChar", "grpXSpread", "grpYSpread"]));
 		FlxG.debugger.track(this);
 
@@ -430,18 +907,10 @@ class CharSelectSubState extends MusicBeatSubState
 		add(camFollow);
 		camFollow.screenCenter();
 
-		// FlxG.camera.follow(camFollow, LOCKON, 0.01);
 		FlxG.camera.follow(camFollow, LOCKON);
 
 		var fadeShaderFilter:ShaderFilter = new ShaderFilter(fadeShader);
 		ModsHelper.setFiltersOnCam(FlxG.camera, [fadeShaderFilter]);
-
-		// var temp:FlxSprite = new FlxSprite(); //? why was this a thing?
-		// temp.loadGraphic(Paths.image('charSelect/placement'));
-		// add(temp);
-		// temp.alpha = 0.0;
-
-		// FlxG.debugger.track(temp, "tempBG");
 
 		transitionGradient = new FlxSprite(0, 0).loadGraphic(Paths.image('freeplay/transitionGradient'));
 		transitionGradient.scale.set(1280, 1);
@@ -469,13 +938,12 @@ class CharSelectSubState extends MusicBeatSubState
 		blackScreen.y = -(FlxG.height * 0.5);
 		add(blackScreen);
 
-		introSound = FunkinSound.load(Paths.sound('CS_Lights'), 0); // ? fix call
+		introSound = FunkinSound.load(Paths.sound('CS_Lights'), 0);
 		introSound.pitch = 1;
-
 		FlxG.sound.defaultSoundGroup.add(introSound);
 		FlxG.sound.list.add(introSound);
 
-		#if (TOUCH_CONTROLS_ALLOWED && MODS_ALLOWED)
+		#if TOUCH_CONTROLS_ALLOWED
 		touchKeys = new Array();
 		for (index in 0...9)
 		{
@@ -486,14 +954,13 @@ class CharSelectSubState extends MusicBeatSubState
 			var finalY = (posY * grpYSpread) + 120 + 20;
 
 			var touch = new TouchZone(finalX, finalY, 100, 100, FlxColor.PURPLE);
-			touch.camera = UICam;
 			touchKeys.push(touch);
 			add(touch);
 		}
 		#end
 
-		remove(blackScreen); // ? There was supposed to be a video, but we don't lock characters
-		checkNewChar(); // ? so no reason for unlock video lol
+		remove(blackScreen);
+		checkNewChar();
 
 		subStateClosed.addOnce((_) ->
 		{
@@ -501,12 +968,10 @@ class CharSelectSubState extends MusicBeatSubState
 			if (!Save.instance.oldChar)
 			{
 				camera.flash();
-
 				introSound.volume = 1;
 				introSound.play(true);
 			}
 			checkNewChar();
-
 			Save.instance.oldChar = true;
 		});
 
@@ -515,8 +980,6 @@ class CharSelectSubState extends MusicBeatSubState
 		addTouchPadCamera();
 		#end
 	}
-	
-	
 
 	function checkNewChar():Void
 	{
@@ -527,8 +990,6 @@ class CharSelectSubState extends MusicBeatSubState
 			onLoad: function()
 			{
 				allowInput = true;
-				if (modSelector != null)
-					modSelector.allowInput = true;
 
 				@:privateAccess
 				gfChill.analyzer = new SpectralAnalyzer(ModsHelper.getSoundChannel(FlxG.sound.music), 7, 0.1);
@@ -540,20 +1001,17 @@ class CharSelectSubState extends MusicBeatSubState
 		});
 	}
 
+	// ========== GRID / LOCK ==========
+
 	var grpIcons:FlxSpriteGroup;
 	var grpXSpread(default, set):Float = 107;
 	var grpYSpread(default, set):Float = 127;
 	var nonLocks = [];
-	
-	var dbgLastRawSelected:Int = -999;
-	var dbgLastSafeSelected:Int = -999;
-	var dbgLastCurChar:String = "";
-	
+
 	function hasSelectableAt(index:Int):Bool
 	{
 		if (!availableChars.exists(index))
 			return false;
-
 		var charId = availableChars.get(index);
 		return charId != null && charId.length > 0;
 	}
@@ -572,7 +1030,6 @@ class CharSelectSubState extends MusicBeatSubState
 	{
 		if (charId == null || charId.length < 1)
 			return -1;
-
 		for (pos => id in availableChars)
 		{
 			if (id == charId)
@@ -586,11 +1043,9 @@ class CharSelectSubState extends MusicBeatSubState
 		var current:Int = getCurrentSelected();
 		if (hasSelectableAt(current))
 			return current;
-
 		var currentCharIndex:Int = getIndexForChar(curChar);
 		if (hasSelectableAt(currentCharIndex))
 			return currentCharIndex;
-
 		return getFirstSelectableIndex();
 	}
 
@@ -606,8 +1061,6 @@ class CharSelectSubState extends MusicBeatSubState
 		grpIcons = new FlxSpriteGroup();
 		add(grpIcons);
 
-		FlxG.debugger.addTrackerProfile(new TrackerProfile(FlxSpriteGroup, ["x", "y"]));
-
 		nonLocks = [];
 
 		for (i in 0...9)
@@ -615,6 +1068,10 @@ class CharSelectSubState extends MusicBeatSubState
 			if (availableChars.exists(i))
 			{
 				var path:String = availableChars.get(i);
+
+				// İkon yüklerken o karakterin mod context'ine geç
+				switchToCharMod(path);
+
 				var temp:PixelatedIcon = new PixelatedIcon(0, 0);
 				temp.setCharacter(path);
 				temp.setGraphicSize(128, 128);
@@ -630,122 +1087,11 @@ class CharSelectSubState extends MusicBeatSubState
 			}
 		}
 
+		// Base game context'e geri dön
+		ModsHelper.loadModDir("");
+
 		updateIconPositions();
 		grpIcons.scrollFactor.set();
-	}
-
-	function unLock()
-	{
-		var index = nonLocks[0];
-
-		pressedSelect = true;
-
-		var copy = 3;
-
-		var yThing = -1;
-
-		while ((index + 1) > copy)
-		{
-			yThing++;
-			copy += 3;
-		}
-
-		var xThing = (copy - index - 2) * -1;
-		// Look, I'd write better code but I had better aneurysms, my bad - Cheems
-		cursorY = yThing;
-		cursorX = xThing;
-
-		selectSound.play(true);
-
-		nonLocks.shift();
-
-		selectTimer.start(0.5, function(_)
-		{
-			var lock:Lock = cast grpIcons.group.members[index];
-
-			lock.anim.getFrameLabel("unlockAnim").add(function()
-			{
-				playerChillOut.playAnimation("death");
-			});
-
-			lock.playAnimation("unlock");
-
-			unlockSound.volume = 0.7;
-			unlockSound.play(true);
-
-			syncLock = lock;
-
-			sync = true;
-
-			lock.onAnimationComplete.addOnce(function(_)
-			{
-				syncLock = null;
-				var char = availableChars.get(index);
-				camera.flash(0xFFFFFFFF, 0.1);
-				playerChill.playAnimation("unlock");
-				playerChill.visible = true;
-
-				var id = grpIcons.members.indexOf(lock);
-
-				nametag.switchChar(char);
-				gfChill.switchGF(char);
-
-				var icon = new PixelatedIcon(0, 0);
-				icon.setCharacter(char);
-				icon.setGraphicSize(128, 128);
-				icon.updateHitbox();
-				grpIcons.insert(id, icon);
-				grpIcons.remove(lock, true);
-				icon.ID = 0;
-
-				bopPlay = true;
-
-				updateIconPositions();
-				playerChillOut.onAnimationComplete.addOnce((_) -> if (_ == "death")
-				{
-					// sync = false;
-					playerChillOut.visible = false;
-					playerChillOut.switchChar(char);
-				});
-
-				Save.instance.addCharacterSeen(char);
-				if (nonLocks.length == 0)
-				{
-					pressedSelect = false;
-					@:bypassAccessor curChar = char;
-
-					staticSound.stop();
-
-					FunkinSound.playMusic('stayFunky', {
-						startingVolume: 1,
-						overrideExisting: true,
-						restartTrack: true,
-						onLoad: function()
-						{
-							allowInput = true;
-							if (modSelector != null)
-								modSelector.allowInput = true;
-
-							@:privateAccess
-							gfChill.analyzer = new SpectralAnalyzer(ModsHelper.getSoundChannel(FlxG.sound.music), 7, 0.1);
-							#if (desktop || mobile)
-							// On native it uses FFT stuff that isn't as optimized as the direct browser stuff we use on HTML5
-							// So we want to manually change it!
-							@:privateAccess
-							gfChill.analyzer.fftN = 512;
-							#end
-						}
-					});
-				}
-				else
-					playerChill.onAnimationComplete.addOnce((_) -> unLock());
-			});
-
-			playerChill.visible = false;
-			playerChill.switchChar(availableChars[index]);
-
-			playerChillOut.visible = true;
-		});
 	}
 
 	function updateIconPositions()
@@ -756,57 +1102,31 @@ class CharSelectSubState extends MusicBeatSubState
 		{
 			var posX:Float = (index % 3);
 			var posY:Float = Math.floor(index / 3);
-
 			member.x = posX * grpXSpread;
 			member.y = posY * grpYSpread;
-
 			member.x += grpIcons.x;
 			member.y += grpIcons.y;
 		}
 	}
 
-	var sync:Bool = false;
-	var syncLock:Lock = null;
-	var audioBizz:Float = 0;
-
-	function syncAudio(elapsed:Float):Void
-	{
-		@:privateAccess
-		if (sync && unlockSound.time > 0)
-		{
-			// if (playerChillOut.anim.framerate > 0)
-			// {
-			//   if (syncLock != null) syncLock.anim.framerate = 0;
-			//   playerChillOut.anim.framerate = 0;
-			// }
-
-			playerChillOut.anim._tick = 0;
-			if (syncLock != null)
-				syncLock.anim._tick = 0;
-
-			if ((unlockSound.time - audioBizz) >= ((delay) * 100))
-			{
-				if (syncLock != null)
-					syncLock.anim._tick = delay;
-
-				playerChillOut.anim._tick = delay;
-				audioBizz += delay * 100;
-			}
-		}
-	}
+	// ========== GO TO FREEPLAY ==========
 
 	function goToFreeplay():Void
 	{
 		staticSound.stop();
 		allowInput = false;
-		autoFollow = false; // ! Add mod support
-		// ? P-Slice mods
-		if(!wentBackToFreeplay) VsliceOptions.LAST_MOD = {mod_dir: modSelector?.curMod ?? "", char_name: curChar}; // ? save selected character
-		#if MODS_ALLOWED
-		modSelector.allowInput = false;
-		FlxTween.tween(modSelector, {y: modSelector.y + 80}, 0.8, {ease: FlxEase.backIn});
-		#end
-		// ?
+		autoFollow = false;
+
+		// Seçilen karakterin mod context'ine geç
+		var selectedEntry = getCharEntry(curChar);
+		var selectedMod = (selectedEntry != null && selectedEntry.sourceMod != null) ? selectedEntry.sourceMod : "";
+
+		if (!wentBackToFreeplay)
+			VsliceOptions.LAST_MOD = {mod_dir: selectedMod, char_name: curChar};
+
+		// Seçilen modu aktif yap
+		ModsHelper.loadModDir(selectedMod);
+
 		FlxTween.tween(chrSelectCursor, {alpha: 0}, 0.8, {ease: FlxEase.expoOut});
 		FlxTween.tween(cursorBlue, {alpha: 0}, 0.8, {ease: FlxEase.expoOut});
 		FlxTween.tween(cursorDarkBlue, {alpha: 0}, 0.8, {ease: FlxEase.expoOut});
@@ -818,17 +1138,15 @@ class CharSelectSubState extends MusicBeatSubState
 		FlxTween.tween(chooseDipshit, {y: chooseDipshit.y + 200}, 0.8, {ease: FlxEase.backIn});
 		FlxTween.tween(dipshitBlur, {y: dipshitBlur.y + 220}, 0.8, {ease: FlxEase.backIn});
 
-		if (modArrows != null)
-			FlxTween.tween(modArrows, {y: modArrows.y + 200}, 0.8, {ease: FlxEase.backIn});
+		if (pageIndicatorText != null)
+			FlxTween.tween(pageIndicatorText, {alpha: 0}, 0.8, {ease: FlxEase.backIn});
 
 		for (index => member in grpIcons.members)
 		{
-			// member.y += 300;
 			FlxTween.tween(member, {y: member.y + 300}, 0.8, {ease: FlxEase.backIn});
 		}
 		FlxG.camera.follow(camFollow, LOCKON);
 
-		// going to freeplay so fast makes the fade effects and the camera to bug, that's why we cancel the tweens
 		FlxTween.cancelTweensOf(transitionGradient);
 		FlxTween.cancelTweensOf(fadeShader);
 		FlxTween.cancelTweensOf(camFollow);
@@ -840,7 +1158,7 @@ class CharSelectSubState extends MusicBeatSubState
 			onComplete: function(_)
 			{
 				if (!FlxG.random.bool(0.01))
-					FlxTransitionableState.skipNextTransOut = true; // ? a fix
+					FlxTransitionableState.skipNextTransOut = true;
 				FlxG.switchState(FreeplayState.build({
 					fromCharSelect: true
 				}));
@@ -851,6 +1169,8 @@ class CharSelectSubState extends MusicBeatSubState
 			FlxTween.tween(touchPad, {alpha: 0}, 0.8, {ease: FlxEase.expoOut});
 		#end
 	}
+
+	// ========== INPUT ==========
 
 	var holdTmrUp:Float = 0;
 	var holdTmrDown:Float = 0;
@@ -865,7 +1185,6 @@ class CharSelectSubState extends MusicBeatSubState
 	override public function update(elapsed:Float):Void
 	{
 		controls.isInSubstate = true;
-
 		super.update(elapsed);
 
 		if (controls.UI_UP_R || controls.UI_DOWN_R || controls.UI_LEFT_R || controls.UI_RIGHT_R)
@@ -875,80 +1194,35 @@ class CharSelectSubState extends MusicBeatSubState
 
 		if (!pressedSelect && allowInput)
 		{
+			// Sayfa değiştirme
+			if (FlxG.keys.justPressed.Q)
+				changePage(-1);
+			if (FlxG.keys.justPressed.E)
+				changePage(1);
+
 			if (controls.UI_UP)
 				holdTmrUp += elapsed;
-			if (controls.UI_UP_R)
-			{
-				holdTmrUp = 0;
-				spamUp = false;
-			}
-
+			if (controls.UI_UP_R) { holdTmrUp = 0; spamUp = false; }
 			if (controls.UI_DOWN)
 				holdTmrDown += elapsed;
-			if (controls.UI_DOWN_R)
-			{
-				holdTmrDown = 0;
-				spamDown = false;
-			}
-
+			if (controls.UI_DOWN_R) { holdTmrDown = 0; spamDown = false; }
 			if (controls.UI_LEFT)
 				holdTmrLeft += elapsed;
-			if (controls.UI_LEFT_R)
-			{
-				holdTmrLeft = 0;
-				spamLeft = false;
-			}
-
+			if (controls.UI_LEFT_R) { holdTmrLeft = 0; spamLeft = false; }
 			if (controls.UI_RIGHT)
 				holdTmrRight += elapsed;
-			if (controls.UI_RIGHT_R)
-			{
-				holdTmrRight = 0;
-				spamRight = false;
-			}
+			if (controls.UI_RIGHT_R) { holdTmrRight = 0; spamRight = false; }
 
 			var initSpam = 0.5;
+			if (holdTmrUp >= initSpam) spamUp = true;
+			if (holdTmrDown >= initSpam) spamDown = true;
+			if (holdTmrLeft >= initSpam) spamLeft = true;
+			if (holdTmrRight >= initSpam) spamRight = true;
 
-			if (holdTmrUp >= initSpam)
-				spamUp = true;
-			if (holdTmrDown >= initSpam)
-				spamDown = true;
-			if (holdTmrLeft >= initSpam)
-				spamLeft = true;
-			if (holdTmrRight >= initSpam)
-				spamRight = true;
-
-			if (controls.UI_UP_P)
-			{
-				cursorY -= 1;
-				cursorDenied.visible = false;
-
-				holdTmrUp = 0;
-
-				selectSound.play(true);
-			}
-			if (controls.UI_DOWN_P)
-			{
-				cursorY += 1;
-				cursorDenied.visible = false;
-				holdTmrDown = 0;
-				selectSound.play(true);
-			}
-			if (controls.UI_LEFT_P)
-			{
-				cursorX -= 1;
-				cursorDenied.visible = false;
-
-				holdTmrLeft = 0;
-				selectSound.play(true);
-			}
-			if (controls.UI_RIGHT_P)
-			{
-				cursorX += 1;
-				cursorDenied.visible = false;
-				holdTmrRight = 0;
-				selectSound.play(true);
-			}
+			if (controls.UI_UP_P) { cursorY -= 1; cursorDenied.visible = false; holdTmrUp = 0; selectSound.play(true); }
+			if (controls.UI_DOWN_P) { cursorY += 1; cursorDenied.visible = false; holdTmrDown = 0; selectSound.play(true); }
+			if (controls.UI_LEFT_P) { cursorX -= 1; cursorDenied.visible = false; holdTmrLeft = 0; selectSound.play(true); }
+			if (controls.UI_RIGHT_P) { cursorX += 1; cursorDenied.visible = false; holdTmrRight = 0; selectSound.play(true); }
 
 			if (controls.BACK #if TOUCH_CONTROLS_ALLOWED || (touchPad != null && touchPad.buttonB.justPressed) #end)
 			{
@@ -958,29 +1232,11 @@ class CharSelectSubState extends MusicBeatSubState
 				goToFreeplay();
 			}
 		}
-		// Overflow handlers
-		if (cursorX < -1)
-		{
-			cursorX = 1;
-			#if MODS_ALLOWED
-			modArrows?.previousModPress();
-			#end
-		}
-		if (cursorX > 1)
-		{
-			cursorX = -1;
-			#if MODS_ALLOWED
-			modArrows?.nextModPress();
-			#end
-		}
-		if (cursorY < -1)
-		{
-			cursorY = 1;
-		}
-		if (cursorY > 1)
-		{
-			cursorY = -1;
-		}
+
+		if (cursorX < -1) { cursorX = 1; }
+		if (cursorX > 1) { cursorX = -1; }
+		if (cursorY < -1) { cursorY = 1; }
+		if (cursorY > 1) { cursorY = -1; }
 
 		#if TOUCH_CONTROLS_ALLOWED
 		if (TouchUtil.pressed #if debug || FlxG.mouse.pressed #end)
@@ -993,10 +1249,8 @@ class CharSelectSubState extends MusicBeatSubState
 					var newCursorX = (index % 3);
 					if (cursorX == newCursorX - 1 && cursorY == newCursorY - 1 && member.justPressed)
 					{
-						if (!pressedSelect)
-							onAcceptPress();
-						else
-							onBackPress();
+						if (!pressedSelect) onAcceptPress();
+						else onBackPress();
 					}
 					else if (!pressedSelect)
 					{
@@ -1021,13 +1275,11 @@ class CharSelectSubState extends MusicBeatSubState
 		if (autoFollow)
 		{
 			var rawSelected:Int = getCurrentSelected();
-
 			if (hasSelectableAt(rawSelected))
 			{
 				var nextChar:String = availableChars.get(rawSelected);
 				if (nextChar != null && nextChar.length > 0)
 					curChar = nextChar;
-
 				gfChill.visible = true;
 			}
 			else
@@ -1046,16 +1298,13 @@ class CharSelectSubState extends MusicBeatSubState
 
 		cursorLocIntended.x = (cursorFactor * cursorX) + (FlxG.width / 2) - chrSelectCursor.width / 2;
 		cursorLocIntended.y = (cursorFactor * cursorY) + (FlxG.height / 2) - chrSelectCursor.height / 2;
-
 		cursorLocIntended.x += cursorOffsetX;
 		cursorLocIntended.y += cursorOffsetY;
 
-		chrSelectCursor.x = MathUtil.coolLerp(chrSelectCursor.x, cursorLocIntended.x, lerpAmnt, false); // ? disable wobbling here
+		chrSelectCursor.x = MathUtil.coolLerp(chrSelectCursor.x, cursorLocIntended.x, lerpAmnt, false);
 		chrSelectCursor.y = MathUtil.coolLerp(chrSelectCursor.y, cursorLocIntended.y, lerpAmnt, false);
-
 		cursorBlue.x = MathUtil.coolLerp(cursorBlue.x, chrSelectCursor.x, lerpAmnt * 0.4, false);
 		cursorBlue.y = MathUtil.coolLerp(cursorBlue.y, chrSelectCursor.y, lerpAmnt * 0.4, false);
-		// ! buggy code
 		cursorDarkBlue.x = MathUtil.coolLerp(cursorDarkBlue.x, cursorLocIntended.x, lerpAmnt * 0.2, false);
 		cursorDarkBlue.y = MathUtil.coolLerp(cursorDarkBlue.y, cursorLocIntended.y, lerpAmnt * 0.2, false);
 	}
@@ -1067,12 +1316,76 @@ class CharSelectSubState extends MusicBeatSubState
 	var bopRefX:Float = 0;
 	var bopRefY:Float = 0;
 
+	var sync:Bool = false;
+	var syncLock:Lock = null;
+	var audioBizz:Float = 0;
+	
+	function applyPsychPreview(charId:String):Void
+	{
+		var prevMod = ModsHelper.getActiveMod();
+
+		// Sağ taraf: psych sprite
+		showPsychCharacter(charId);
+
+		// Sol taraf: default GF
+		ModsHelper.loadModDir("");
+		gfChill.switchGF("bf");
+		ModsHelper.loadModDir(prevMod ?? "");
+
+		gfChill.visible = true;
+
+		if (playerChill != null) playerChill.visible = false;
+		if (playerChillOut != null) playerChillOut.visible = false;
+		if (psychCharSprite != null) psychCharSprite.visible = true;
+	}
+
+	function applyVSlicePreview(charId:String):Void
+	{
+		switchToCharMod(charId);
+
+		if (psychCharSprite != null)
+			psychCharSprite.visible = false;
+
+		var ok:Bool = false;
+		if (playerChill != null)
+			ok = playerChill.switchChar(charId);
+
+		if (playerChillOut != null)
+			playerChillOut.visible = false;
+
+		if (playerChill != null)
+			playerChill.visible = ok;
+
+		gfChill.switchGF(charId);
+		gfChill.visible = true;
+	}
+
+	function syncAudio(elapsed:Float):Void
+	{
+		@:privateAccess
+		if (sync && unlockSound.time > 0)
+		{
+			playerChillOut.anim._tick = 0;
+			if (syncLock != null) syncLock.anim._tick = 0;
+			if ((unlockSound.time - audioBizz) >= ((delay) * 100))
+			{
+				if (syncLock != null) syncLock.anim._tick = delay;
+				playerChillOut.anim._tick = delay;
+				audioBizz += delay * 100;
+			}
+		}
+	}
+
+	// ========== ACCEPT / BACK ==========
+
 	private function onAcceptPress()
 	{
 		if (!allowInput || pressedSelect)
 			return;
 
 		var rawSelected:Int = getCurrentSelected();
+		var selectedChar:String = availableChars.get(rawSelected);
+		var charType:CharacterType = getCharType(selectedChar ?? "");	
 
 		if (autoFollow && hasSelectableAt(rawSelected))
 		{
@@ -1084,14 +1397,18 @@ class CharSelectSubState extends MusicBeatSubState
 			cursorConfirmed.x = chrSelectCursor.x - 2;
 			cursorConfirmed.y = chrSelectCursor.y - 4;
 			cursorConfirmed.animation.play("idle", true);
-
 			grpCursors.visible = false;
 
 			FunkinSound.playOnce(Paths.sound('CS_confirm'));
 
 			FlxTween.tween(FlxG.sound.music, {pitch: 0.1}, 1, {ease: FlxEase.quadInOut});
 			FlxTween.tween(FlxG.sound.music, {volume: 0.0}, 1.5, {ease: FlxEase.quadInOut});
-			playerChill.playAnimation("select");
+
+			if (charType == VSLICE && playerChill != null)
+			{
+				playerChill.playAnimSafe("select");
+			}
+
 			gfChill.playAnimation("confirm", true, false, true);
 			pressedSelect = true;
 			selectTimer.start(1.5, (_) ->
@@ -1106,14 +1423,12 @@ class CharSelectSubState extends MusicBeatSubState
 			cursorDenied.x = chrSelectCursor.x - 2;
 			cursorDenied.y = chrSelectCursor.y - 4;
 
-			playerChill.playAnimation("cannot select Label", true);
-			lockedSound.play(true);
+			if (getCharType(availableChars.get(rawSelected) ?? "") == VSLICE)
+				playerChill.playAnimation("cannot select Label", true);
 
+			lockedSound.play(true);
 			cursorDenied.animation.play("idle", true);
-			cursorDenied.animation.finishCallback = (_) ->
-			{
-				cursorDenied.visible = false;
-			};
+			cursorDenied.animation.finishCallback = (_) -> { cursorDenied.visible = false; };
 		}
 	}
 
@@ -1121,68 +1436,53 @@ class CharSelectSubState extends MusicBeatSubState
 	{
 		if (!allowInput || !pressedSelect)
 			return;
+		var charType:CharacterType = getCharType(curChar);
 		cursorConfirmed.visible = false;
 		grpCursors.visible = true;
 
 		FlxTween.globalManager.cancelTweensOf(FlxG.sound.music);
 		FlxTween.tween(FlxG.sound.music, {pitch: 1.0, volume: 1.0}, 1, {ease: FlxEase.quartInOut});
-		playerChill.playAnimation("deselect");
+
+		if (charType == VSLICE && playerChill != null)
+		{
+			playerChill.playAnimSafe("deselect");
+		}
+
 		gfChill.playAnimation("deselect");
 		pressedSelect = false;
 		FlxTween.tween(FlxG.sound.music, {pitch: 1.0}, 1, {
 			ease: FlxEase.quartInOut,
 			onComplete: (_) ->
 			{
-				if (playerChill.getCurrentAnimation() == "deselect loop start" || playerChill.getCurrentAnimation() == "deselect")
+				if (getCharType(curChar) == VSLICE)
 				{
-					playerChill.playAnimation("idle", true, false, true);
-					gfChill.playAnimation("idle", true, false, true);
+					if (playerChill != null && playerChill.hasAnimSafe("idle"))
+					{
+						var curAnim = playerChill.getCurrentAnimation();
+						if (curAnim == "deselect loop start" || curAnim == "deselect")
+						{
+							playerChill.playAnimation("idle", true, false, true);
+						}
+					}
 				}
+				gfChill.playAnimation("idle", true, false, true);
 			}
 		});
 		selectTimer.cancel();
 	}
 
-	function doBop(icon:PixelatedIcon, elapsed:Float):Void
-	{
-		if (bopFr >= bopInfo.frames.length)
-		{
-			bopRefX = 0;
-			bopRefY = 0;
-			bopPlay = false;
-			bopFr = 0;
-			return;
-		}
-		bopTimer += elapsed;
-
-		if (bopTimer >= delay)
-		{
-			bopTimer -= bopTimer;
-
-			var refFrame = bopInfo.frames[bopInfo.frames.length - 1];
-			var curFrame = bopInfo.frames[bopFr];
-			if (bopFr >= 13)
-				icon.filters = selectedBizz;
-
-			var scaleXDiff:Float = curFrame.scaleX - refFrame.scaleX;
-			var scaleYDiff:Float = curFrame.scaleY - refFrame.scaleY;
-
-			icon.scale.set(2.6, 2.6);
-			icon.scale.add(scaleXDiff, scaleYDiff);
-
-			bopFr++;
-		}
-	}
+	// ========== BEAT/STEP ==========
 
 	override function beatHit()
 	{
-		super.beatHit(); // ? We have no enevt system here.
-		playerChill.onBeatHit(); // ? emulate beats here
+		super.beatHit();
+		if (getCharType(curChar) == VSLICE && playerChill != null && playerChill.hasValidAtlas())
+			playerChill.onBeatHit();
 		gfChill.onBeatHit(this.curBeat);
 	}
 
 	override function stepHit()
-	{ // ? emulate Conductor, which would call this every step
+	{
 		spamOnStep();
 		super.stepHit();
 	}
@@ -1191,35 +1491,17 @@ class CharSelectSubState extends MusicBeatSubState
 	{
 		if (spamUp || spamDown || spamLeft || spamRight)
 		{
-			// selectSound.changePitchBySemitone(1);
-			if (selectSound.pitch > 5)
-				selectSound.pitch = 5;
+			if (selectSound.pitch > 5) selectSound.pitch = 5;
 			selectSound.play(true);
-
 			cursorDenied.visible = false;
-
-			if (spamUp)
-			{
-				cursorY -= 1;
-				holdTmrUp = 0;
-			}
-			if (spamDown)
-			{
-				cursorY += 1;
-				holdTmrDown = 0;
-			}
-			if (spamLeft)
-			{
-				cursorX -= 1;
-				holdTmrLeft = 0;
-			}
-			if (spamRight)
-			{
-				cursorX += 1;
-				holdTmrRight = 0;
-			}
+			if (spamUp) { cursorY -= 1; holdTmrUp = 0; }
+			if (spamDown) { cursorY += 1; holdTmrDown = 0; }
+			if (spamLeft) { cursorX -= 1; holdTmrLeft = 0; }
+			if (spamRight) { cursorX += 1; holdTmrRight = 0; }
 		}
 	}
+
+	// ========== LOCK ANIMS ==========
 
 	private function updateLockAnims():Void
 	{
@@ -1233,83 +1515,74 @@ class CharSelectSubState extends MusicBeatSubState
 					{
 						switch (lock.getCurrentAnimation())
 						{
-							case "idle":
-								lock.playAnimation("selected");
+							case "idle": lock.playAnimation("selected");
 							case "selected" | "clicked":
-								if (controls.ACCEPT || TouchUtil.justPressed #if debug || FlxG.mouse.justPressed #end) lock.playAnimation("clicked", true);
+								if (controls.ACCEPT || TouchUtil.justPressed #if debug || FlxG.mouse.justPressed #end)
+									lock.playAnimation("clicked", true);
 						}
 					}
-					else
-					{
-						lock.playAnimation("idle");
-					}
+					else lock.playAnimation("idle");
 				case 0:
 					var memb:PixelatedIcon = cast member;
-
 					if (index == getCurrentSelected())
 					{
-						// memb.pixels = memb.withDropShadow.clone();
-
 						if (bopPlay)
 						{
-							if (bopRefX == 0)
-							{
-								bopRefX = memb.x;
-								bopRefY = memb.y;
-							}
+							if (bopRefX == 0) { bopRefX = memb.x; bopRefY = memb.y; }
 							doBop(memb, FlxG.elapsed);
 						}
-						else
-						{
-							memb.filters = selectedBizz;
-							memb.scale.set(2.6, 2.6);
-						}
+						else { memb.filters = selectedBizz; memb.scale.set(2.6, 2.6); }
 						if (pressedSelect && memb.animation.curAnim.name == "idle")
 							memb.animation.play("confirm");
 						if (autoFollow && !pressedSelect && memb.animation.curAnim.name != "idle")
 						{
 							memb.animation.play("confirm", false, true);
-							member.animation.finishCallback = (_) ->
-							{
+							member.animation.finishCallback = (_) -> {
 								member.animation.play("idle");
 								member.animation.finishCallback = null;
 							};
 						}
 					}
-					else
-					{
-						// memb.pixels = memb.noDropShadow.clone();
-						memb.filters = null;
-						memb.scale.set(2, 2);
-					}
+					else { memb.filters = null; memb.scale.set(2, 2); }
 			}
 		}
 	}
 
-	function getCurrentSelected():Int
+	function doBop(icon:PixelatedIcon, elapsed:Float):Void
 	{
-		var tempX:Int = cursorX + 1;
-		var tempY:Int = cursorY + 1;
-		var gridPosition:Int = tempX + tempY * 3;
-		return gridPosition;
+		if (bopFr >= bopInfo.frames.length)
+		{
+			bopRefX = 0; bopRefY = 0; bopPlay = false; bopFr = 0;
+			return;
+		}
+		bopTimer += elapsed;
+		if (bopTimer >= delay)
+		{
+			bopTimer -= bopTimer;
+			var refFrame = bopInfo.frames[bopInfo.frames.length - 1];
+			var curFrame = bopInfo.frames[bopFr];
+			if (bopFr >= 13) icon.filters = selectedBizz;
+			var scaleXDiff:Float = curFrame.scaleX - refFrame.scaleX;
+			var scaleYDiff:Float = curFrame.scaleY - refFrame.scaleY;
+			icon.scale.set(2.6, 2.6);
+			icon.scale.add(scaleXDiff, scaleYDiff);
+			bopFr++;
+		}
 	}
 
-	// Moved this code into a function because is now used twice
+	// ========== CURSOR ==========
+
+	function getCurrentSelected():Int
+	{
+		return (cursorX + 1) + (cursorY + 1) * 3;
+	}
+
 	function setCursorPosition(index:Int)
 	{
-		
 		var copy = 3;
 		var yThing = -1;
-
-		while ((index + 1) > copy)
-		{
-			yThing++;
-			copy += 3;
-		}
-
+		while ((index + 1) > copy) { yThing++; copy += 3; }
 		var xThing = (copy - index - 2) * -1;
-
-		// Look, I'd write better code but I had better aneurysms, my bad - Cheems
 		cursorY = yThing;
 		cursorX = xThing;
 		trace('[CS] setCursorPosition index=' + index + ' -> cursorX=' + cursorX + ' cursorY=' + cursorY);
@@ -1321,36 +1594,80 @@ class CharSelectSubState extends MusicBeatSubState
 			return value;
 
 		curChar = value;
-		trace('[CS] set_curChar old=' + curChar + ' new=' + value);
+		trace('[CS] set_curChar new=' + value);
 
 		if (value == "locked")
+		{
 			staticSound.play();
+
+			if (psychCharSprite != null) psychCharSprite.visible = false;
+			if (playerChill != null) playerChill.visible = false;
+			if (playerChillOut != null) playerChillOut.visible = false;
+			if (gfChill != null) gfChill.visible = false;
+
+			return value;
+		}
 		else
+		{
 			staticSound.stop();
+		}
 
 		nametag.switchChar(value);
-		playerChill.visible = false;
-		playerChillOut.visible = true;
-		playerChillOut.playAnimation("slideout");
-		var index = playerChillOut.anim.getFrameLabel("slideout").index;
-		playerChillOut.onAnimationFrame.add((_, frame:Int) ->
+
+		switch (getCharType(value))
 		{
-			if (frame == index + 1)
-			{
-				playerChill.visible = true;
-				playerChill.switchChar(value);
-				gfChill.switchGF(value);
-			}
-			if (frame == index + 2)
-			{
-				playerChillOut.switchChar(value);
-				playerChillOut.visible = false;
-				playerChillOut.onAnimationFrame.removeAll();
-			}
-		});
+			case PSYCH:
+				applyPsychPreview(value);
+
+			case VSLICE:
+				applyVSlicePreview(value);
+		}
 
 		return value;
 	}
+
+	function showPsychCharacter(charId:String):Void
+	{
+		var entry = getCharEntry(charId);
+		if (entry == null)
+			 return;
+
+		if (playerChill != null) playerChill.visible = false;
+		if (playerChillOut != null) playerChillOut.visible = false;
+
+		try
+		{
+			switchToCharMod(charId);
+
+			var imagePath = entry.imagePath;
+			psychCharSprite.frames = Paths.getSparrowAtlas(imagePath);
+
+			// Eski animasyonları temizlemek iyi olur
+			psychCharSprite.animation.destroyAnimations();
+
+			var idlePrefix = entry.idleAnim ?? "BF idle dance";
+			psychCharSprite.animation.addByPrefix("idle", idlePrefix, 24, true);
+			psychCharSprite.animation.play("idle");
+
+			var charScale = entry.scale ?? 1.0;
+			psychCharSprite.scale.set(charScale, charScale);
+			psychCharSprite.updateHitbox();
+			psychCharSprite.flipX = entry.flipX ?? false;
+
+			psychCharSprite.x = cutoutSize + 850;
+			psychCharSprite.y = 75;
+			psychCharSprite.visible = true;
+
+			trace("[CS] Showing Psych character: " + charId + " image=" + imagePath);
+		}
+		catch (e)
+		{
+			trace("[CS] Failed to show Psych character: " + charId + " error=" + e);
+			psychCharSprite.visible = false;
+		}
+	}
+
+	// ========== SPREAD SETTERS ==========
 
 	function set_grpXSpread(value:Float):Float
 	{

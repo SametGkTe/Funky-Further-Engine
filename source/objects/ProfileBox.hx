@@ -1,6 +1,7 @@
 package objects;
 
 import backend.AuthManager;
+import backend.SupabaseClient;
 import backend.Paths;
 import backend.ClientPrefs;
 import flixel.FlxG;
@@ -17,6 +18,7 @@ import flixel.util.FlxTimer;
 import substates.LinkSubState;
 import Lambda;
 import states.MainMenuState;
+import openfl.geom.Matrix;
 
 #if sys
 import sys.FileSystem;
@@ -82,6 +84,7 @@ class ProfileBox extends FlxSpriteGroup {
 	var avatarBg:FlxSprite;
 	var avatarSprite:FlxSprite;
 	var avatarLetter:FlxText;
+	var avatarLoadingCircle:FlxSprite;
 	var statusDot:FlxSprite;
 	var statusRing:FlxSprite;
 
@@ -103,6 +106,17 @@ class ProfileBox extends FlxSpriteGroup {
 	var _isGuest:Bool = true;
 	var _isHovered:Bool = false;
 	var _clickCooldown:Float = 0;
+
+	var _avatarDownloading:Bool = false;
+	var _avatarDownloadDone:Bool = false;
+	var _avatarDownloadFailed:Bool = false;
+	var _avatarBytes:haxe.io.Bytes = null;
+	var _avatarApplied:Bool = false;
+	var _lastAvatarUrl:String = null;
+	var _circleAngle:Float = 0;
+	
+	static var _cachedAvatarBytes:haxe.io.Bytes = null;
+	static var _cachedAvatarUrl:String = null;
 
 	public static var instance:ProfileBox = null;
 
@@ -190,37 +204,22 @@ class ProfileBox extends FlxSpriteGroup {
 		avatarBg = makeRect(avX, avY, AVATAR_SIZE, AVATAR_SIZE, COL_AVATAR_BG);
 		add(avatarBg);
 
-		avatarSprite = new FlxSprite(0, 0);
+		avatarSprite = new FlxSprite(avX, avY);
 		avatarSprite.scrollFactor.set(0, 0);
 		avatarSprite.antialiasing = ClientPrefs.data.antialiasing;
-
-		var avatarLoaded = false;
-		try {
-			avatarSprite.loadGraphic(Paths.image("mainmenu/player"));
-			var imgW = avatarSprite.frameWidth;
-			var imgH = avatarSprite.frameHeight;
-			var sc = Math.min(AVATAR_SIZE / imgW, AVATAR_SIZE / imgH);
-			avatarSprite.scale.set(sc, sc);
-			avatarSprite.updateHitbox();
-			avatarSprite.x = avX + (AVATAR_SIZE - avatarSprite.width) / 2;
-			avatarSprite.y = avY + (AVATAR_SIZE - avatarSprite.height) / 2;
-			avatarLoaded = true;
-		} catch (e:Dynamic) {
-			avatarLoaded = false;
-		}
-		avatarSprite.visible = avatarLoaded;
+		avatarSprite.visible = false;
 		add(avatarSprite);
 
 		avatarLetter = new FlxText(avX, avY + 10, AVATAR_SIZE, username.charAt(0).toUpperCase());
 		avatarLetter.setFormat(Paths.font("vcr.ttf"), 26, rankColor, CENTER);
 		avatarLetter.scrollFactor.set(0, 0);
-		avatarLetter.visible = !avatarLoaded;
+		avatarLetter.visible = true;
 		add(avatarLetter);
 
-		statusRing = makeRect(avX + AVATAR_SIZE - 14, avY + AVATAR_SIZE - 14, 14, 14, COL_BG);
-		add(statusRing);
+		avatarLoadingCircle = null;
 
-		statusDot = makeRect(avX + AVATAR_SIZE - 12, avY + AVATAR_SIZE - 12, 10, 10, serverOn ? COL_GREEN : COL_RED);
+		statusRing = null;
+		statusDot = makeRect(avX + AVATAR_SIZE - 10, avY + AVATAR_SIZE - 10, 8, 8, serverOn ? COL_GREEN : COL_RED);
 		add(statusDot);
 
 		var textX:Float = avX + AVATAR_SIZE + 14;
@@ -244,9 +243,8 @@ class ProfileBox extends FlxSpriteGroup {
 		add(upText);
 
 		var badge = AuthManager.currentBadge;
-		if (badge != null && badge.length > 0) {
+		if (badge != null && badge.length > 0)
 			upText.text = '${formatNumber(up)} UP  ·  $badge';
-		}
 
 		#if ACHIEVEMENTS_ALLOWED
 		var achUnlocked = Achievements.achievementsUnlocked.length;
@@ -259,14 +257,300 @@ class ProfileBox extends FlxSpriteGroup {
 		#end
 
 		buildUnplugIndicator(serverOn);
-
+		startAvatarLoad();
 		animateEntry();
 		saveCache();
 	}
 
+	function startAvatarLoad():Void {
+		_avatarApplied = false;
+		_avatarDownloading = false;
+		_avatarDownloadDone = false;
+		_avatarDownloadFailed = false;
+		_avatarBytes = null;
+
+		var avatarFile = AuthManager.currentAvatarUrl;
+		_lastAvatarUrl = avatarFile;
+
+		showPlayerPngWithLoading();
+
+		if (avatarFile != null && avatarFile.length > 0) {
+			if (_cachedAvatarBytes != null && _cachedAvatarUrl == avatarFile) {
+				trace('[ProfileBox] Avatar loaded from RAM cache (instant)');
+				hideLoadingCircle();
+				applyAvatarFromBytes(_cachedAvatarBytes);
+				return;
+			}
+
+			if (ClientPrefs.data.serverConnection) {
+				var fullUrl = AuthManager.getFullAvatarUrl(true);
+				trace('[ProfileBox] Full avatar URL: ' + fullUrl);
+				if (fullUrl != null && fullUrl.length > 0) {
+					trace('[ProfileBox] Downloading avatar (fresh)...');
+					downloadAvatar(fullUrl);
+					return;
+				}
+			}
+		}
+
+		trace('[ProfileBox] No avatar URL or server off, keeping player.png');
+		hideLoadingCircle();
+	}
+
+	function showPlayerPngWithLoading():Void {
+		var avX:Float = ACCENT_W + 12;
+		var avY:Float = (BOX_H - AVATAR_SIZE) / 2 - 2;
+
+		try {
+			var graphic = Paths.image("mainmenu/player");
+			if (graphic != null) {
+				if (avatarSprite != null) {
+					remove(avatarSprite, true);
+					avatarSprite.destroy();
+				}
+
+				avatarSprite = new FlxSprite(avX, avY);
+				avatarSprite.scrollFactor.set(0, 0);
+				avatarSprite.antialiasing = ClientPrefs.data.antialiasing;
+				avatarSprite.loadGraphic(graphic);
+
+				var imgW:Float = avatarSprite.frameWidth;
+				var imgH:Float = avatarSprite.frameHeight;
+				if (imgW > 0 && imgH > 0) {
+					var sc = Math.min(AVATAR_SIZE / imgW, AVATAR_SIZE / imgH);
+					avatarSprite.scale.set(sc, sc);
+					avatarSprite.updateHitbox();
+					avatarSprite.x = avX + (AVATAR_SIZE - avatarSprite.width) / 2;
+					avatarSprite.y = avY + (AVATAR_SIZE - avatarSprite.height) / 2;
+				}
+
+				avatarSprite.visible = true;
+				avatarSprite.alpha = 0.5;
+
+				var letterIdx = members.indexOf(avatarLetter);
+				if (letterIdx >= 0)
+					insert(letterIdx, avatarSprite);
+				else
+					add(avatarSprite);
+
+				if (avatarLetter != null) avatarLetter.visible = false;
+			}
+		} catch (e:Dynamic) {
+			trace('[ProfileBox] player.png load failed: ' + e);
+		}
+
+		try {
+			if (avatarLoadingCircle != null) {
+				remove(avatarLoadingCircle, true);
+				avatarLoadingCircle.destroy();
+				avatarLoadingCircle = null;
+			}
+
+			avatarLoadingCircle = new FlxSprite(avX, avY);
+			avatarLoadingCircle.scrollFactor.set(0, 0);
+			avatarLoadingCircle.antialiasing = ClientPrefs.data.antialiasing;
+			avatarLoadingCircle.loadGraphic(Paths.image("other/circle"));
+
+			var circW:Float = avatarLoadingCircle.frameWidth;
+			var circH:Float = avatarLoadingCircle.frameHeight;
+			if (circW > 0 && circH > 0) {
+				var sc = (AVATAR_SIZE * 0.45) / Math.max(circW, circH);
+				avatarLoadingCircle.scale.set(sc, sc);
+				avatarLoadingCircle.updateHitbox();
+			}
+
+			avatarLoadingCircle.x = avX + (AVATAR_SIZE - avatarLoadingCircle.width) / 2;
+			avatarLoadingCircle.y = avY + (AVATAR_SIZE - avatarLoadingCircle.height) / 2;
+			avatarLoadingCircle.alpha = 0.8;
+			avatarLoadingCircle.visible = true;
+			_circleAngle = 0;
+
+			add(avatarLoadingCircle);
+		} catch (e:Dynamic) {
+			trace('[ProfileBox] circle.png load failed: ' + e);
+		}
+	}
+
+	function hideLoadingCircle():Void {
+		if (avatarLoadingCircle != null) {
+			FlxTween.tween(avatarLoadingCircle, {alpha: 0}, 0.3, {
+				ease: FlxEase.sineOut,
+				onComplete: function(_) {
+					if (avatarLoadingCircle != null) {
+						remove(avatarLoadingCircle, true);
+						avatarLoadingCircle.destroy();
+						avatarLoadingCircle = null;
+					}
+				}
+			});
+		}
+
+		if (avatarSprite != null && avatarSprite.visible) {
+			FlxTween.cancelTweensOf(avatarSprite);
+			FlxTween.tween(avatarSprite, {alpha: 1}, 0.3, {ease: FlxEase.sineOut});
+		}
+	}
+
+	function downloadAvatar(url:String):Void {
+		if (_avatarDownloading) return;
+		_avatarDownloading = true;
+
+		#if sys
+		sys.thread.Thread.create(function() {
+			try {
+				var http = new haxe.Http(url);
+				var bytesOutput = new haxe.io.BytesOutput();
+
+				http.onError = function(error:String) {
+					trace('[ProfileBox] HTTP onError (ignorable): ' + error);
+				};
+
+				http.customRequest(false, bytesOutput, null, "GET");
+
+				var data = bytesOutput.getBytes();
+
+				if (data != null && data.length > 100) {
+					trace('[ProfileBox] Avatar downloaded: ${data.length} bytes');
+					_avatarBytes = data;
+					_avatarDownloadDone = true;
+					_avatarDownloading = false;
+					_avatarDownloadFailed = false;
+
+					_cachedAvatarBytes = data;
+					_cachedAvatarUrl = AuthManager.currentAvatarUrl;
+				} else {
+					trace('[ProfileBox] Avatar download empty');
+					_avatarDownloading = false;
+					_avatarDownloadFailed = true;
+				}
+			} catch (e:Dynamic) {
+				trace('[ProfileBox] Avatar download exception: ' + e);
+				_avatarDownloading = false;
+				_avatarDownloadFailed = true;
+			}
+		});
+		#else
+		_avatarDownloading = false;
+		_avatarDownloadFailed = true;
+		hideLoadingCircle();
+		#end
+	}
+
+	function applyAvatarFromBytes(bytes:haxe.io.Bytes):Void {
+		if (bytes == null) return;
+
+		try {
+			var bitmapData = openfl.display.BitmapData.fromBytes(openfl.utils.ByteArray.fromBytes(bytes));
+
+			if (bitmapData == null || bitmapData.width <= 0 || bitmapData.height <= 0) {
+				trace('[ProfileBox] BitmapData decode failed');
+				return;
+			}
+
+			var avX:Float = ACCENT_W + 12;
+			var avY:Float = (BOX_H - AVATAR_SIZE) / 2 - 2;
+
+			var srcW = bitmapData.width;
+			var srcH = bitmapData.height;
+			var cropSize = Std.int(Math.min(srcW, srcH));
+			var cropX = Std.int((srcW - cropSize) / 2);
+			var cropY = Std.int((srcH - cropSize) / 2);
+
+			var finalBmp = new openfl.display.BitmapData(AVATAR_SIZE, AVATAR_SIZE, true, 0x00000000);
+			var scaleRatio:Float = AVATAR_SIZE / cropSize;
+			var matrix = new Matrix();
+			matrix.translate(-cropX, -cropY);
+			matrix.scale(scaleRatio, scaleRatio);
+			finalBmp.draw(bitmapData, matrix);
+
+			if (avatarSprite != null) {
+				remove(avatarSprite, true);
+				avatarSprite.destroy();
+				avatarSprite = null;
+			}
+
+			avatarSprite = new FlxSprite(avX, avY);
+			avatarSprite.scrollFactor.set(0, 0);
+			avatarSprite.antialiasing = ClientPrefs.data.antialiasing;
+			avatarSprite.pixels = finalBmp;
+			avatarSprite.scale.set(1, 1);
+			avatarSprite.updateHitbox();
+			avatarSprite.x = avX;
+			avatarSprite.y = avY;
+			avatarSprite.visible = true;
+			avatarSprite.alpha = 0;
+
+			var letterIdx = members.indexOf(avatarLetter);
+			if (letterIdx >= 0)
+				insert(letterIdx, avatarSprite);
+			else
+				add(avatarSprite);
+
+			if (avatarLetter != null) avatarLetter.visible = false;
+
+			hideLoadingCircle();
+
+			FlxTween.tween(avatarSprite, {alpha: 1}, 0.35, {ease: FlxEase.sineOut});
+
+			_avatarApplied = true;
+			trace('[ProfileBox] Avatar applied (${srcW}x${srcH} -> ${AVATAR_SIZE}x${AVATAR_SIZE})');
+		} catch (e:Dynamic) {
+			trace('[ProfileBox] Avatar apply error: $e');
+		}
+	}
+
+	function showFallbackAvatar():Void {
+		_avatarApplied = false;
+		hideLoadingCircle();
+
+		var avX:Float = ACCENT_W + 12;
+		var avY:Float = (BOX_H - AVATAR_SIZE) / 2 - 2;
+
+		try {
+			var graphic = Paths.image("mainmenu/player");
+			if (graphic != null) {
+				if (avatarSprite != null) {
+					remove(avatarSprite, true);
+					avatarSprite.destroy();
+				}
+
+				avatarSprite = new FlxSprite(avX, avY);
+				avatarSprite.scrollFactor.set(0, 0);
+				avatarSprite.antialiasing = ClientPrefs.data.antialiasing;
+				avatarSprite.loadGraphic(graphic);
+
+				var imgW:Float = avatarSprite.frameWidth;
+				var imgH:Float = avatarSprite.frameHeight;
+				if (imgW > 0 && imgH > 0) {
+					var sc = Math.min(AVATAR_SIZE / imgW, AVATAR_SIZE / imgH);
+					avatarSprite.scale.set(sc, sc);
+					avatarSprite.updateHitbox();
+					avatarSprite.x = avX + (AVATAR_SIZE - avatarSprite.width) / 2;
+					avatarSprite.y = avY + (AVATAR_SIZE - avatarSprite.height) / 2;
+				}
+
+				avatarSprite.visible = true;
+
+				var letterIdx = members.indexOf(avatarLetter);
+				if (letterIdx >= 0)
+					insert(letterIdx, avatarSprite);
+				else
+					add(avatarSprite);
+
+				if (avatarLetter != null) avatarLetter.visible = false;
+				_avatarApplied = true;
+				trace('[ProfileBox] Using player.png fallback');
+				return;
+			}
+		} catch (e:Dynamic) {}
+
+		if (avatarLetter != null) avatarLetter.visible = true;
+		if (avatarSprite != null) avatarSprite.visible = false;
+		trace('[ProfileBox] Using letter fallback');
+	}
+
 	function buildUnplugIndicator(serverOn:Bool):Void {
 		destroyUnplugElements();
-
 		if (serverOn) return;
 
 		var textX:Float = ACCENT_W + 12;
@@ -284,7 +568,6 @@ class ProfileBox extends FlxSpriteGroup {
 			unplugIcon.y = indicatorY;
 		} catch (e:Dynamic) {
 			unplugIcon.makeGraphic(UNPLUG_SIZE, UNPLUG_SIZE, COL_RED);
-			trace('[ProfileBox] unplug.png not found, using fallback');
 		}
 
 		unplugIcon.alpha = 0.85;
@@ -316,15 +599,11 @@ class ProfileBox extends FlxSpriteGroup {
 
 	function checkServerConnectionChanged():Void {
 		if (_isGuest) return;
-
 		var currentConn = ClientPrefs.data.serverConnection;
 		if (currentConn != _lastServerConn) {
 			_lastServerConn = currentConn;
-			trace('[ProfileBox] Server connection changed to: $currentConn');
-
 			if (statusDot != null)
 				statusDot.color = currentConn ? COL_GREEN : COL_RED;
-
 			buildUnplugIndicator(currentConn);
 		}
 	}
@@ -354,6 +633,12 @@ class ProfileBox extends FlxSpriteGroup {
 
 		destroyUnplugElements();
 
+		if (avatarLoadingCircle != null) {
+			remove(avatarLoadingCircle, true);
+			avatarLoadingCircle.destroy();
+			avatarLoadingCircle = null;
+		}
+
 		while (members.length > 0) {
 			var m = members[0];
 			remove(m, true);
@@ -369,6 +654,7 @@ class ProfileBox extends FlxSpriteGroup {
 		avatarBg = null;
 		avatarSprite = null;
 		avatarLetter = null;
+		avatarLoadingCircle = null;
 		statusDot = null;
 		statusRing = null;
 		usernameText = null;
@@ -381,6 +667,13 @@ class ProfileBox extends FlxSpriteGroup {
 		unplugIcon = null;
 		unplugLabel = null;
 		_built = false;
+		_avatarDownloading = false;
+		_avatarDownloadDone = false;
+		_avatarDownloadFailed = false;
+		_avatarBytes = null;
+		_avatarApplied = false;
+		_lastAvatarUrl = null;
+		_circleAngle = 0;
 
 		_lastServerConn = ClientPrefs.data.serverConnection;
 
@@ -404,6 +697,24 @@ class ProfileBox extends FlxSpriteGroup {
 			guestArrow.x = (BOX_W - 28) + x + Math.sin(_pulseTime * 3) * 3;
 
 		checkServerConnectionChanged();
+
+		if (_avatarDownloadDone && _avatarBytes != null) {
+			_avatarDownloadDone = false;
+			var bytes = _avatarBytes;
+			_avatarBytes = null;
+			applyAvatarFromBytes(bytes);
+		}
+
+		if (_avatarDownloadFailed && !_avatarDownloading) {
+			_avatarDownloadFailed = false;
+			hideLoadingCircle();
+			trace('[ProfileBox] Download failed, keeping player.png');
+		}
+
+		if (avatarLoadingCircle != null && avatarLoadingCircle.visible) {
+			_circleAngle += elapsed * 180;
+			avatarLoadingCircle.angle = _circleAngle;
+		}
 
 		if (dropdownOpen)
 			handleDropdownInput();
@@ -477,7 +788,6 @@ class ProfileBox extends FlxSpriteGroup {
 				return true;
 		}
 		#end
-
 		return false;
 	}
 
@@ -629,7 +939,6 @@ class ProfileBox extends FlxSpriteGroup {
 
 	function destroyDropElements():Void {
 		if (FlxG.state == null) return;
-
 		if (dropdownBg != null) { FlxG.state.remove(dropdownBg, true); dropdownBg.destroy(); dropdownBg = null; }
 		if (dropdownAccent != null) { FlxG.state.remove(dropdownAccent, true); dropdownAccent.destroy(); dropdownAccent = null; }
 		if (dropdownBorder != null) { FlxG.state.remove(dropdownBorder, true); dropdownBorder.destroy(); dropdownBorder = null; }
@@ -668,7 +977,6 @@ class ProfileBox extends FlxSpriteGroup {
 		if (newHover != _dropHoverIdx) {
 			_dropHoverIdx = newHover;
 
-			// Ayarlar butonu
 			if (dropSettingsBg != null) {
 				FlxTween.cancelTweensOf(dropSettingsBg);
 				dropSettingsBg.color = (_dropHoverIdx == 0) ? COL_DROP_HOVER : COL_DROP_BG;
@@ -682,7 +990,6 @@ class ProfileBox extends FlxSpriteGroup {
 				dropSettingsText.color = (_dropHoverIdx == 0) ? FlxColor.WHITE : COL_TEXT;
 			}
 
-			// Çıkış butonu
 			if (dropLogoutBg != null) {
 				FlxTween.cancelTweensOf(dropLogoutBg);
 				dropLogoutBg.color = (_dropHoverIdx == 1) ? COL_DROP_HOVER : COL_DROP_BG;
@@ -715,7 +1022,7 @@ class ProfileBox extends FlxSpriteGroup {
 				FlxG.sound.play(Paths.sound('cancelMenu'));
 				closeDropdown();
 				onLogout();
-				MusicBeatState.switchState(new MainMenuState());
+				MusicBeatState.switchState(new states.MainMenuState());
 			} else if (!isMouseOver() && !isDropdownHovered()) {
 				closeDropdown();
 			}
@@ -799,6 +1106,13 @@ class ProfileBox extends FlxSpriteGroup {
 			buildUnplugIndicator(serverOn);
 		}
 
+		var newAvatarUrl = AuthManager.currentAvatarUrl;
+		if (newAvatarUrl != _lastAvatarUrl && !_avatarDownloading) {
+			_lastAvatarUrl = newAvatarUrl;
+			_avatarApplied = false;
+			startAvatarLoad();
+		}
+
 		#if ACHIEVEMENTS_ALLOWED
 		if (achievementLabel != null) {
 			var achUnlocked = Achievements.achievementsUnlocked.length;
@@ -843,37 +1157,31 @@ class ProfileBox extends FlxSpriteGroup {
 		if (saveDir == null || saveDir.length == 0) {
 			#if windows
 			var appdata = Sys.getEnv("APPDATA");
-			if (appdata != null && appdata.length > 0) {
+			if (appdata != null && appdata.length > 0)
 				saveDir = appdata + "/PsychEngine/";
-			} else {
+			else
 				saveDir = Sys.getCwd();
-			}
 			#elseif linux
 			var home = Sys.getEnv("HOME");
-			if (home != null && home.length > 0) {
+			if (home != null && home.length > 0)
 				saveDir = home + "/.psychengine/";
-			} else {
+			else
 				saveDir = Sys.getCwd();
-			}
 			#elseif mac
 			var home = Sys.getEnv("HOME");
-			if (home != null && home.length > 0) {
+			if (home != null && home.length > 0)
 				saveDir = home + "/Library/Application Support/PsychEngine/";
-			} else {
+			else
 				saveDir = Sys.getCwd();
-			}
 			#else
 			saveDir = Sys.getCwd();
 			#end
 		}
 
 		try {
-			if (!FileSystem.exists(saveDir)) {
+			if (!FileSystem.exists(saveDir))
 				FileSystem.createDirectory(saveDir);
-			}
-		} catch (e:Dynamic) {
-			trace('[ProfileBox] Could not create save directory: $e');
-		}
+		} catch (e:Dynamic) {}
 
 		return saveDir;
 		#else
@@ -900,14 +1208,12 @@ class ProfileBox extends FlxSpriteGroup {
 				score: AuthManager.currentScore,
 				ultraPoints: AuthManager.currentUltraPoints,
 				country: AuthManager.currentCountry,
+				avatarUrl: AuthManager.currentAvatarUrl,
 				timestamp: Date.now().toString()
 			};
 			var path = cachePath();
-			trace('[ProfileBox] Saving cache to: $path');
 			File.saveContent(path, haxe.Json.stringify(data));
-		} catch (e:Dynamic) {
-			trace('[ProfileBox] Cache save failed: $e');
-		}
+		} catch (e:Dynamic) {}
 		#end
 	}
 
@@ -922,6 +1228,7 @@ class ProfileBox extends FlxSpriteGroup {
 			AuthManager.currentScore = data.score ?? 0;
 			AuthManager.currentUltraPoints = data.ultraPoints ?? 0.0;
 			AuthManager.currentCountry = data.country ?? "";
+			AuthManager.currentAvatarUrl = data.avatarUrl;
 			return true;
 		} catch (e:Dynamic) {}
 		#end
@@ -960,6 +1267,7 @@ class ProfileBox extends FlxSpriteGroup {
 				score: AuthManager.currentScore,
 				ultraPoints: AuthManager.currentUltraPoints,
 				country: AuthManager.currentCountry,
+				avatarUrl: AuthManager.currentAvatarUrl,
 				timestamp: Date.now().toString()
 			};
 			File.saveContent(cachePath(), haxe.Json.stringify(data));
@@ -977,6 +1285,8 @@ class ProfileBox extends FlxSpriteGroup {
 
 	public static function onLogout():Void {
 		clearCache();
+		_cachedAvatarBytes = null;
+		_cachedAvatarUrl = null;
 		AuthManager.logout();
 		if (instance != null)
 			instance.rebuild();
@@ -985,6 +1295,11 @@ class ProfileBox extends FlxSpriteGroup {
 	override function destroy():Void {
 		if (dropdownOpen) closeDropdown();
 		destroyUnplugElements();
+		if (avatarLoadingCircle != null) {
+			remove(avatarLoadingCircle, true);
+			avatarLoadingCircle.destroy();
+			avatarLoadingCircle = null;
+		}
 		if (instance == this)
 			instance = null;
 		super.destroy();

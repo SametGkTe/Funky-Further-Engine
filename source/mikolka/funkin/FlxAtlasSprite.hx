@@ -20,6 +20,8 @@ class FlxAtlasSprite extends PsychFlxAnimate
    * A list of precached "animation.json" files in case they're used a lot
    */
   public static final ANIMATION_OBJECTS = new Map<String,Dynamic>();
+  public var loadedAtlasPath(default, null):Null<String> = null;
+  public var atlasBroken(default, null):Bool = false;
 
   static final SETTINGS:Settings =
     {
@@ -82,8 +84,27 @@ class FlxAtlasSprite extends PsychFlxAnimate
     this.anim.onFrame.add(_onAnimationFrame);
   }
   //? P-Slice fix for mods
-  override function loadAtlas(path:String) {
-      Paths.loadAnimateAtlas(this,path,null,ANIMATION_OBJECTS.get(path));
+  override function loadAtlas(path:String)
+  {
+    loadedAtlasPath = path;
+    atlasBroken = false;
+
+    try
+    {
+      Paths.loadAnimateAtlas(this, path, null, ANIMATION_OBJECTS.get(path));
+    }
+    catch (e)
+    {
+      atlasBroken = true;
+      visible = false;
+      active = false;
+      trace('[FlxAtlasSprite] loadAtlas failed for "' + path + '": ' + Std.string(e));
+    }
+  }
+  
+  public inline function hasValidAtlas():Bool
+  {
+    return !atlasBroken && anim != null && anim.stageInstance != null;
   }
   /**
    * @return A list of all the animations this sprite has available.
@@ -135,6 +156,8 @@ class FlxAtlasSprite extends PsychFlxAnimate
    */
   public function playAnimation(id:String, restart:Bool = false, ignoreOther:Bool = false, loop:Bool = false, startFrame:Int = 0):Void
   {
+    if (atlasBroken) return;
+    if (anim == null || anim.stageInstance == null) return;
     // Skip if not allowed to play animations.
     if ((!canPlayOtherAnims))
     {
@@ -214,6 +237,7 @@ class FlxAtlasSprite extends PsychFlxAnimate
 
   override public function update(elapsed:Float)
   {
+    if (atlasBroken) return;
     super.update(elapsed);
   }
 

@@ -13,6 +13,7 @@ class AuthManager {
     public static var currentUltraPoints:Float = 0.0;
     public static var currentRole:String = "player";
     public static var currentBadge:String = null;
+    public static var currentAvatarUrl:String = null;
 
     // Ultra Streak
     public static var currentUltraStreak:Int = 0;
@@ -40,6 +41,25 @@ class AuthManager {
     static function dynToString(v:Dynamic, ?def:String = ""):String {
         if (v == null) return def;
         return Std.string(v);
+    }
+
+    public static function getFullAvatarUrl(?bustCache:Bool = false):String {
+        if (currentAvatarUrl == null || currentAvatarUrl.length == 0)
+            return null;
+
+        var url:String = null;
+
+        if (StringTools.startsWith(currentAvatarUrl, "http"))
+            url = currentAvatarUrl;
+        else
+            url = '${SupabaseClient.URL}/storage/v1/object/public/avatars/${currentUserId}/${currentAvatarUrl}';
+
+        if (bustCache) {
+            var sep = url.indexOf("?") == -1 ? "?" : "&";
+            url += sep + "t=" + Std.string(Date.now().getTime());
+        }
+
+        return url;
     }
 
     public static function register(
@@ -100,18 +120,41 @@ class AuthManager {
         username:String, password:String,
         callback:Bool->String->Void
     ):Void {
-        SupabaseClient.getAsync(
-            '/rest/v1/profiles?select=email&username=eq.' + StringTools.urlEncode(username),
-            "", function(_, data) {
+        var cleanUsername = StringTools.trim(username);
+
+        SupabaseClient.postAsync(
+            "/rest/v1/rpc/get_email_by_username",
+            { p_username: cleanUsername },
+            "",
+            function(status:Int, data:String) {
+                trace('[AuthManager] username RPC status=' + status + ' data=' + data);
+
+                if (status < 200 || status >= 300) {
+                    callback(false, 'Kullanıcı sorgusu başarısız. HTTP ' + status);
+                    return;
+                }
+
                 try {
-                    var arr:Array<Dynamic> = haxe.Json.parse(data);
-                    if (arr.length == 0 || arr[0].email == null) {
+                    var parsed:Dynamic = haxe.Json.parse(data);
+
+                    if (!Std.isOfType(parsed, Array)) {
+                        callback(false, 'Beklenmeyen sunucu cevabı.');
+                        return;
+                    }
+
+                    var arr:Array<Dynamic> = cast parsed;
+                    if (arr.length == 0 || Reflect.field(arr[0], "email") == null) {
                         callback(false, "Kullanici bulunamadi.");
                         return;
                     }
-                    var email:String = arr[0].email;
+
+                    var email:String = Std.string(Reflect.field(arr[0], "email"));
+                    trace('[AuthManager] loginWithUsername resolved email=' + email);
                     login(email, password, callback);
-                } catch(e) {
+
+                } catch (e:Dynamic) {
+                    trace('[AuthManager] username RPC parse error: ' + e);
+                    trace('[AuthManager] username RPC raw=' + data);
                     callback(false, "Baglanti hatasi.");
                 }
             }
@@ -293,6 +336,7 @@ class AuthManager {
         currentScore = 0;
         currentUltraPoints = 0.0;
         currentAvatar = 0;
+        currentAvatarUrl = null;
         currentCountry = "";
         currentRole = "player";
         currentBadge = null;
@@ -343,6 +387,13 @@ class AuthManager {
         currentCountry     = dynToString(Reflect.field(p, "country"), "");
         currentRole        = dynToString(Reflect.field(p, "role"), "player");
 
+        // Avatar URL
+        if (Reflect.hasField(p, "avatar_url") && Reflect.field(p, "avatar_url") != null) {
+            currentAvatarUrl = dynToString(Reflect.field(p, "avatar_url"), null);
+        } else {
+            currentAvatarUrl = null;
+        }
+
         if (Reflect.hasField(p, "badge"))
             currentBadge = Reflect.field(p, "badge") != null ? dynToString(Reflect.field(p, "badge"), null) : null;
         else
@@ -383,7 +434,8 @@ class AuthManager {
             + ', ultraPoints=$currentUltraPoints'
             + ', streak=$currentUltraStreak'
             + ', role=$currentRole'
-            + ', badge=$currentBadge');
+            + ', badge=$currentBadge'
+            + ', avatarUrl=$currentAvatarUrl');
     }
 
     static function tryParseError(data:String):String {

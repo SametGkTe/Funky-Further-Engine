@@ -5,7 +5,6 @@ import flixel.FlxState;
 
 class MenuStyleRouter
 {
-	// ===== STATE GETTERs =====
 
 	public static function getMainMenu():FlxState
 	{

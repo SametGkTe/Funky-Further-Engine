@@ -1,17 +1,23 @@
 package mikolka.vslice.states;
 
 import backend.WeekData;
-import haxe.Exception;
-import flixel.FlxG;
-import flixel.text.FlxText;
-import flixel.util.FlxColor;
-import flixel.util.FlxTimer;
-import openfl.utils.AssetType;
 import backend.Highscore;
 import backend.Song;
 import backend.StageData;
+import backend.Paths;
+import backend.Mods;
+import backend.Language;
+import flixel.FlxG;
+import flixel.FlxSprite;
+import flixel.text.FlxText;
+import flixel.util.FlxColor;
+import flixel.util.FlxTimer;
+import haxe.Exception;
 import mikolka.compatibility.freeplay.FreeplaySongData;
 import mikolka.vslice.components.crash.UserErrorSubstate;
+import openfl.utils.AssetType;
+import states.LoadingState;
+import states.PlayState;
 
 class SongPrepareState extends MusicBeatState
 {
@@ -35,8 +41,7 @@ class SongPrepareState extends MusicBeatState
 		var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
 		add(bg);
 
-		var txt = new FlxText(0, 0, FlxG.width, 
-			Language.getPhrase('loading_text', 'Yükleniyor...'), 32);
+		var txt = new FlxText(0, 0, FlxG.width, Language.getPhrase('loading_text', 'Yükleniyor...'), 32);
 		txt.setFormat("VCR OSD Mono", 32, FlxColor.WHITE, CENTER);
 		txt.screenCenter();
 		add(txt);
@@ -49,9 +54,24 @@ class SongPrepareState extends MusicBeatState
 
 	function startLoading():Void
 	{
-		Mods.currentModDirectory = cap.folder;
+		if (started) return;
+		started = true;
 
-		var diffId = cap.loadAndGetDiffId();
+		if (cap == null)
+		{
+			UserErrorSubstate.makeMessage(
+				Language.getPhrase('error_song_load_title', 'Failed to load a song'),
+				'FreeplaySongData is null.'
+			);
+			return;
+		}
+
+		if (cap.folder != null)
+			Mods.currentModDirectory = cap.folder;
+		else
+			Mods.loadTopMod();
+
+		var diffId:Int = cap.loadAndGetDiffId();
 		if (diffId == -1)
 		{
 			trace("SELECTED DIFFICULTY IS MISSING: " + currentDifficulty);
@@ -87,7 +107,8 @@ class SongPrepareState extends MusicBeatState
 		try
 		{
 			PlayState.SONG = Song.loadFromJson(poop, songLowercase);
-			if (PlayState.SONG == null) throw "Song parsing failed!";
+			if (PlayState.SONG == null)
+				throw "Song parsing failed!";
 
 			PlayState.isStoryMode = false;
 			PlayState.storyDifficulty = diffId;
@@ -98,22 +119,35 @@ class SongPrepareState extends MusicBeatState
 
 			trace('CURRENT WEEK: ' + WeekData.getWeekFileName());
 		}
-		catch (e:Exception)
+		catch (e:Dynamic)
 		{
-			trace('ERROR! $e');
+			trace('ERROR! ' + Std.string(e));
+
+			var errMsg:String = Std.string(e);
+
+			try
+			{
+				var ex:Exception = cast e;
+				errMsg = ex.message + "\n\n" + ex.details();
+			}
+			catch (_:Dynamic) {}
+
 			UserErrorSubstate.makeMessage(
 				Language.getPhrase('error_song_load_title', 'Failed to load a song'),
-				'${e.message}\n\n${e.details()}'
+				errMsg
 			);
 			return;
 		}
 
 		#if !SHOW_LOADING_SCREEN
-		FlxG.sound.music.stop();
+		if (FlxG.sound.music != null)
+			FlxG.sound.music.stop();
 		#end
 
 		LoadingState.loadAndSwitchState(new PlayState(), true);
-		FlxG.sound.music.volume = 0;
+
+		if (FlxG.sound.music != null)
+			FlxG.sound.music.volume = 0;
 
 		#if (MODS_ALLOWED && DISCORD_ALLOWED)
 		DiscordClient.loadModRPC();

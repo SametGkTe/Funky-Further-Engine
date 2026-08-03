@@ -1,67 +1,99 @@
 package mikolka.funkin.players;
 
 import mikolka.compatibility.ModsHelper;
-import haxe.Json;
+import mikolka.funkin.custom.PsliceRegistry;
 import mikolka.funkin.players.PlayerData;
-import mikolka.compatibility.funkin.FunkinPath;
+import mikolka.funkin.players.PlayerData.PlayerFreeplayDJData;
+import haxe.io.Path;
 
+class PlayerRegistry extends PsliceRegistry
+{
+	public static var instance:PlayerRegistry = new PlayerRegistry();
 
+	public function new()
+	{
+		super('players');
+	}
 
+	public function isCharacterOwned(id:String):Bool
+	{
+		return true;
+	}
 
+	public function hasNewCharacter():Bool
+	{
+		return false;
+	}
 
-//TODO softcode this soon
-class PlayerRegistry extends PsliceRegistry{
-    public static var instance:PlayerRegistry = new PlayerRegistry();
-    public function new() {
-        super('players');
-    }
+	public function fetchEntry(playableCharId:String):Null<PlayableCharacter>
+	{
+		try
+		{
+			var player_blob:Dynamic = readJson(playableCharId);
+			if (player_blob == null)
+				return null;
 
-    public function isCharacterOwned(id:String):Bool {
-        return true;
-    }
-    public function hasNewCharacter():Bool {
-        return false;
-    }
-    public function fetchEntry(playableCharId:String):Null<PlayableCharacter> {
-        try {
-            var player_blob:Dynamic = readJson(playableCharId);// new PlayerData();
-            if(player_blob == null) return null;
-            var player_data = new PlayerData().mergeWithJson(player_blob,["freeplayDJ"]);
-            var dj = new PlayerFreeplayDJData().mergeWithJson(player_blob.freeplayDJ);
-            player_data.freeplayDJ = dj;
-            return new PlayableCharacter(player_data);
-        }
-        catch(x){
-            trace('Couldn\'t pull $playableCharId: ${x.message}');
-            return null;
-        }
-        
-    }
-    
-    // return ALL characters avaliable (from current mod)
-    public function listEntryIds():Array<String> {
-        if(ModsHelper.getActiveMod() == ""){
-            var allJsons:Array<String> = [];
-            var registry_mods = ModsHelper.getModsWithPlayersRegistry();
-            var globalMods = ModsHelper.getGlobalMods().filter(s -> registry_mods.contains(s));
-            for(mod in globalMods){
-                ModsHelper.loadModDir(mod);
-                allJsons.pushMany(listJsons());
-            }
-            ModsHelper.loadModDir("");
-            #if LEGACY_PSYCH
-            var basedCharFiles = NativeFileSystem.readDirectory("assets/registry/players");
-            #else
-            var basedCharFiles = NativeFileSystem.readDirectory("assets/shared/registry/players");
-            #end
-            allJsons.pushMany(basedCharFiles
-                .filter(s -> s.endsWith(".json")).map(s -> s.substr(0,s.length-5)));
-            return allJsons;
-        }
-        else return listJsons();
-    }
-    // This is only used to check if we should allow the player to open charSelect
-    public function countUnlockedCharacters():Int {
-        return 2;
-    }
+			var player_data = new PlayerData().mergeWithJson(player_blob, ["freeplayDJ"]);
+			var dj = new PlayerFreeplayDJData().mergeWithJson(player_blob.freeplayDJ);
+			player_data.freeplayDJ = dj;
+			return new PlayableCharacter(player_data);
+		}
+		catch (x)
+		{
+			trace('Couldn\'t pull $playableCharId: ${x.message}');
+			return null;
+		}
+	}
+
+	public function listEntryIds():Array<String>
+	{
+		var result:Array<String> = [];
+		var seen:Map<String, Bool> = new Map<String, Bool>();
+
+		inline function addId(id:String):Void
+		{
+			if (id == null || id.length < 1)
+				return;
+			if (seen.exists(id))
+				return;
+
+			seen.set(id, true);
+			result.push(id);
+		}
+
+		var previousMod:String = ModsHelper.getActiveMod();
+
+		// Base game
+		ModsHelper.loadModDir("");
+		for (id in listJsons())
+			addId(id);
+
+		// Aktif mod
+		if (previousMod != null && previousMod.length > 0)
+		{
+			ModsHelper.loadModDir(previousMod);
+			for (id in listJsons())
+				addId(id);
+		}
+
+		// Geri yükle
+		ModsHelper.loadModDir(previousMod ?? "");
+
+		trace('[PlayerRegistry] listEntryIds -> ' + result.join(", "));
+		return result;
+	}
+
+	public function countUnlockedCharacters():Int
+	{
+		var count:Int = 0;
+
+		for (id in listEntryIds())
+		{
+			var entry = fetchEntry(id);
+			if (entry != null && entry.isUnlocked())
+				count++;
+		}
+
+		return count;
+	}
 }
