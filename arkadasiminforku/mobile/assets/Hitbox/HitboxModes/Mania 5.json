@@ -1,0 +1,54 @@
+{
+  "hints": [
+    {
+      "button": "buttonNote1",
+      "buttonIDs": ["5K_NOTE_1"],
+      "buttonUniqueID": 0,
+      "x": 0,
+      "y": 0,
+      "width": 256,
+      "height": 720,
+      "color": "0xFFC24B99"
+    },
+    {
+      "button": "buttonNote2",
+      "buttonIDs": ["5K_NOTE_2"],
+      "buttonUniqueID": 1,
+      "x": 256,
+      "y": 0,
+      "width": 256,
+      "height": 720,
+      "color": "0xFF00FFFF"
+    },
+    {
+      "button": "buttonNote3",
+      "buttonIDs": ["5K_NOTE_3"],
+      "buttonUniqueID": 2,
+      "x": 512,
+      "y": 0,
+      "width": 256,
+      "height": 720,
+      "color": "0xFFFFE600"
+    },
+    {
+      "button": "buttonNote4",
+      "buttonIDs": ["5K_NOTE_4"],
+      "buttonUniqueID": 3,
+      "x": 768,
+      "y": 0,
+      "width": 256,
+      "height": 720,
+      "color": "0xFF12FA05"
+    },
+    {
+      "button": "buttonNote5",
+      "buttonIDs": ["5K_NOTE_5"],
+      "buttonUniqueID": 4,
+      "x": 1024,
+      "y": 0,
+      "width": 256,
+      "height": 720,
+      "color": "0xFFF9393F"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "hints": [
+    {
+      "button": "buttonNote1",
+      "buttonIDs": ["2K_NOTE_1"],
+      "buttonUniqueID": 0,
+      "x": 0,
+      "y": 0,
+      "width": 640,
+      "height": 720,
+      "color": "0xFFC24B99"
+    },
+    {
+      "button": "buttonNote2",
+      "buttonIDs": ["2K_NOTE_2"],
+      "buttonUniqueID": 1,
+      "x": 640,
+      "y": 0,
+      "width": 640,
+      "height": 720,
+      "color": "0xFFF9393F"
+    }
+  ]
+}

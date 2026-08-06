@@ -1,0 +1,66 @@
+{
+  "hints": [
+    {
+      "button": "buttonNote1",
+      "buttonIDs": ["6K_NOTE_1"],
+      "buttonUniqueID": 0,
+      "x": 0,
+      "y": 0,
+      "width": 213,
+      "height": 720,
+      "color": "0xFFC24B99"
+    },
+    {
+      "button": "buttonNote2",
+      "buttonIDs": ["6K_NOTE_2"],
+      "buttonUniqueID": 1,
+      "x": 213,
+      "y": 0,
+      "width": 213,
+      "height": 720,
+      "color": "0xFF00FFFF"
+    },
+    {
+      "button": "buttonNote3",
+      "buttonIDs": ["6K_NOTE_3"],
+      "buttonUniqueID": 2,
+      "x": 426,
+      "y": 0,
+      "width": 213,
+      "height": 720,
+      "color": "0xFFF9393F",
+      "tempOneY": 350,
+      "tempTwoY": -350
+    },
+    {
+      "button": "buttonNote4",
+      "buttonIDs": ["6K_NOTE_4"],
+      "buttonUniqueID": 3,
+      "x": 639,
+      "y": 0,
+      "width": 213,
+      "height": 720,
+      "color": "0xFFC24B99"
+    },
+    {
+      "button": "buttonNote5",
+      "buttonIDs": ["6K_NOTE_5"],
+      "buttonUniqueID": 4,
+      "x": 852,
+      "y": 0,
+      "width": 213,
+      "height": 720,
+      "color": "0xFF12FA05"
+    },
+    {
+      "button": "buttonNote6",
+      "buttonIDs": ["6K_NOTE_6"],
+      "buttonUniqueID": 5,
+      "x": 1065,
+      "y": 0,
+      "width": 215,
+      "height": 720,
+      "color": "0xFFF9393F"
+    }
+  ]
+}

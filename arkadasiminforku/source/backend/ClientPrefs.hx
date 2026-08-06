@@ -1,0 +1,763 @@
+package backend;
+
+import objects.Note;
+import objects.Note;
+import options.VisualsUISubState;
+import options.NotesSubState;
+import online.network.FunkinNetwork;
+import online.GameClient;
+import flixel.util.FlxSave;
+import flixel.input.keyboard.FlxKey;
+import flixel.input.gamepad.FlxGamepadInputID;
+
+import states.TitleState;
+
+// Add a variable here and it will get automatically saved
+@:structInit class SaveVariables {
+	/* Mobile */
+	public var wideScreen:Bool = false;
+	#if android public var storageType:String = "EXTERNAL_DATA"; #end
+
+	/* Mobile Controls */
+	/* Bool Options */
+	public var disableOnlineShaders:Bool = false;
+	public var hitboxHint:Bool = false;
+	public var ogGameControls:Bool = false; //There we go
+	public var showTweakMenu:Bool = false;
+
+	/* Int/Float Options */
+	public var extraKeys:Int = 2;
+	public var hitboxAlpha:Float = #if mobile 0.7 #else 0 #end;
+	public var mobilePadAlpha:Float = #if mobile 0.6 #else 0 #end;
+
+	/* String Options */
+	public var hitboxType:String = 'Gradient';
+	public var hitboxLocation:String = 'Bottom';
+	public var hitboxMode:String = 'Normal (New)';
+	public var mobileExtraKeyReturns:Array<String> = ['SHIFT', 'SPACE', 'Q', 'E'];
+	
+	public var downScroll:Bool = false;
+	public var middleScroll:Bool = false;
+	public var opponentStrums:Bool = true;
+	public var showFPS:Bool = true;
+	public var flashing:Bool = true;
+	public var autoPause:Bool = true;
+	public var antialiasing:Bool = true;
+	public var noteSkin:String = 'Default';
+	public var splashSkin:String = 'Psych';
+	public var splashAlpha:Float = 0.6;
+	public var holdSplashAlpha:Float = 0.6;
+	public var holdAlpha:Float = 0.6;
+	public var lowQuality:Bool = false;
+	public var shaders:Bool = true;
+	// public var cacheOnGPU:Bool = #if !switch false #else true #end;
+	public var framerate:Int = 60;
+	public var camZooms:Bool = true;
+	public var hideHud:Bool = false;
+	public var noteOffset:Int = 0;
+
+	public var arrowRGB:Array<Array<FlxColor>> = ClientPrefs.genArrowColors(4);
+	public var arrowRGBMap:Map<String, Array<Array<FlxColor>>> = ClientPrefs.genArrowColorsExtraMap();
+
+	public var arrowRGBPixel:Array<Array<FlxColor>> = ClientPrefs.genArrowColors(4, true);
+	public var arrowRGBPixelMap:Map<String, Array<Array<FlxColor>>> = ClientPrefs.genArrowColorsExtraMap(true);
+
+	public var ghostTapping:Bool = true;
+	public var timeBarType:String = 'Time Left';
+	public var scoreZoom:Bool = true;
+	public var noReset:Bool = false;
+	public var healthBarAlpha:Float = 1;
+	public var hitsoundVolume:Float = 0;
+	public var pauseMusic:String = 'Tea Time';
+	public var checkForUpdates:Bool = true;
+	public var comboStacking:Bool = true;
+	public var gameplaySettings:Map<String, Dynamic> = [
+		'scrollspeed' => 1.0,
+		'scrolltype' => 'çarpici',
+		'songspeed' => 1.0,
+		'healthgain' => 1.0,
+		'healthloss' => 1.0,
+		'instakill' => false,
+		'practice' => false,
+		'botplay' => false,
+		'opponentplay' => false,
+		'nobadnotes' => false,
+		'mania' => '(Chart)',
+		'scrollspeedbymania' => false,
+	];
+
+	public var comboOffset:Array<Int> = [0, 0, 0, 0];
+	public var ratingOffset:Int = 0;
+	public final sickWindow:Int = 45;
+	public final goodWindow:Int = 90;
+	public final badWindow:Int = 135;
+	public var safeFrames:Float = 10;
+	public var discordRPC:Bool = true;
+	// PSYCH ONLINE
+	private var nickname:String = "Boyfriend";
+	public var serverAddress:String = null;
+	public var modSkin:Array<String> = null;
+	public var trustedSources:Array<String> = ["https://gamebanana.com/"];
+	public var comboOffsetOP1:Array<Int> = [0, 0, 0, 0];
+	public var comboOffsetOP2:Array<Int> = [0, 0, 0, 0];
+	public var disableStrumMovement:Bool = false;
+	public var unlockFramerate:Bool = false;
+	public var debugMode:Bool = false;
+	public var disableReplays:Bool = true;
+	public var disableSubmiting:Bool = true;
+	public var showNoteTiming:Bool = false;
+	public var disableAutoDownloads:Bool = false;
+	public var disableSongComments:Bool = false;
+	public var disableFreeplayIcons:Bool = false;
+	public var showFP:Bool = true;
+	public var disableFreeplayAlphabet:Bool = false;
+	public var disableLagDetection:Bool = false;
+	public var groupSongsBy:String = 'Default';
+	public var hiddenSongs:Array<String> = []; //format: 'songname-originfolder'
+	public var favSongs:Array<String> = []; //format: 'songname-originfolder'
+	public var modchartSkinChanges:Bool = false;
+	public var colorRating:Bool = false;
+	public var notifyOnChatMsg:Bool = false;
+	public var disablePMs:Bool = false;
+	public var disableRoomInvites:Bool = false;
+	public var verifySSL:Bool = false;
+	public var noteUnderlayOpacity:Float = 0;
+	public var noteUnderlayType:String = 'Hepsi-Bir-Arada';
+	public var favsAsMenuTheme:Bool = false;
+	public var disableComboRating:Bool = false;
+	public var disableComboCounter:Bool = false;
+	public var networkServerAddress:String = null;
+	public var hiddenTips:Array<String> = null;
+	public var nameplateFadeTime:Float = 10;
+	public var verticalRatingPos:Bool = false;
+	public var midSongCommentsOpacity:Float = 0.5;
+	public var friendOnlineNotification:Bool = false;
+	public var newFPPreview:Bool = false;
+	
+	// PET AYARLARI
+	public var petwatermark:Bool = true;
+	public var petloadingscreen:Bool = true;
+	public var petwatermarklogo:String = 'ONLINE';
+	public var petloadingscreenimage:String = 'ONLINE';
+	public var disableIntroVideo:Bool = false;
+
+	public function new()
+	{
+		//Why does haxe needs this again?
+	}
+}
+
+class ClientPrefs {
+	public static var data:SaveVariables = {};
+	public static var defaultData:SaveVariables = {};
+
+	//Every key has two binds, add your key bind down here and then add your control on options/ControlsSubState.hx and Controls.hx
+	public static var keyBinds:Map<String, Array<FlxKey>> = [
+		//Key Bind, Name for ControlsSubState
+		'note_up'		=> [W, UP],
+		'note_left'		=> [A, LEFT],
+		'note_down'		=> [S, DOWN],
+		'note_right'	=> [D, RIGHT],
+
+		'5k_note_1'		=> [D],
+		'5k_note_2'		=> [F],
+		'5k_note_3'		=> [G, SPACE],
+		'5k_note_4'	 => [J],
+		'5k_note_5'	 => [K],
+	
+		'6k_note_1'	 => [S],
+		'6k_note_2'	 => [D],
+		'6k_note_3'	 => [F],
+		'6k_note_4'	 => [J],
+		'6k_note_5'	 => [K],
+		'6k_note_6'	 => [L],
+	
+		'7k_note_1'	 => [S],
+		'7k_note_2'	 => [D],
+		'7k_note_3'	 => [F],
+		'7k_note_4'	 => [G, SPACE],
+		'7k_note_5'	 => [J],
+		'7k_note_6'	 => [K],
+		'7k_note_7'	 => [L],
+	
+		'8k_note_1'	 => [A],
+		'8k_note_2'	 => [S],
+		'8k_note_3'	 => [D],
+		'8k_note_4'	 => [F],
+		'8k_note_5'	 => [H],
+		'8k_note_6'	 => [J],
+		'8k_note_7'	 => [K],
+		'8k_note_8'	 => [L],
+
+		'9k_note_1'	 => [A],
+		'9k_note_2'	 => [S],
+		'9k_note_3'	 => [D],
+		'9k_note_4'	 => [F],
+		'9k_note_5'	 => [G, SPACE],
+		'9k_note_6'	 => [H],
+		'9k_note_7'	 => [J],
+		'9k_note_8'	 => [K],
+		'9k_note_9'	 => [L],
+		
+		'ui_up'			=> [W, UP],
+		'ui_left'		=> [A, LEFT],
+		'ui_down'		=> [S, DOWN],
+		'ui_right'		=> [D, RIGHT],
+		
+		'accept'		=> [SPACE, ENTER],
+		'back'			=> [BACKSPACE, ESCAPE],
+		'pause'			=> [ENTER, ESCAPE],
+		'reset'			=> [R],
+		'taunt'			=> [SPACE, T],
+		'sidebar'		=> [GRAVEACCENT],
+		'fav'			=> [Q],
+		
+		'volume_mute'	=> [ZERO],
+		'volume_up'		=> [NUMPADPLUS, PLUS],
+		'volume_down'	=> [NUMPADMINUS, MINUS],
+		
+		'debug_1'		=> [SEVEN],
+		'debug_2'		=> [EIGHT]
+	];
+	public static var gamepadBinds:Map<String, Array<FlxGamepadInputID>> = [
+		'note_up'		=> [DPAD_UP, Y],
+		'note_left'		=> [DPAD_LEFT, X],
+		'note_down'		=> [DPAD_DOWN, A],
+		'note_right'	=> [DPAD_RIGHT, B],
+
+		'5k_note_1'	 => [DPAD_LEFT, X],
+		'5k_note_2'		=> [DPAD_DOWN, A],
+		'5k_note_3'		=> [LEFT_SHOULDER, RIGHT_SHOULDER],
+		'5k_note_4'	 => [DPAD_UP, Y],
+		'5k_note_5'	 => [DPAD_RIGHT, B],
+	
+		'6k_note_1'	 => [DPAD_LEFT],
+		'6k_note_2'	 => [DPAD_DOWN],
+		'6k_note_3'	 => [DPAD_RIGHT],
+		'6k_note_4'	 => [X],
+		'6k_note_5'	 => [Y],
+		'6k_note_6'	 => [B],
+	
+		'7k_note_1'	 => [DPAD_LEFT],
+		'7k_note_2'	 => [DPAD_DOWN],
+		'7k_note_3'	 => [DPAD_RIGHT],
+		'7k_note_4'	 => [LEFT_SHOULDER, RIGHT_SHOULDER],
+		'7k_note_5'	 => [X],
+		'7k_note_6'	 => [Y],
+		'7k_note_7'	 => [B],
+	
+		'8k_note_1'	 => [DPAD_LEFT],
+		'8k_note_2'	 => [DPAD_DOWN],
+		'8k_note_3'	 => [DPAD_UP],
+		'8k_note_4'	 => [DPAD_RIGHT],
+		'8k_note_5'	 => [X],
+		'8k_note_6'	 => [A],
+		'8k_note_7'	 => [Y],
+		'8k_note_8'	 => [B],
+
+		'9k_note_1'	 => [DPAD_LEFT],
+		'9k_note_2'	 => [DPAD_DOWN],
+		'9k_note_3'	 => [DPAD_UP],
+		'9k_note_4'	 => [DPAD_RIGHT],
+		'9k_note_5'	 => [LEFT_SHOULDER, RIGHT_SHOULDER],
+		'9k_note_6'	 => [X],
+		'9k_note_7'	 => [A],
+		'9k_note_8'	 => [Y],
+		'9k_note_9'	 => [B],
+		
+		'ui_up'			=> [DPAD_UP, LEFT_STICK_DIGITAL_UP],
+		'ui_left'		=> [DPAD_LEFT, LEFT_STICK_DIGITAL_LEFT],
+		'ui_down'		=> [DPAD_DOWN, LEFT_STICK_DIGITAL_DOWN],
+		'ui_right'		=> [DPAD_RIGHT, LEFT_STICK_DIGITAL_RIGHT],
+		
+		'accept'		=> [A, START],
+		'back'			=> [B],
+		'pause'			=> [START],
+		'reset'			=> [BACK],
+		'taunt'			=> [RIGHT_STICK_CLICK],
+		'sidebar'		=> [],
+		'fav'			=> [Y]
+	];
+	//This is only way to make work controls on new psych versions
+	public static var mobileBinds:Map<String, Array<String>> = [
+		// 1K
+		'1k_note_1'		=> ['1K_NOTE_1'],
+
+		// 2K
+		'2k_note_1'		=> ['2K_NOTE_1'],
+		'2k_note_2'		=> ['2K_NOTE_2'],
+
+		// 3K
+		'3k_note_1'		=> ['3K_NOTE_1'],
+		'3k_note_2'		=> ['3K_NOTE_2'],
+		'3k_note_3'		=> ['3K_NOTE_3'],
+
+		// 4K
+		'note_left'		=> ['NOTE_LEFT'],
+		'note_down'	=> ['NOTE_DOWN'],
+		'note_up'		=> ['NOTE_UP'],
+		'note_right'		=> ['NOTE_RIGHT'],
+		
+		// 5K
+		'5k_note_1'		=> ['5K_NOTE_1'],
+		'5k_note_2'		=> ['5K_NOTE_2'],
+		'5k_note_3'		=> ['5K_NOTE_3'],
+		'5k_note_4'		=> ['5K_NOTE_4'],
+		'5k_note_5'		=> ['5K_NOTE_5'],
+		
+		// 6K
+		'6k_note_1'		=> ['6K_NOTE_1'],
+		'6k_note_2'		=> ['6K_NOTE_2'],
+		'6k_note_3'		=> ['6K_NOTE_3'],
+		'6k_note_4'		=> ['6K_NOTE_4'],
+		'6k_note_5'		=> ['6K_NOTE_5'],
+		'6k_note_6'		=> ['6K_NOTE_6'],
+		
+		// 7K
+		'7k_note_1'		=> ['7K_NOTE_1'],
+		'7k_note_2'		=> ['7K_NOTE_2'],
+		'7k_note_3'		=> ['7K_NOTE_3'],
+		'7k_note_4'		=> ['7K_NOTE_4'],
+		'7k_note_5'		=> ['7K_NOTE_5'],
+		'7k_note_6'		=> ['7K_NOTE_6'],
+		'7k_note_7'		=> ['7K_NOTE_7'],
+		
+		// 8K
+		'8k_note_1'		=> ['8K_NOTE_1'],
+		'8k_note_2'		=> ['8K_NOTE_2'],
+		'8k_note_3'		=> ['8K_NOTE_3'],
+		'8k_note_4'		=> ['8K_NOTE_4'],
+		'8k_note_5'		=> ['8K_NOTE_5'],
+		'8k_note_6'		=> ['8K_NOTE_6'],
+		'8k_note_7'		=> ['8K_NOTE_7'],
+		'8k_note_8'		=> ['8K_NOTE_8'],
+		
+		// 9K
+		'9k_note_1'		=> ['9K_NOTE_1'],
+		'9k_note_2'		=> ['9K_NOTE_2'],
+		'9k_note_3'		=> ['9K_NOTE_3'],
+		'9k_note_4'		=> ['9K_NOTE_4'],
+		'9k_note_5'		=> ['9K_NOTE_5'],
+		'9k_note_6'		=> ['9K_NOTE_6'],
+		'9k_note_7'		=> ['9K_NOTE_7'],
+		'9k_note_8'		=> ['9K_NOTE_8'],
+		'9k_note_9'		=> ['9K_NOTE_9'],
+		
+		// 20K
+		'20k_note_1'	=> ['20K_NOTE_1'],
+		'20k_note_2'	=> ['20K_NOTE_2'],
+		'20k_note_3'	=> ['20K_NOTE_3'],
+		'20k_note_4'	=> ['20K_NOTE_4'],
+		'20k_note_5'	=> ['20K_NOTE_5'],
+		'20k_note_6'	=> ['20K_NOTE_6'],
+		'20k_note_7'	=> ['20K_NOTE_7'],
+		'20k_note_8'	=> ['20K_NOTE_8'],
+		'20k_note_9'	=> ['20K_NOTE_9'],
+		'20k_note_10'	=> ['20K_EXTRA_10'],
+		'20k_note_11'	=> ['20K_EXTRA_11'],
+		'20k_note_12'	=> ['20K_EXTRA_12'],
+		'20k_note_13'	=> ['20K_EXTRA_13'],
+		'20k_note_14'	=> ['20K_EXTRA_14'],
+		'20k_note_15'	=> ['20K_EXTRA_15'],
+		'20k_note_16'	=> ['20K_EXTRA_16'],
+		'20k_note_17'	=> ['20K_EXTRA_17'],
+		'20k_note_18'	=> ['20K_EXTRA_18'],
+		'20k_note_19'	=> ['20K_EXTRA_19'],
+		'20k_note_20'	=> ['20K_EXTRA_20'],
+		
+		// 55K
+		'55k_note_1'	=> ['55K_NOTE_1'],
+		'55k_note_2'	=> ['55K_NOTE_2'],
+		'55k_note_3'	=> ['55K_NOTE_3'],
+		'55k_note_4'	=> ['55K_NOTE_4'],
+		'55k_note_5'	=> ['55K_NOTE_5'],
+		'55k_note_6'	=> ['55K_NOTE_6'],
+		'55k_note_7'	=> ['55K_NOTE_7'],
+		'55k_note_8'	=> ['55K_NOTE_8'],
+		'55k_note_9'	=> ['55K_NOTE_9'],
+		'55k_note_10'	=> ['55K_EXTRA_10'],
+		'55k_note_11'	=> ['55K_EXTRA_11'],
+		'55k_note_12'	=> ['55K_EXTRA_12'],
+		'55k_note_13'	=> ['55K_EXTRA_13'],
+		'55k_note_14'	=> ['55K_EXTRA_14'],
+		'55k_note_15'	=> ['55K_EXTRA_15'],
+		'55k_note_16'	=> ['55K_EXTRA_16'],
+		'55k_note_17'	=> ['55K_EXTRA_17'],
+		'55k_note_18'	=> ['55K_EXTRA_18'],
+		'55k_note_19'	=> ['55K_EXTRA_19'],
+		'55k_note_20'	=> ['55K_EXTRA_20'],
+		'55k_note_21'	=> ['55K_EXTRA_21'],
+		'55k_note_22'	=> ['55K_EXTRA_22'],
+		'55k_note_23'	=> ['55K_EXTRA_23'],
+		'55k_note_24'	=> ['55K_EXTRA_24'],
+		'55k_note_25'	=> ['55K_EXTRA_25'],
+		'55k_note_26'	=> ['55K_EXTRA_26'],
+		'55k_note_27'	=> ['55K_EXTRA_27'],
+		'55k_note_28'	=> ['55K_EXTRA_28'],
+		'55k_note_29'	=> ['55K_EXTRA_29'],
+		'55k_note_30'	=> ['55K_EXTRA_30'],
+		'55k_note_31'	=> ['55K_EXTRA_31'],
+		'55k_note_32'	=> ['55K_EXTRA_32'],
+		'55k_note_33'	=> ['55K_EXTRA_33'],
+		'55k_note_34'	=> ['55K_EXTRA_34'],
+		'55k_note_35'	=> ['55K_EXTRA_35'],
+		'55k_note_36'	=> ['55K_EXTRA_36'],
+		'55k_note_37'	=> ['55K_EXTRA_37'],
+		'55k_note_38'	=> ['55K_EXTRA_38'],
+		'55k_note_39'	=> ['55K_EXTRA_39'],
+		'55k_note_40'	=> ['55K_EXTRA_40'],
+		'55k_note_41'	=> ['55K_EXTRA_41'],
+		'55k_note_42'	=> ['55K_EXTRA_42'],
+		'55k_note_43'	=> ['55K_EXTRA_43'],
+		'55k_note_44'	=> ['55K_EXTRA_44'],
+		'55k_note_45'	=> ['55K_EXTRA_45'],
+		'55k_note_46'	=> ['55K_EXTRA_46'],
+		'55k_note_47'	=> ['55K_EXTRA_47'],
+		'55k_note_48'	=> ['55K_EXTRA_48'],
+		'55k_note_49'	=> ['55K_EXTRA_49'],
+		'55k_note_50'	=> ['55K_EXTRA_50'],
+		'55k_note_51'	=> ['55K_EXTRA_51'],
+		'55k_note_52'	=> ['55K_EXTRA_52'],
+		'55k_note_53'	=> ['55K_EXTRA_53'],
+		'55k_note_54'	=> ['55K_EXTRA_54'],
+		'55k_note_55'	=> ['55K_EXTRA_55'],
+
+		'ui_up'			=> ['UP'],
+		'ui_left'			=> ['LEFT'],
+		'ui_down'		=> ['DOWN'],
+		'ui_right'		=> ['RIGHT'],
+
+		'accept'		=> ['A'],
+		'back'			=> ['B'],
+		'pause'			=> ['P'],
+		'reset'			=> ['NONE'],
+		'taunt'			=> ['T']
+	];
+	public static var defaultMobileBinds:Map<String, Array<String>> = null;
+	public static var defaultKeys:Map<String, Array<FlxKey>> = null;
+	public static var defaultButtons:Map<String, Array<FlxGamepadInputID>> = null;
+
+	public static function resetKeys(controller:Null<Bool> = null) //Null = both, False = Keyboard, True = Controller
+	{
+		if(controller != true)
+		{
+			for (key in keyBinds.keys())
+			{
+				if(defaultKeys.exists(key))
+					keyBinds.set(key, defaultKeys.get(key).copy());
+			}
+		}
+		if(controller != false)
+		{
+			for (button in gamepadBinds.keys())
+			{
+				if(defaultButtons.exists(button))
+					gamepadBinds.set(button, defaultButtons.get(button).copy());
+			}
+		}
+	}
+
+	public static function clearInvalidKeys(key:String) {
+		var keyBind:Array<FlxKey> = keyBinds.get(key);
+		var gamepadBind:Array<FlxGamepadInputID> = gamepadBinds.get(key);
+		var mobileBind:Array<String> = mobileBinds.get(key);
+		while(keyBind != null && keyBind.contains(NONE)) keyBind.remove(NONE);
+		while(gamepadBind != null && gamepadBind.contains(NONE)) gamepadBind.remove(NONE);
+		while(mobileBind != null && mobileBind.contains(NONE)) mobileBind.remove(NONE);
+	}
+
+	public static function loadDefaultKeys() {
+		defaultKeys = keyBinds.copy();
+		defaultButtons = gamepadBinds.copy();
+		defaultMobileBinds = mobileBinds.copy();
+	}
+
+	public static function saveSettings() {
+		for (key in Reflect.fields(data)) {
+			//trace('saved variable: $key');
+			Reflect.setField(FlxG.save.data, key, Reflect.field(data, key));
+		}
+		#if ACHIEVEMENTS_ALLOWED Achievements.save(); #end
+		FlxG.save.flush();
+
+		//Placing this in a separate save so that it can be manually deleted without removing your Score and stuff
+		var save:FlxSave = new FlxSave();
+		save.bind('controls_v3', CoolUtil.getSavePath());
+		save.data.keyboard = keyBinds;
+		save.data.gamepad = gamepadBinds;
+		save.data.mobile = mobileBinds;
+		save.flush();
+		FlxG.log.add("Settings saved!");
+	}
+
+	public static function loadPrefs() {
+		for (key in Reflect.fields(data)) {
+			if (key != 'gameplaySettings' && Reflect.hasField(FlxG.save.data, key)) {
+				//trace('loaded variable: $key');
+				Reflect.setField(data, key, Reflect.field(FlxG.save.data, key));
+			}
+		}
+		
+		data.arrowRGBMap ??= new Map();
+		for (key => value in defaultData.arrowRGBMap) {
+			if (!data.arrowRGBMap.exists(key))
+				data.arrowRGBMap.set(key, value);
+		}
+
+		data.arrowRGBPixelMap ??= new Map();
+		for (key => value in defaultData.arrowRGBPixelMap) {
+			if (!data.arrowRGBPixelMap.exists(key))
+				data.arrowRGBPixelMap.set(key, value);
+		}
+		
+		if(Main.fpsVar != null) {
+			Main.fpsVar.visible = data.showFPS;
+		}
+
+		#if (!html5 && !switch)
+		FlxG.autoPause = ClientPrefs.data.autoPause;
+		#end
+
+		FlxSprite.defaultAntialiasing = ClientPrefs.data.antialiasing;
+
+		if (ClientPrefs.data.unlockFramerate) {
+			FlxG.updateFramerate = 1000;
+			FlxG.drawFramerate = 1000;
+		} else if(data.framerate > FlxG.drawFramerate) {
+			FlxG.updateFramerate = data.framerate;
+			FlxG.drawFramerate = data.framerate;
+		} else {
+			FlxG.drawFramerate = data.framerate;
+			FlxG.updateFramerate = data.framerate;
+		}
+
+		sys.ssl.Socket.DEFAULT_VERIFY_CERT = ClientPrefs.data.verifySSL;
+
+		if(FlxG.save.data.gameplaySettings != null) {
+			var savedMap:Map<String, Dynamic> = FlxG.save.data.gameplaySettings;
+			for (name => value in savedMap)
+				data.gameplaySettings.set(name, value);
+		}
+		
+		// flixel automatically saves your volume!
+		if(FlxG.save.data.volume != null)
+			FlxG.sound.volume = FlxG.save.data.volume;
+		if (FlxG.save.data.mute != null)
+			FlxG.sound.muted = FlxG.save.data.mute;
+
+		#if DISCORD_ALLOWED
+		DiscordClient.check();
+		#end
+
+		// controls on a separate save file
+		var save:FlxSave = new FlxSave();
+		save.bind('controls_v3', CoolUtil.getSavePath());
+		if(save != null)
+		{
+			if(save.data.keyboard != null) {
+				var loadedControls:Map<String, Array<FlxKey>> = save.data.keyboard;
+				for (control => keys in loadedControls) {
+					/*if(keyBinds.exists(control))*/ keyBinds.set(control, keys);
+				}
+			}
+			if(save.data.gamepad != null) {
+				var loadedControls:Map<String, Array<FlxGamepadInputID>> = save.data.gamepad;
+				for (control => keys in loadedControls) {
+					/*if(gamepadBinds.exists(control))*/ gamepadBinds.set(control, keys);
+				}
+			}
+			if(save.data.mobile != null) {
+				var loadedControls:Map<String, Array<String>> = save.data.mobile;
+				for (control => keys in loadedControls)
+					/*if(mobileBinds.exists(control))*/ mobileBinds.set(control, keys);
+			}
+			reloadVolumeKeys();
+		}
+
+		//away3d.debug.Debug.active = ClientPrefs.isDebug();
+	}
+
+	public static function getGameplaySetting(name:String, defaultValue:Dynamic = null, ?customDefaultValue:Bool = false):Dynamic {
+		try {
+			if (data.gameplaySettings.get('scrollspeedbymania') && (name == 'scrollspeed' || name == 'scrolltype')) {
+				var v = ClientPrefs.getGameplaySetting(name + '_' + Note.maniaKeys + 'k');
+				if (v != null)
+					return v;
+				else {
+					switch (name) {
+						case 'scrollspeed':
+							return 1;
+						case 'scrolltype':
+							return 'multiplicative';
+					}
+				}
+			}
+		} catch(e:Dynamic) {}
+
+		if(!customDefaultValue) defaultValue = defaultData.gameplaySettings.get(name);
+		var daGameplaySetting:Dynamic = GameClient.isConnected() ? GameClient.getGameplaySetting(name) : data.gameplaySettings.get(name);
+		if (PlayState.replayData?.gameplay_modifiers != null) {
+			daGameplaySetting = PlayState.replayData?.gameplay_modifiers?.get(name);
+		}
+		return /*PlayState.isStoryMode ? defaultValue : */ (daGameplaySetting != null ? daGameplaySetting : defaultValue);
+	}
+
+	public static function reloadVolumeKeys() {
+		TitleState.muteKeys = keyBinds.get('volume_mute').copy();
+		TitleState.volumeDownKeys = keyBinds.get('volume_down').copy();
+		TitleState.volumeUpKeys = keyBinds.get('volume_up').copy();
+		toggleVolumeKeys(true);
+	}
+	public static function toggleVolumeKeys(?turnOn:Bool = true) {
+		if(!Controls.instance.mobileControls && turnOn)
+		{
+			FlxG.sound.muteKeys = TitleState.muteKeys;
+			FlxG.sound.volumeDownKeys = TitleState.volumeDownKeys;
+			FlxG.sound.volumeUpKeys = TitleState.volumeUpKeys;
+		}
+		else
+		{
+			FlxG.sound.muteKeys = [];
+			FlxG.sound.volumeDownKeys = [];
+			FlxG.sound.volumeUpKeys = [];
+		}
+	}
+	public static function isDebug() {
+		#if debug
+		return true;
+		#end
+
+		if (PlayState.chartingMode)
+			return true;
+		
+		return data?.debugMode ?? false;
+	}
+
+	public static function getNickname() {
+		if (FunkinNetwork.loggedIn)
+			return FunkinNetwork.nickname;
+
+		@:privateAccess
+		return data.nickname;
+	}
+
+	public static function setNickname(name) {
+		if (FunkinNetwork.loggedIn)
+			return FunkinNetwork.updateName(name);
+
+		if (name == "")
+			return @:privateAccess data.nickname = "Boyfriend";
+
+		return @:privateAccess data.nickname = name;
+	}
+
+	public static function getGhostTapping() {
+		return PlayState.replayData?.ghost_tapping ?? data.ghostTapping;
+	}
+
+	public static function getRatingOffset() {
+		return PlayState.replayData?.rating_offset ?? data.ratingOffset;
+	}
+
+	public static function getSafeFrames() {
+		return PlayState.replayData?.safe_frames ?? data.safeFrames;
+	}
+
+	public static function getRGBColor(player:Int = 0):Array<Array<FlxColor>> {
+		if (!GameClient.isConnected() || NotesSubState.isOpened || player == -1)
+			return (Note.maniaKeys != 4 ? data.arrowRGBMap.get(Note.maniaKeys + 'k') : data.arrowRGB);
+
+		if (player == 0)
+			return CoolUtil.to2DArrayfrom1D(CoolUtil.asta(GameClient.getPlayerSelf().arrowColors.get(Note.maniaKeys + 'k').value), 3);
+
+		if (PlayState.instance?.opponentPlayer == null)
+			return getRGBColorDefault();
+		
+		// TODO support seperate mania from both strums
+		// var opKeys = PlayState.instance.opponentPlayer.gameplaySettings.get('mania') ?? (Note.maniaKeys + 'k');
+		return CoolUtil.to2DArrayfrom1D(CoolUtil.asta(PlayState.instance.opponentPlayer.arrowColors.get(Note.maniaKeys + 'k').value), 3);
+	}
+
+	public static function getRGBColorDefault(?variant:String) {
+		if (variant == 'pixel')
+			return (Note.maniaKeys != 4 ? defaultData.arrowRGBPixelMap.get(Note.maniaKeys + 'k') : defaultData.arrowRGBPixel);
+
+		return (Note.maniaKeys != 4 ? defaultData.arrowRGBMap.get(Note.maniaKeys + 'k') : defaultData.arrowRGB);
+	}
+
+	public static function getRGBPixelColor(player:Int = 0):Array<Array<FlxColor>> {
+		if (!GameClient.isConnected() || NotesSubState.isOpened || player == -1)
+			return (Note.maniaKeys != 4 ? data.arrowRGBPixelMap.get(Note.maniaKeys + 'k') : data.arrowRGBPixel);
+
+		if (player == 0)
+			return CoolUtil.to2DArrayfrom1D(CoolUtil.asta(GameClient.getPlayerSelf().arrowColorsPixel.get(Note.maniaKeys + 'k').value), 3);
+
+		if (PlayState.instance?.opponentPlayer == null)
+			return getRGBColorDefault('pixel');
+
+		// var opKeys = PlayState.instance.opponentPlayer.gameplaySettings.get('mania') ?? (Note.maniaKeys + 'k');
+		return CoolUtil.to2DArrayfrom1D(CoolUtil.asta(PlayState.instance.opponentPlayer.arrowColorsPixel.get(Note.maniaKeys + 'k').value), 3);
+	}
+
+	public static function getNoteSkin(player:Int = 0):String
+	{
+		if(!GameClient.isConnected() || NotesSubState.isOpened || VisualsUISubState.isOpened || player == -1)
+			return data.noteSkin;
+
+		if(player == 0)
+			return GameClient.getPlayerSelf().noteSkin;
+		else
+			return PlayState.instance?.opponentPlayer?.noteSkin ?? defaultData.noteSkin;
+	}
+
+	public static function getArrowRGBCompleteMaps():Array<Map<String, Array<Array<FlxColor>>>> {
+		var copyRGBMap = ClientPrefs.data.arrowRGBMap.copy();
+		copyRGBMap.set('4k', ClientPrefs.data.arrowRGB);
+		var copyRGBPixelMap = ClientPrefs.data.arrowRGBPixelMap.copy();
+		copyRGBPixelMap.set('4k', ClientPrefs.data.arrowRGBPixel);
+		return [copyRGBMap, copyRGBPixelMap];
+	}
+
+	public static inline function genArrowColors(keys:Int, ?isPixel:Bool = false):Array<Array<FlxColor>> {
+		var arr = [];
+		try {
+			var colColors = isPixel ? [
+				'purple' => [0xFFE276FF, 0xFFFFF9FF, 0xFF60008D],
+				'blue' => [0xFF3DCAFF, 0xFFF4FFFF, 0xFF003060],
+				'odd' => [0xFFFFE600, 0xFFFFF5F0, 0xFF754D10],
+				'green' => [0xFF71E300, 0xFFF6FFE6, 0xFF003100],
+				'red' => [0xFFFF884E, 0xFFFFFAF5, 0xFF6C0000]
+			] : [
+				'purple' => [0xFFC24B99, 0xFFFFFFFF, 0xFF3C1F56],
+				'blue' => [0xFF00FFFF, 0xFFFFFFFF, 0xFF1542B7],
+				'odd' => [0xFFFFE600, 0xFFFFFFFF, 0xFF754D10],
+				'green' => [0xFF12FA05, 0xFFFFFFFF, 0xFF0A4447],
+				'red' => [0xFFF9393F, 0xFFFFFFFF, 0xFF651038]
+			];
+			var colArray = Note.getColArrayFromKeys(keys);
+			for (key in 0...keys) {
+				arr.push(colColors.get(colArray[key]));
+			}
+		} catch(e:Dynamic) {}
+		return arr;
+	}
+
+	public static inline function genArrowColorsExtraMap(?isPixel:Bool = false):Map<String, Array<Array<FlxColor>>> {
+		var map = new Map();
+		try {
+			for (keys in Note.maniaKeysList) {
+				if (keys == 4)
+					continue;
+				map.set('${keys}k', genArrowColors(keys, isPixel));
+			}
+		} catch(e:Dynamic) {}
+		return map;
+	}
+
+	public static function reloadKeyColors() {
+		ClientPrefs.data.arrowRGBMap = ClientPrefs.genArrowColorsExtraMap();
+		ClientPrefs.data.arrowRGBPixelMap = ClientPrefs.genArrowColorsExtraMap(true);
+		ClientPrefs.defaultData.arrowRGBMap = ClientPrefs.genArrowColorsExtraMap();
+		ClientPrefs.defaultData.arrowRGBPixelMap = ClientPrefs.genArrowColorsExtraMap(true);
+	}
+}

@@ -1,0 +1,94 @@
+{
+  "hints": [
+    {
+      "button": "buttonNote1",
+      "buttonIDs": ["9K_NOTE_1"],
+      "buttonUniqueID": 0,
+      "x": 0,
+      "y": 0,
+      "width": 142,
+      "height": 720,
+      "color": "0xFFC24B99"
+    },
+    {
+      "button": "buttonNote2",
+      "buttonIDs": ["9K_NOTE_2"],
+      "buttonUniqueID": 1,
+      "x": 142,
+      "y": 0,
+      "width": 142,
+      "height": 720,
+      "color": "0xFF00FFFF"
+    },
+    {
+      "button": "buttonNote3",
+      "buttonIDs": ["9K_NOTE_3"],
+      "buttonUniqueID": 2,
+      "x": 284,
+      "y": 0,
+      "width": 142,
+      "height": 720,
+      "color": "0xFF12FA05"
+    },
+    {
+      "button": "buttonNote4",
+      "buttonIDs": ["9K_NOTE_4"],
+      "buttonUniqueID": 3,
+      "x": 426,
+      "y": 0,
+      "width": 142,
+      "height": 720,
+      "color": "0xFFF9393F"
+    },
+    {
+      "button": "buttonNote5",
+      "buttonIDs": ["9K_NOTE_5"],
+      "buttonUniqueID": 4,
+      "x": 568,
+      "y": 0,
+      "width": 142,
+      "height": 720,
+      "color": "0xFFFFE600"
+    },
+    {
+      "button": "buttonNote6",
+      "buttonIDs": ["9K_NOTE_6"],
+      "buttonUniqueID": 5,
+      "x": 710,
+      "y": 0,
+      "width": 142,
+      "height": 720,
+      "color": "0xFFC24B99"
+    },
+    {
+      "button": "buttonNote7",
+      "buttonIDs": ["9K_NOTE_7"],
+      "buttonUniqueID": 6,
+      "x": 852,
+      "y": 0,
+      "width": 142,
+      "height": 720,
+      "color": "0xFF00FFFF"
+    },
+    {
+      "button": "buttonNote8",
+      "buttonIDs": ["9K_NOTE_8"],
+      "buttonUniqueID": 7,
+      "x": 994,
+      "y": 0,
+      "width": 142,
+      "height": 720,
+      "color": "0xFF12FA05"
+    },
+    {
+      "button": "buttonNote9",
+      "buttonIDs": ["9K_NOTE_9"],
+      "buttonUniqueID": 8,
+      "x": 1136,
+      "y": 0,
+      "width": 143,
+      "height": 720,
+      "color": "0xFFF9393F"
+    }
+  ]
+}

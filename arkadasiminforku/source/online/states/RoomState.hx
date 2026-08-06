@@ -1,0 +1,1237 @@
+package online.states;
+
+import flixel.util.FlxStringUtil;
+import states.stages.Spooky;
+import flixel.util.FlxAxes;
+import flixel.addons.display.FlxPieDial;
+import sys.FileSystem;
+import states.stages.Philly;
+import flixel.FlxSubState;
+import flixel.group.FlxGroup;
+import flixel.math.FlxPoint;
+import flixel.FlxObject;
+import flixel.util.FlxSpriteUtil;
+import objects.Character;
+import lime.system.Clipboard;
+import online.backend.schema.Player;
+import backend.Rating;
+import backend.WeekData;
+import backend.Song;
+import haxe.crypto.Md5;
+import states.FreeplayState;
+import states.ModsMenuState;
+import openfl.utils.Assets as OpenFlAssets;
+
+#if lumod
+@:build(lumod.LuaScriptClass.build())
+#end
+@:publicFields
+/*#if interpret @:nullSafety(Off) #end*/
+class RoomState extends MusicBeatState /*#if interpret implements interpret.Interpretable #end */ {
+	var verifyMod:FlxText;
+	var verifyModBg:FlxSprite;
+	var roomCodeBg:FlxSprite;
+	var roomCode:FlxText;
+	var songName:FlxText;
+	var songNameBg:FlxSprite;
+	var playIcon:FlxSprite;
+	var playIconBg:FlxSprite;
+	var chatBox:ChatBox;
+
+	var characters:Map<String, LobbyCharacter> = new Map();
+	var charactersLayer:FlxTypedGroup<LobbyCharacter> = new FlxTypedGroup<LobbyCharacter>();
+
+	var curSelected:Int = -1;
+	var items:FlxTypedGroup<FlxSprite>;
+	var settingsIconBg:FlxSprite;
+	var settingsIcon:FlxSprite;
+	var chatIconBg:FlxSprite;
+	var chatIcon:FlxSprite;
+
+	var itemTip:FlxText;
+	var itemTipBg:FlxSprite;
+
+	var stage:BaseStage;
+
+	var cum:FlxCamera = new FlxCamera();
+	var camHUD:FlxCamera = new FlxCamera();
+	var groupHUD:FlxGroup;
+
+	var leavePie:LeavePie;
+
+	var revealTimer:FlxTimer;
+	var playerHold(default, set):Bool = false;
+
+	static var instance:RoomState = null;
+
+	function set_playerHold(v) {
+		if (playerHold != v) {
+			playerHold = v;
+			GameClient.send("noteHold", v);
+		}
+		return v;
+	}
+
+	public function new() {
+		super();
+
+		instance = this;
+	}
+
+	function registerMessages() {
+		if (GameClient.getPlayerSelf() == null) {
+			GameClient.leaveRoom('Oda içinde bulunmayan kişi.');
+			return;
+		}
+
+		GameClient.initStateListeners(this, this.registerMessages);
+
+		if (!GameClient.isConnected())
+			return;
+
+		playMusic(GameClient.getPlayerSelf().hasSong);
+		GameClient.getPlayerSelf().listen("hasSong", (value:Bool, prev) -> {
+			Waiter.putPersist(() -> {
+				playMusic(value);
+			});
+		});
+
+		GameClient.room.onMessage("checkChart", function(message) {
+			Waiter.putPersist(() -> {
+				verifyDownloadMod(false, true);
+			});
+		});
+
+		GameClient.room.onMessage("checkStage", function(message) {
+			Waiter.put(() -> {
+				checkStage();
+			});
+		});
+
+		function listenUpdateTextOnField(player:Player, field:String) {
+			player.listen(field, (value, prev) -> {
+				if (value == prev)
+					return;
+				Waiter.put(() -> {
+					updateTexts();
+				});
+			});
+		}
+		function listenUpdate(sid:String, player:Player) {
+			listenUpdateTextOnField(player, 'ping');
+			listenUpdateTextOnField(player, 'status');
+			listenUpdateTextOnField(player, 'name');
+			player.listen("skinName", (value, prev) -> {
+				if (value == prev)
+					return;
+				Waiter.put(() -> {
+					characters.get(sid).loadCharacter();
+					updateCharacters();
+				});
+			});
+			player.listen("isReady", (value, prev) -> {
+				Waiter.put(() -> {
+					if (value) {
+						var sond = FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
+						sond.pitch = 1.1;
+					}
+					// else {
+					// 	var sond = FlxG.sound.play(Paths.sound('cancelMenu'));
+					// 	sond.pitch = 1.1;
+					// }
+				});
+			});
+			player.listen("noteSkin", (value, prev) -> {
+				if (value == prev)
+					return;
+				Waiter.put(() -> {
+					checkNoteSkin(player);
+				});
+			});
+			player.listen("bfSide", (value, prev) -> {
+				if (value == prev)
+					return;
+
+				Waiter.put(() -> {
+					updateCharacters();
+				});
+			});
+			player.listen("ox", (value, prev) -> {
+				if (value == prev)
+					return;
+
+				Waiter.put(() -> {
+					updateCharacters();
+				});
+			});
+		}
+
+		function initPlayer(sid:String, player:Player) {
+			if (!characters.exists(sid)) {
+				var char = new LobbyCharacter(player, camHUD);
+				characters.set(sid, char);
+				// HOW THE FUCK DOES THIS EVEN HAPPEN??!!??!
+				if (charactersLayer.members == null)
+					charactersLayer = new FlxTypedGroup<LobbyCharacter>();
+				charactersLayer.add(char);
+			}
+
+			listenUpdate(sid, player);
+			checkNoteSkin(player);
+			updateCharacters();
+		}
+
+		//cool colyseus
+		// for (sid => player in GameClient.room.state.players) {
+		// 	trace('for: ' + sid + " " + player);
+		// 	initPlayer(sid, player);
+		// }
+		GameClient.room.state.players.onAdd((player, sid) -> {
+			Waiter.put(() -> {
+				initPlayer(sid, player);
+			});
+		});
+
+		GameClient.room.state.players.onRemove((player, sid) -> {
+			Waiter.put(() -> {
+				var character = characters.get(sid);
+				charactersLayer.remove(character, true);
+				character.destroy();
+				characters.remove(sid);
+				updateCharacters();
+			});
+		});
+
+		// GameClient.room.onMessage("ping", function(message) {
+		// 	Waiter.put(() -> {
+		// 		GameClient.send("pong");
+		// 		@:privateAccess {
+		// 			if (stage?.phillyWindow == null) return;
+		// 			stage.curLight = FlxG.random.int(0, stage.phillyLightsColors.length - 1, [stage.curLight]);
+		// 			stage.phillyWindow.color = stage.phillyLightsColors[stage.curLight];
+		// 		}
+		// 	});
+		// });
+
+		GameClient.room.onMessage("charPlay", function(_message:Array<Dynamic>) {
+			var sid:String = _message[0];
+			var message:Array<Dynamic> = _message[1];
+
+			Waiter.put(() -> {
+				if (message == null || message[0] == null)
+					return;
+
+				playerAnim(message[0], sid);
+			});
+		});
+
+		GameClient.room.state.gameplaySettings.onChange((o, n) -> {
+			Waiter.putPersist(() -> {
+				FreeplayState.updateFreeplayMusicPitch();
+				//FlxG.animationTimeScale = ClientPrefs.getGameplaySetting('songspeed');
+			});
+		});
+
+	}
+
+	override function destroy() {
+		super.destroy();
+		
+		try {
+			@:privateAccess
+			GameClient.room.state.gameplaySettings._callbacks.clear();
+		} catch (exc) {}
+	}
+
+	var lastSwapped = false;
+
+	final TEXT_BG_COLOR = 0x8A000000;
+
+	override function create() {
+		super.create();
+
+		#if DISCORD_ALLOWED
+		DiscordClient.changePresence("Lobide", null, null, false);
+		#end
+
+		WeekData.reloadWeekFiles(false);
+		for (i in 0...WeekData.weeksList.length) {
+			WeekData.setDirectoryFromWeek(WeekData.weeksLoaded.get(WeekData.weeksList[i]));
+		}
+		Mods.loadTopMod();
+		WeekData.setDirectoryFromWeek();
+
+		FlxG.animationTimeScale = 1;
+
+		FlxG.cameras.reset(cum);
+		FlxG.cameras.add(camHUD, false);
+		FlxG.cameras.setDefaultDrawTarget(cum, true);
+		camHUD.bgColor.alpha = 0;
+
+		groupHUD = new FlxGroup();
+		groupHUD.cameras = [camHUD];
+
+		// STAGE
+
+		if (online.backend.DateEvent.isHalloween) {
+			Paths.setCurrentLevel("week2");
+			stage = new Spooky();
+			untyped stage.room = this;
+		} 
+		else {
+			Paths.setCurrentLevel("week3");
+			var pStage = new Philly();
+			stage = pStage;
+			pStage.phillyTrain.sound.volume = 0;
+
+			if (!ClientPrefs.data.lowQuality) {
+				pStage.bg.setGraphicSize(Std.int(pStage.bg.width * 1));
+				pStage.bg.updateHitbox();
+
+				pStage.bg.x -= 80;
+				pStage.bg.y -= 50;
+			}
+			pStage.city.setGraphicSize(Std.int(pStage.city.width * 1.1));
+			pStage.city.updateHitbox();
+			pStage.phillyWindow.setGraphicSize(Std.int(pStage.phillyWindow.width * 1.1));
+			pStage.phillyWindow.updateHitbox();
+
+			pStage.city.x -= 80;
+			pStage.phillyWindow.x -= 80;
+			pStage.city.y -= 20;
+			pStage.phillyWindow.y -= 20;
+		}
+		
+		stage.cameras = [cum];
+		add(stage);
+
+		cum.scroll.set(100, 130);
+		cum.zoom = 0.85;
+
+		add(charactersLayer);
+
+		// POST STAGE
+
+		// player1Text = new FlxText(0, 100, 0, "PLAYER 1");
+		// player1Text.setFormat("VCR OSD Mono", 25, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+
+		// player1Bg = new FlxSprite(-1000);
+		// player1Bg.makeGraphic(1, 1, 0xA4000000);
+		// player1Bg.updateHitbox();
+		// player1Bg.y = player1Text.y - 30;
+		// groupHUD.add(player1Bg);
+		// groupHUD.add(player1Text);
+
+		// player2Text = new FlxText(0, 100, 0, "PLAYER 2");
+		// player2Text.setFormat("VCR OSD Mono", 25, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+
+		// player2Bg = new FlxSprite(-1000);
+		// player2Bg.makeGraphic(1, 1, 0xA4000000);
+		// player2Bg.updateHitbox();
+		// player2Bg.y = player2Text.y - 30;
+		// groupHUD.add(player2Bg);
+		// groupHUD.add(player2Text);
+
+		chatBox = new ChatBox(camHUD, (cmd, args) -> {
+			switch (cmd) {
+				case "pa":
+					if (args[0] != null && args[0].trim() != "")
+						playerAnim(args[0]);
+					else {
+						var anims = "";
+						for (anim in @:privateAccess getCharacterSelf().animation._animations)
+							anims += '"${anim.name}" ';
+						ChatBox.addMessage("> Oynatmak istediğiniz animasyonu girin!\nMevcut animasyonlar:" + anims);
+					}
+					return true;
+				case "results":
+					FlxG.switchState(() -> new ResultsState());
+					return true;
+				case "restage":
+					checkStage();
+					return true;
+				case "help":
+					ChatBox.addMessage("> Oda Komutları: /pa <anim>, /results, /restage");
+			}
+			return false;
+		});
+		groupHUD.add(chatBox);
+
+		items = new FlxTypedGroup<FlxSprite>();
+
+		settingsIconBg = new FlxSprite();
+		settingsIconBg.makeGraphic(100, 100, TEXT_BG_COLOR);
+		settingsIconBg.updateHitbox();
+		settingsIconBg.y = FlxG.height - settingsIconBg.height - 20;
+		settingsIconBg.x = FlxG.width - settingsIconBg.width - 20;
+		groupHUD.add(settingsIconBg);
+
+		settingsIcon = new FlxSprite(settingsIconBg.x, settingsIconBg.y);
+		settingsIcon.antialiasing = ClientPrefs.data.antialiasing;
+		settingsIcon.frames = Paths.getSparrowAtlas('online_settings');
+		settingsIcon.animation.addByPrefix('idle', "settings", 24);
+		settingsIcon.animation.play('idle');
+		settingsIcon.updateHitbox();
+		settingsIcon.x += settingsIconBg.width / 2 - settingsIcon.width / 2;
+		settingsIcon.y += settingsIconBg.height / 2 - settingsIcon.height / 2;
+		settingsIcon.ID = 0;
+		items.add(settingsIcon);
+
+		chatIconBg = new FlxSprite();
+		chatIconBg.makeGraphic(100, 100, TEXT_BG_COLOR);
+		chatIconBg.updateHitbox();
+		chatIconBg.y = settingsIconBg.y;
+		chatIconBg.x = settingsIconBg.x - chatIconBg.width - 20;
+		groupHUD.add(chatIconBg);
+
+		chatIcon = new FlxSprite(chatIconBg.x, chatIconBg.y);
+		chatIcon.antialiasing = ClientPrefs.data.antialiasing;
+		chatIcon.frames = Paths.getSparrowAtlas('online_chat');
+		chatIcon.animation.addByPrefix('idle', "chat", 24);
+		chatIcon.animation.play('idle');
+		chatIcon.updateHitbox();
+		chatIcon.x += chatIconBg.width / 2 - chatIcon.width / 2;
+		chatIcon.y += chatIconBg.height / 2 - chatIcon.height / 2;
+		chatIcon.ID = 1;
+		items.add(chatIcon);
+
+		playIconBg = new FlxSprite();
+		playIconBg.makeGraphic(100, 100, TEXT_BG_COLOR);
+		playIconBg.updateHitbox();
+		playIconBg.y = chatIconBg.y;
+		playIconBg.x = chatIconBg.x - playIconBg.width - 20;
+		groupHUD.add(playIconBg);
+
+		playIcon = new FlxSprite(playIconBg.x, playIconBg.y);
+		playIcon.antialiasing = ClientPrefs.data.antialiasing;
+		playIcon.frames = Paths.getSparrowAtlas('online_play');
+		playIcon.animation.addByPrefix('idle', "play", 24);
+		playIcon.animation.play('idle');
+		playIcon.updateHitbox();
+		playIcon.x += playIconBg.width / 2 - playIcon.width / 2;
+		playIcon.y += playIconBg.height / 2 - playIcon.height / 2;
+		playIcon.ID = 2;
+		items.add(playIcon);
+
+		roomCode = new FlxText(0, 0, 0, "Oda Kodu: ????");
+		roomCode.setFormat("VCR OSD Mono", 18, FlxColor.WHITE, RIGHT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		roomCode.x = settingsIconBg.x + settingsIconBg.width - roomCode.width;
+		roomCode.y = settingsIconBg.y - roomCode.height - 10;
+		roomCode.ID = 3;
+
+		roomCodeBg = new FlxSprite();
+		roomCodeBg.makeGraphic(1, 1, TEXT_BG_COLOR);
+		roomCodeBg.updateHitbox();
+		roomCodeBg.y = roomCode.y;
+		roomCodeBg.x = roomCode.x;
+		roomCodeBg.scale.set(roomCode.width, roomCode.height);
+		roomCodeBg.updateHitbox();
+		groupHUD.add(roomCodeBg);
+		items.add(roomCode);
+
+		songName = new FlxText(0, 0, 0, "Seçilen Şarkı: ????");
+		songName.setFormat("VCR OSD Mono", 18, FlxColor.WHITE, RIGHT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		songName.x = roomCodeBg.x + roomCodeBg.width - songName.width;
+		songName.y = roomCodeBg.y - songName.height - 10;
+		songName.ID = 4;
+
+		songNameBg = new FlxSprite();
+		songNameBg.makeGraphic(1, 1, TEXT_BG_COLOR);
+		songNameBg.updateHitbox();
+		songNameBg.y = songName.y;
+		songNameBg.x = songName.x;
+		songNameBg.scale.set(songName.width, songName.height);
+		songNameBg.updateHitbox();
+		groupHUD.add(songNameBg);
+		items.add(songName);
+
+		verifyMod = new FlxText(0, 0, 0, "...");
+		verifyMod.setFormat("VCR OSD Mono", 18, FlxColor.WHITE, RIGHT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		verifyMod.x = songNameBg.x + songNameBg.width - verifyMod.width;
+		verifyMod.y = songNameBg.y - verifyMod.height - 10;
+		verifyMod.ID = 5;
+
+		verifyModBg = new FlxSprite();
+		verifyModBg.makeGraphic(1, 1, TEXT_BG_COLOR);
+		verifyModBg.updateHitbox();
+		verifyModBg.y = verifyMod.y;
+		verifyModBg.x = verifyMod.x;
+		verifyModBg.scale.set(verifyMod.width, verifyMod.height);
+		verifyModBg.updateHitbox();
+		groupHUD.add(verifyModBg);
+		items.add(verifyMod);
+
+		groupHUD.add(items);
+
+		itemTipBg = new FlxSprite(-1000);
+		itemTipBg.makeGraphic(1, 1, TEXT_BG_COLOR);
+		itemTipBg.updateHitbox();
+		groupHUD.add(itemTipBg);
+
+		itemTip = new FlxText(0, 0, 0, "Placeholder");
+		itemTip.setFormat("VCR OSD Mono", 18, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		groupHUD.add(itemTip);
+
+		groupHUD.add(leavePie = new LeavePie());
+
+		add(groupHUD);
+		
+		updateTexts(true);
+
+		FlxG.mouse.visible = true;
+		FlxG.autoPause = false;
+
+		verifyDownloadMod(false, true);
+		checkStage();
+
+		if (stage != null)
+			stage.createPost();
+
+		GameClient.send("status", "Lobide");
+
+		mobileManager.addMobilePad('FULL', 'B_C_Y_T_M');
+		mobileManager.addMobilePadCamera();
+		mobileManager.mobilePad.y -= 300;
+
+		registerMessages();
+	}
+
+	var hasStage:Bool = false;
+	function checkStage() {
+		try {
+			if (GameClient.room.state.stageName == "") {
+				hasStage = true;
+				return;
+			}
+
+			if (FunkinFileSystem.exists(Paths.mods('${GameClient.room.state.stageMod}/stages/${GameClient.room.state.stageName}.json')) ||
+				OpenFlAssets.exists(Paths.getPath('stages/${GameClient.room.state.stageName}.json'), TEXT)) {
+				hasStage = true;
+				return;
+			}
+
+			if (GameClient.room.state.stageURL != null) {
+				hasStage = false;
+
+				OnlineMods.downloadMod(GameClient.room.state.stageURL, false, (_) -> {
+					if (destroyed)
+						return;
+
+					checkStage();
+				});
+			}
+		} catch(e:Dynamic) {}
+	}
+
+	function checkNoteSkin(player:Player, ?manualDownload:Bool = false) {
+		if (!FunkinFileSystem.exists(Paths.mods(player.noteSkinMod)) && player.noteSkinURL != null) {
+			OnlineMods.downloadMod(player.noteSkinURL, manualDownload, function(_) {
+				Mods.updatedOnState = false;
+				Mods.parseList();
+				Mods.pushGlobalMods();
+			});
+
+			if(!manualDownload && ClientPrefs.data.disableAutoDownloads) {
+				chatBox.addNoteSkinDownloadMessage(function() {
+					checkNoteSkin(player, true);
+				});
+			}
+		}
+	}
+
+	override function openSubState(obj:FlxSubState) {
+		obj.cameras = [camHUD];
+		super.openSubState(obj);
+	}
+
+	override function closeSubState() {
+		super.closeSubState();
+
+		GameClient.send("status", "Lobide");
+	}
+
+	var optionShake:FlxTween;
+
+	var elapsedShit = 3.;
+	var lastFocused = false;
+
+	override function update(elapsed:Float) {
+		super.update(elapsed);
+
+		mobileManager.mobilePad.getButton('buttonLeft').visible = mobileManager.mobilePad.getButton('buttonRight').visible = mobileManager.mobilePad.getButton('buttonUp').visible = mobileManager.mobilePad.getButton('buttonDown').visible = mobileManager.mobilePad.getButton('buttonT').visible = mobileManager.mobilePad.getButton('buttonM').visible = mobileButtonPressed('Y');
+
+		if (FlxG.keys.justPressed.F11) {
+			GameClient.reconnect();
+		}
+
+		#if lumod
+		if (FlxG.keys.justPressed.F12) {
+			trace('reloading lumod');
+			Lumod.cache.scripts.clear();
+			lmLoad();
+		}
+		#end
+		
+		if (GameClient.getPlayerSelf() == null) {
+			return;
+		}
+
+		if (lastFocused != (chatBox.focused && chatBox.typeText.text.length > 0)) {
+			if (!lastFocused) // is now typing
+				GameClient.send("status", "Yazıyor...");
+			else
+				GameClient.send("status", "Lobide");
+		}
+
+		lastFocused = chatBox.focused && chatBox.typeText.text.length > 0;
+		
+		// if (FlxG.keys.justPressed.SPACE) {
+		// 	Alert.alert("Kamera Konumu:", '${cum.scroll.x},${cum.scroll.y} x ${cum.zoom}');
+		// }
+		// if (FlxG.keys.pressed.U) {
+		// 	cum.zoom -= elapsed * 0.5;
+		// }
+		// if (FlxG.keys.pressed.O) {
+		// 	cum.zoom += elapsed * 0.5;
+		// }
+		// if (FlxG.keys.pressed.I) {
+		// 	cum.scroll.y -= elapsed * 20;
+		// }
+		// if (FlxG.keys.pressed.J) {
+		// 	cum.scroll.x -= elapsed * 20;
+		// }
+		// if (FlxG.keys.pressed.K) {
+		// 	cum.scroll.y += elapsed * 20;
+		// }
+		// if (FlxG.keys.pressed.L) {
+		// 	cum.scroll.x += elapsed * 20;
+		// }
+
+		#if DISCORD_ALLOWED
+		elapsedShit += elapsed;
+
+		if (elapsedShit >= 3) {
+			elapsedShit = 0;
+			DiscordClient.updateOnlinePresence();
+		}
+		#end
+
+		for (item in items) {
+			if (curSelected == item.ID) {
+				if (item == settingsIcon)
+					item.angle += 20 * elapsed;
+				else if (item == chatIcon)
+					item.angle = FlxMath.lerp(item.angle, 20, elapsed * 5);
+
+				if (item == playIcon) {
+					if (GameClient.getPlayerSelf().hasSong) {
+						item.scale.set(FlxMath.lerp(item.scale.x, 1.2, elapsed * 10), FlxMath.lerp(item.scale.y, 1.2, elapsed * 10));
+					}
+					else {
+						item.scale.set(FlxMath.lerp(item.scale.x, 1.05, elapsed * 10), FlxMath.lerp(item.scale.y, 1.05, elapsed * 10));
+					}
+				}
+				else
+					item.scale.set(FlxMath.lerp(item.scale.x, 1.1, elapsed * 10), FlxMath.lerp(item.scale.y, 1.1, elapsed * 10));
+			}
+			else {
+				item.angle = FlxMath.lerp(item.angle, 0, elapsed * 5);
+				item.scale.set(FlxMath.lerp(item.scale.x, 1, elapsed * 10), FlxMath.lerp(item.scale.y, 1, elapsed * 10));
+			}
+		}
+		playIcon.alpha = GameClient.getPlayerSelf().hasSong ? 1.0 : 0.5;
+
+		if (!chatBox.focused) {
+			if (FlxG.mouse.justMoved) {
+				if (FlxG.mouse.overlaps(settingsIconBg, camHUD)) {
+					curSelected = settingsIcon.ID;
+				}
+				else if (FlxG.mouse.overlaps(chatIconBg, camHUD)) {
+					curSelected = chatIcon.ID;
+				}
+				else if (FlxG.mouse.overlaps(playIconBg, camHUD)) {
+					curSelected = playIcon.ID;
+				}
+				else if (FlxG.mouse.overlaps(roomCodeBg, camHUD)) {
+					curSelected = roomCode.ID;
+				}
+				else if (FlxG.mouse.overlaps(songNameBg, camHUD)) {
+					curSelected = songName.ID;
+				}
+				else if (FlxG.mouse.overlaps(verifyModBg, camHUD)) {
+					curSelected = verifyMod.ID;
+				}
+				else {
+					curSelected = -1;
+				}
+			}
+
+			var held = false;
+			for (key in ['note_left', 'note_down', 'note_up', 'note_right']) {
+				if (controls.pressed(key)) {
+					held = true;
+					break;
+				}
+			}
+			playerHold = held;
+
+			// trace('playerHold = ' + playerHold + ', oppHold = ' + oppHold);
+
+			if (mobileButtonPressed('Y') || FlxG.keys.pressed.ALT) { // useless, but why not?
+				var suffix = (mobileButtonPressed('M') || FlxG.keys.pressed.CONTROL) ? 'miss' : '';
+				if (mobileButtonJustPressed('LEFT') || controls.NOTE_LEFT_P) {
+					playerAnim('singLEFT' + suffix);
+				}
+				if (mobileButtonJustPressed('RIGHT') || controls.NOTE_RIGHT_P) {
+					playerAnim('singRIGHT' + suffix);
+				}
+				if (mobileButtonJustPressed('UP') || controls.NOTE_UP_P) {
+					playerAnim('singUP' + suffix);
+				}
+				if (mobileButtonJustPressed('DOWN') || controls.NOTE_DOWN_P) {
+					playerAnim('singDOWN' + suffix);
+				}
+				if (controls.TAUNT) {
+					var altSuffix = FlxG.keys.pressed.SHIFT ? '-alt' : '';
+					playerAnim('taunt' + altSuffix);
+				}
+			} else {
+				if (controls.UI_LEFT_P) {
+					changeSelection(1);
+				}
+				if (controls.UI_RIGHT_P) {
+					changeSelection(-1);
+				}
+				if (controls.UI_UP_P) {
+					changeSelection(1);
+				}
+				if (controls.UI_DOWN_P) {
+					changeSelection(-1);
+				}
+				if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.C) {
+					Clipboard.text = GameClient.getRoomSecret(true);
+					Alert.alert("Oda Kodu Kopyalandı!");
+				}
+
+				if (FlxG.keys.justPressed.SHIFT) {
+					openSubState(new RoomSettingsSubstate());
+				}
+			}
+			
+			if (((!FlxG.keys.pressed.ALT || !mobileButtonPressed('Y')) && controls.ACCEPT) || FlxG.mouse.justPressed) {
+				switch (curSelected) {
+					case 0:
+						openSubState(new RoomSettingsSubstate());
+					case 1:
+						chatBox.focused = true;
+					case 2:
+						var selfPlayer:Player = GameClient.getPlayerSelf();
+
+						if (!selfPlayer.hasSong && GameClient.room.state.song != "" && (Mods.getModDirectories().contains(GameClient.room.state.modDir) || GameClient.room.state.modDir == "")) {
+							Mods.currentModDirectory = GameClient.room.state.modDir;
+							try {
+								GameClient.send("verifyChart", Md5.encode(Song.loadRawSong(GameClient.room.state.song, GameClient.room.state.folder)));
+							}
+							catch (exc) {
+								Alert.alert("Bir Hata Oluştu!", ShitUtil.readableError(exc));
+								if (optionShake != null)
+									optionShake.cancel();
+								optionShake = FlxTween.shake(playIcon, 0.05, 0.3, FlxAxes.X);
+							}
+						}
+						else if (selfPlayer.hasSong) {
+							checkStage();
+
+							if (!hasStage) {
+								Alert.alert("Mevcut arkaplana sahip değilsiniz!");
+							}
+							else {
+								GameClient.send("startGame");
+							}
+						}
+						else {
+							if (GameClient.room.state.song == "") {
+								Alert.alert("Song isn't selected!");
+							}
+							else {
+								Alert.alert("Mevcut şarkıya veya moda sahip değilsiniz!");
+							}
+							var sond = FlxG.sound.play(Paths.sound('badnoise' + FlxG.random.int(1, 3)));
+							sond.pitch = 1.1;
+							if (optionShake != null)
+								optionShake.cancel();
+							optionShake = FlxTween.shake(playIcon, 0.05, 0.3, FlxAxes.X);
+						}
+					case 3:
+						roomCode.text = 'Oda Kodu: "' + GameClient.getRoomSecret() + '"';
+						roomCode.x = settingsIconBg.x + settingsIconBg.width - roomCode.width;
+						roomCodeBg.scale.set(roomCode.width, roomCode.height);
+						roomCodeBg.updateHitbox();
+						roomCodeBg.x = roomCode.x;
+						if (revealTimer != null)
+							revealTimer.cancel();
+						revealTimer = new FlxTimer().start(10, (t) -> {
+							roomCode.text = "Oda Kodu: ????";
+							roomCode.x = settingsIconBg.x + settingsIconBg.width - roomCode.width;
+							roomCodeBg.scale.set(roomCode.width, roomCode.height);
+							roomCodeBg.updateHitbox();
+							roomCodeBg.x = roomCode.x;
+						});
+						Clipboard.text = GameClient.getRoomSecret(true);
+						Alert.alert("Oda Kodu Kopyalandı!");
+					case 4:
+						if (GameClient.hasPerms()) {
+							FlxG.switchState(() -> new FreeplayState());
+							FlxG.mouse.visible = false;
+						}
+						else {
+							Alert.alert("Bunu Sadece Oda Sahibi Yapabilir!");
+							var sond = FlxG.sound.play(Paths.sound('badnoise' + FlxG.random.int(1, 3)));
+							sond.pitch = 1.1;
+							if (optionShake != null)
+								optionShake.cancel();
+							optionShake = FlxTween.shake(songName, 0.05, 0.3, FlxAxes.X);
+						}
+					case 5:
+						if (verifyDownloadMod(true)) {
+							FlxG.switchState(() -> new DownloaderState());
+						}
+				}
+			}
+			else if (FlxG.mouse.justPressedRight) {
+				if (curSelected == 5) {
+					FlxG.switchState(() -> new DownloaderState());
+				}
+			}
+		}
+
+		if (FlxG.sound.music != null)
+			Conductor.songPosition = FlxG.sound.music.time;
+    }
+	
+	function verifyDownloadMod(manual:Bool, ?ignoreAlert:Bool = false) {
+		try {
+			if (GameClient.room.state.song == "") {
+				if (ignoreAlert)
+					return false;
+
+				if (GameClient.hasPerms())
+					return true;
+
+				Alert.alert("Şarkı seçilmedi!");
+				var sond = FlxG.sound.play(Paths.sound('badnoise' + FlxG.random.int(1, 3)));
+				sond.pitch = 1.1;
+				if (optionShake != null)
+					optionShake.cancel();
+				optionShake = FlxTween.shake(verifyMod, 0.05, 0.3, FlxAxes.X);
+				return false;
+			}
+			if (GameClient.getPlayerSelf().hasSong) {
+				if (ignoreAlert)
+					return false;
+
+				if (GameClient.hasPerms())
+					return true;
+
+				Alert.alert("Bu şarkı zaten yüklü!");
+				var sond = FlxG.sound.play(Paths.sound('badnoise' + FlxG.random.int(1, 3)));
+				sond.pitch = 1.1;
+				if (optionShake != null)
+					optionShake.cancel();
+				optionShake = FlxTween.shake(verifyMod, 0.05, 0.3, FlxAxes.X);
+				return false;
+			}
+
+			if (Mods.getModDirectories().contains(GameClient.room.state.modDir) || GameClient.room.state.modDir == "") {
+				Mods.currentModDirectory = GameClient.room.state.modDir;
+				try {
+					GameClient.send("verifyChart", Md5.encode(Song.loadRawSong(GameClient.room.state.song, GameClient.room.state.folder)));
+				}
+				catch (exc) {
+				}
+				return false;
+			}
+
+			if (GameClient.room.state.modDir != null && GameClient.room.state.modURL != null && GameClient.room.state.modURL != "") {
+				var daModURL = GameClient.room.state.modURL;
+				OnlineMods.downloadMod(daModURL, manual, (mod) -> {
+					if (GameClient.isConnected())
+						GameClient.send("notifyInstall", daModURL);
+
+					if (destroyed)
+						return;
+
+					if (GameClient.isConnected() && GameClient.room.state.modDir == mod) {
+						if (Mods.getModDirectories().contains(GameClient.room.state.modDir)) {
+							Mods.currentModDirectory = GameClient.room.state.modDir;
+							GameClient.send("verifyChart", Md5.encode(Song.loadRawSong(GameClient.room.state.song, GameClient.room.state.folder)));
+						}
+					}
+				});
+			}
+			else if (!ignoreAlert) {
+				if (GameClient.room.state.modURL == null || GameClient.room.state.modURL == "") {
+					Alert.alert("Mod bulunamadı!", "Sunucu bu modun URL'sini belirtmedi.");
+				}
+				else if (Mods.getModDirectories().contains(GameClient.room.state.modDir)) {
+					Alert.alert("Mod bulunamadı!", "Bu yolda olması beklenen mod verileri: " + (GameClient.room.state.modDir ?? #if mobile Sys.getCwd() + #end "mods/"));
+				}
+				var sond = FlxG.sound.play(Paths.sound('badnoise' + FlxG.random.int(1, 3)));
+				sond.pitch = 1.1;
+				if (optionShake != null)
+					optionShake.cancel();
+				optionShake = FlxTween.shake(verifyMod, 0.05, 0.3, FlxAxes.X);
+			}
+		}
+		catch (exc) {
+			Sys.println(exc);
+		}
+
+		return false;
+	}
+
+	var _textsInit = false;
+    function updateTexts(?init:Bool = false) {
+		if (init)
+			_textsInit = true;
+
+		if (destroyed || GameClient.room == null || !_textsInit)
+			return;
+
+		var selfPlayer:Player = GameClient.getPlayerSelf();
+		if (selfPlayer == null)
+			return;
+		
+		var daModName = GameClient.room.state.modDir ?? "";
+		if (daModName.length > 30) {
+			daModName = daModName.substr(0, 30) + "...";
+		}
+
+		if (daModName == "" || GameClient.room.state.song == "") {
+			verifyMod.text = "Mod seçilmedi.";
+		}
+		else if (selfPlayer.hasSong) {
+			verifyMod.text = "Mod: " + daModName;
+		}
+		else {
+			if (GameClient.room.state.modURL == null || GameClient.room.state.modURL == "")
+				verifyMod.text = "İsimsiz Mod: " + daModName + " (Bilinmiyor; Sunucu modun URL'sini belirtmedi)";
+			else 
+				verifyMod.text = "İsimsiz Mod: " + daModName + " (Buradan indirin/doğrulayın!)";
+		}
+
+		verifyMod.x = songNameBg.x + songNameBg.width - verifyMod.width;
+		verifyModBg.scale.set(verifyMod.width, verifyMod.height);
+		verifyModBg.updateHitbox();
+		verifyModBg.x = verifyMod.x;
+
+		songName.text = "Seçilen Şarkı: " + GameClient.room.state.song;
+		if (GameClient.room.state.song == null || GameClient.room.state.song.trim() == "")
+			songName.text += "(Yok)";
+		else if (!selfPlayer.hasSong)
+			songName.text += " (Bulunamadı!)";
+		songName.x = roomCodeBg.x + roomCodeBg.width - songName.width;
+		songNameBg.scale.set(songName.width, songName.height);
+		songNameBg.updateHitbox();
+		songNameBg.x = songName.x;
+
+		updateCharacters();
+		
+		switch (curSelected) {
+			case 0:
+				itemTip.text = " - AYARLAR - \nSunucu ayarlarını açar\n\n(Kısayol: SHIFT)";
+			case 1:
+				itemTip.text = " - SOHBET - \nSohbeti açar.\n\n(Kısayol: TAB)";
+			case 2:
+				itemTip.text = " - OYUNU BASLAT - \nHAZIRLIK durumunuzu değiştirir.\n\nOyuncuların ayrıca şunlara sahip olması gerekir\nşu anda seçili mod yüklü.\n\n(Her iki taraf da sadece\nen fazla 2 oyuncu olabilir).";
+			case 3:
+				itemTip.text = " - ODA KODU - \nBu odanın benzersiz kodu.\n\nKABUL ET - Kodu gösterir ve\npanoya kopyalar.\n\nCTRL + C - Kod kopyalanır\nekranda göstererek.";
+			case 4:
+				itemTip.text = " - ŞARKI SEÇIMI - \nŞarkıyı seçer.\n\n(Ev sahibi izinleri olan oyuncular\nyapabilir)";
+			case 5:
+				itemTip.text = " - MOD - \nSeçili modu indirir\neğer yüklü değilse.\n\nYükledikten sonra\nButona tekrar bas\n\nSağ tıklama - Mod indiriciyi aç";
+			default:
+				itemTip.text = " - LOBI - \nUI tuş atamalarını basın\nveya farenizi kullanın\nSeçeneği seçmek için!";
+		}
+
+		itemTip.x = settingsIconBg.x + settingsIconBg.width - itemTip.width;
+		itemTip.y = verifyMod.y - itemTip.height - 20;
+		itemTipBg.x = itemTip.x;
+		itemTipBg.y = itemTip.y;
+		itemTipBg.scale.set(itemTip.width, itemTip.height);
+		itemTipBg.updateHitbox();
+    }
+
+	// @interpret
+	function updateCharacters() {
+		if (destroyed)
+			return;
+
+		// var sides = [0, 0];
+		var maxOffset = 0.;
+		for (character in characters) {
+			character.character.ox = character.player.ox;
+			character.repos();
+			character.updatePlayerText();
+
+			maxOffset = Math.max(maxOffset, character.character.ox);
+
+			// sides[character.player.bfSide ? 1 : 0]++;
+		}
+
+		charactersLayer.members.sort(sortByOX);
+
+		//cum.zoom = 0.9 - (maxOffset * 0.1);
+	}
+	
+	function sortByOX(a:LobbyCharacter, b:LobbyCharacter) {
+		if (a == null || b == null) return 0;
+		return b.character.ox - a.character.ox;
+	}
+
+	function changeSelection(diffe:Int) {
+		curSelected += diffe;
+
+		if (curSelected >= items.length) {
+			curSelected = 0;
+		}
+		else if (curSelected < 0) {
+			curSelected = items.length - 1;
+		}
+	}
+
+	static function playMusic(value:Bool) {
+		FreeplayState.destroyFreeplayVocals();
+		if (value) {
+			Mods.currentModDirectory = GameClient.room.state.modDir;
+			Difficulty.list = CoolUtil.asta(GameClient.room.state.diffList);
+			PlayState.loadSong(GameClient.room.state.song, GameClient.room.state.folder);
+
+			var diff = Difficulty.getString(GameClient.room.state.diff);
+			var trackSuffix = diff == "Erect" || diff == "Nightmare" ? "-erect" : "";
+
+			FlxG.sound.playMusic(Paths.inst(PlayState.SONG.song, trackSuffix), 0.5);
+			Conductor.mapBPMChanges(PlayState.SONG);
+			Conductor.bpm = PlayState.SONG.bpm;
+		}
+		else {
+			states.TitleState.playFreakyMusic(0.5);
+			Conductor.bpm = 102;
+		}
+	}
+
+	public function getCharacterSelf() {
+		return characters.get(GameClient.room.sessionId).character;
+	}
+
+	function playerAnim(anim:String, ?sid:String) {
+		if (destroyed)
+			return;
+		
+		var character = characters.get(sid ?? GameClient.room.sessionId);
+		character.character.playAnim(anim, true);
+		if (anim.endsWith('miss'))
+			var sond = FlxG.sound.play(Paths.sound('missnote' + FlxG.random.int(1, 3)), 0.25);
+
+		if (sid == null) {
+			GameClient.send("charPlay", [anim]);
+		}
+	}
+
+	override function beatHit() {
+		updateTexts();
+
+		for (sid => character in characters) {
+			character.danceLogic(curBeat);
+		}
+		
+		super.beatHit();
+	}
+}
+
+class LobbyCharacter extends FlxTypedGroup<FlxObject> {
+	public var player:Player;
+	public var character:Character;
+	public var profileBox:ProfileBox;
+	public var noSkin:Bool = false;
+	var dlSkinTxt:FlxText;
+	public var profileBoxXOffset:Float = 400;
+	public var profileBoxXOffsetP2:Float = 0;
+	public var profileBoxYOffset:Float = 50;
+	public var xBoxStepOffset:Float = 200;
+	public var yBoxStepOffset:Float = 150;
+	public var xCharStepOffset:Float = 280;
+
+	public function new(player:Player, camHUD:FlxCamera, ?isVerified:Bool = false, ?sizeAdd:Int = 2) {
+		super();
+
+		this.player = player;
+	
+		profileBox = new ProfileBox(isVerified ? player.name : null, isVerified, 50, sizeAdd);
+		profileBox.autoUpdateThings = false;
+		profileBox.autoCardHeight = true;
+		profileBox.text.text = player.name;
+		profileBox.setPosition(0, profileBoxYOffset);
+		profileBox.camera = camHUD;
+		add(profileBox);
+
+		dlSkinTxt = new FlxText(0, 0, 0, "KOSTÜMÜ İNDİR");
+		dlSkinTxt.setFormat("VCR OSD Mono", 18, FlxColor.WHITE, RIGHT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+
+		loadCharacter();
+	}
+
+	var _prevNoSkin:Bool = false;
+	var _changedNoSkin:Bool = false;
+
+	override function update(elapsed:Float) {
+		super.update(elapsed);
+
+		_changedNoSkin = _prevNoSkin != noSkin;
+		_prevNoSkin = noSkin;
+
+		if (noSkin) {
+			if (_changedNoSkin) {
+				character.colorTransform.redOffset = -255;
+				character.colorTransform.greenOffset = -255;
+				character.colorTransform.blueOffset = -255;
+				character.alpha = 0.5;
+				add(dlSkinTxt);
+			}
+
+			dlSkinTxt.setPosition(
+				character.x + character.width / 2 - dlSkinTxt.width / 2, 
+				character.y + character.height / 2 - dlSkinTxt.height / 2
+			);
+
+			if (FlxG.mouse.justPressed && FlxG.mouse.overlaps(character, character.camera))
+				loadCharacter(true, true);
+		}
+		else if (_changedNoSkin) {
+			character.colorTransform.redOffset = 0;
+			character.colorTransform.greenOffset = 0;
+			character.colorTransform.blueOffset = 0;
+			character.alpha = 1;
+			remove(dlSkinTxt);
+		}
+
+		danceLogic();
+	}
+
+	var yellowMarker:FlxTextFormatMarkerPair;
+	var pingMarker:FlxTextFormatMarkerPair;
+
+	public function updatePlayerText() {
+		if (yellowMarker == null)
+			yellowMarker = new FlxTextFormatMarkerPair(new FlxTextFormat(FlxColor.YELLOW), "<y>");
+		if (pingMarker == null)
+			pingMarker = new FlxTextFormatMarkerPair(new FlxTextFormat(FlxColor.GREEN), "<p>");
+
+		@:privateAccess
+		pingMarker.format.format.color = FlxColor.interpolate(FlxColor.fromString("#00ff00"), FlxColor.fromString("#ff0000"), player.ping / 400);
+
+		if (profileBox.user != player.name) {
+			profileBox.updateData(player.name, player.verified);
+		}
+
+		profileBox.text.clearFormats();
+
+		profileBox.text.applyMarkup(
+		(player.verified ? '<y>${player.name + (profileBox?.profileData?.club != null ? ' [${profileBox.profileData.club}]' : '')}<y>' : player.name) + ' • ' + FlxStringUtil.formatMoney(player.points, false) + 'FP'
+		, [yellowMarker]);
+
+		profileBox.desc.applyMarkup(
+		(player.verified && profileBox.profileData != null ? 
+		"Rütbe: " + ShitUtil.toOrdinalNumber(profileBox.profileData.rank) + "\n": "") +
+			"Ping: <p>" + player.ping + "ms<p>\n\n" +
+			player.status + "\n" +
+			(player.isReady ? "HAZIR" : "HAZIR DEĞİL") +
+			(noSkin ? "\n(Yüklenmemiş Kostüm)" : "")
+		, [pingMarker]);
+
+		profileBox.updatePositions();
+	}
+
+	public function danceLogic(?curBeat:Null<Int>) {
+		if (character != null && character.animation.curAnim != null) {
+			if (curBeat != null) {
+				if (curBeat % character.danceEveryNumBeats == 0 && !character.animation.curAnim.name.startsWith('sing'))
+					character.dance();
+			}
+			else {
+				if (!(character.animation.curAnim.name.endsWith('miss') || character.isMissing)
+						&& !player.noteHold
+						&& character.holdTimer > Conductor.stepCrochet * (0.0011 / FlxG.sound.music.pitch) * character.singDuration
+						&& character.animation.curAnim.name.startsWith('sing')
+						&& !(character.animation.curAnim.name.endsWith('miss') || character.isMissing))
+					character.dance();
+			}
+		}
+	}
+
+	public function loadCharacter(?enableDownload:Bool = true, ?manualDownload:Bool = false) {
+		if (character != null) {
+			remove(character);
+			character.destroy();
+			character = null;
+		}
+
+		if (FunkinFileSystem.exists(Paths.mods(player.skinMod))) {
+			if (player.skinMod != null)
+				Mods.currentModDirectory = player.skinMod;
+
+			if (player.skinName != null)
+				character = new Character(0, 0, player.skinName + (player.bfSide ? "-player" : ''), player.bfSide);
+		}
+		else if (enableDownload && player.skinURL != null) {
+			noSkin = true;
+			OnlineMods.downloadMod(player.skinURL, manualDownload, (_) -> {
+				if (RoomState.instance == null || RoomState.instance.destroyed)
+					return;
+
+				loadCharacter(false);
+			});
+		}
+
+		// we loaded the skin ayyy
+		if (character != null) {
+			noSkin = false;
+		}
+		else {
+			character = new Character(0, 0, "default" + (player.bfSide ? "-player" : ''), player.bfSide);
+		}
+
+		character.noHoldBullshit = true;
+		add(character);
+
+		remove(profileBox, true);
+		insert(members.indexOf(character) + 1, profileBox);
+
+		_bfSide = player.bfSide;
+
+		repos();
+	}
+
+	var _bfSide = false;
+
+	public function repos() {
+		if (_bfSide != player.bfSide) {
+			loadCharacter(false);
+		}
+		_bfSide = player.bfSide;
+
+		// left side
+		if (!player.bfSide) {
+			character.x = 280 + character.positionArray[0] - character.ox * xCharStepOffset;
+			character.y = 120 + character.positionArray[1];
+			profileBox.x = profileBoxXOffset - profileBox.width / 2 - Math.min(1, character.ox) * xBoxStepOffset;
+		}
+		// right side
+		else {
+			character.x = 780 + character.positionArray[0] + character.ox * xCharStepOffset;
+			character.y = 120 + character.positionArray[1];
+			profileBox.x = profileBoxXOffsetP2 + FlxG.width - profileBoxXOffset - profileBox.width / 2 + Math.min(1, character.ox) * xBoxStepOffset;
+		}
+		profileBox.y = profileBoxYOffset + character.ox * yBoxStepOffset;
+	}
+}
