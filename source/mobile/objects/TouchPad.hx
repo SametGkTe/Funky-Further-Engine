@@ -1,35 +1,37 @@
-/*
- * Copyright (C) 2025 Mobile Porting Team
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- */
-
 package mobile.objects;
 
 import flixel.util.FlxSignal.FlxTypedSignal;
+import flixel.graphics.frames.FlxTileFrames;
+import flixel.graphics.FlxGraphic;
+import openfl.display.BitmapData;
+import openfl.utils.Assets;
+import flixel.math.FlxPoint;
+import flixel.util.FlxColor;
+import flixel.FlxG;
+
+#if sys
+import sys.FileSystem;
+#end
+
+using StringTools;
 
 /**
- * ...
- * @author: Karim Akra and Homura Akemi (HomuHomu833)
+ * TouchPad — COMPATIBILITY WRAPPER (eski API, yeni motor).
+ *
+ * Kullanım aynı kalır:
+ *   addTouchPad('LEFT_FULL', 'A_B_C_X_Y_Z');
+ *   touchPad.buttonZ.pressed / justPressed / ...;
+ *   touchPad.anyPressed([MobileInputID.X]);
+ *   touchPad.forEachAlive((button:TouchButton) -> ...);
+ *
+ * Ama butonlar artık YENİ sistemden gelir:
+ *   - `mobile.MobileConfig` (yeni format JSON modları),
+ *   - yeni 2-kareli dokular (MobilePad/Textures),
+ *   - `TouchButton` (yeni `mobile.MobileButton` tabanlı),
+ *   - sinyaller `justPressed`/`justReleased` izlenerek tam bir kez tetiklenir.
  */
-@:access(mobile.objects.TouchButton)
-class TouchPad extends MobileInputManager implements IMobileControls
+@:keep
+class TouchPad extends MobileInputManager implements FMobileControls
 {
 	public var buttonLeft:TouchButton = new TouchButton(0, 0, [MobileInputID.LEFT, MobileInputID.NOTE_LEFT]);
 	public var buttonUp:TouchButton = new TouchButton(0, 0, [MobileInputID.UP, MobileInputID.NOTE_UP]);
@@ -72,11 +74,14 @@ class TouchPad extends MobileInputManager implements IMobileControls
 	public var onButtonDown:FlxTypedSignal<TouchButton->Void> = new FlxTypedSignal<TouchButton->Void>();
 	public var onButtonUp:FlxTypedSignal<TouchButton->Void> = new FlxTypedSignal<TouchButton->Void>();
 
+	/** Yeni sistemle uyumluluk: buton adı -> buton (getButton / Lua erişimi) */
+	public var buttonFromName:Map<String, TouchButton> = [];
+
 	/**
 	 * Create a gamepad.
 	 *
 	 * @param   DPadMode     The D-Pad mode. `LEFT_FULL` for example.
-	 * @param   ActionMode   The action buttons mode. `A_B_C` for example.
+	 * @param   ActionMode   The action buttons mode. `A_B_C_X_Y_Z` for example.
 	 */
 	public function new(DPad:String, Action:String, ?Extra:ExtraActions = NONE)
 	{
@@ -84,40 +89,30 @@ class TouchPad extends MobileInputManager implements IMobileControls
 
 		if (DPad != "NONE")
 		{
-			if (!MobileData.dpadModes.exists(DPad))
+			if (!MobileConfig.dpadModes.exists(DPad))
 				throw Language.getPhrase('touchpad_dpadmode_missing', 'The touchPad dpadMode "{1}" doesn\'t exist.', [DPad]);
 
-			for (buttonData in MobileData.dpadModes.get(DPad).buttons)
-			{
-				Reflect.setField(this, buttonData.button,
-					createButton(buttonData.x, buttonData.y, buttonData.graphic, CoolUtil.colorFromString(buttonData.color),
-						Reflect.getProperty(this, buttonData.button).IDs));
-				add(Reflect.field(this, buttonData.button));
-			}
+			for (buttonData in MobileConfig.dpadModes.get(DPad).buttons)
+				addButtonFromData(buttonData);
 		}
 
 		if (Action != "NONE")
 		{
-			if (!MobileData.actionModes.exists(Action))
-				throw Language.getPhrase('touchpad_actionmode_missing', 'The touchPad actionMode "{1}" doesn\'t exist.', [DPad]);
+			if (!MobileConfig.actionModes.exists(Action))
+				throw Language.getPhrase('touchpad_actionmode_missing', 'The touchPad actionMode "{1}" doesn\'t exist.', [Action]);
 
-			for (buttonData in MobileData.actionModes.get(Action).buttons)
-			{
-				Reflect.setField(this, buttonData.button,
-					createButton(buttonData.x, buttonData.y, buttonData.graphic, CoolUtil.colorFromString(buttonData.color),
-						Reflect.getProperty(this, buttonData.button).IDs));
-				add(Reflect.field(this, buttonData.button));
-			}
+			for (buttonData in MobileConfig.actionModes.get(Action).buttons)
+				addButtonFromData(buttonData);
 		}
 
 		switch (Extra)
 		{
 			case SINGLE:
-				add(buttonExtra = createButton(0, FlxG.height - 137, 's', 0xFF0066FF));
+				add(buttonExtra = createButton(0, FlxG.height - 137, 's', 0xFF0066FF, [MobileInputID.EXTRA_1]));
 				setExtrasPos();
 			case DOUBLE:
-				add(buttonExtra = createButton(0, FlxG.height - 137, 's', 0xFF0066FF));
-				add(buttonExtra2 = createButton(FlxG.width - 132, FlxG.height - 137, 'g', 0xA6FF00));
+				add(buttonExtra = createButton(0, FlxG.height - 137, 's', 0xFF0066FF, [MobileInputID.EXTRA_1]));
+				add(buttonExtra2 = createButton(FlxG.width - 132, FlxG.height - 137, 'g', 0xA6FF00, [MobileInputID.EXTRA_2]));
 				setExtrasPos();
 			case NONE: // nothing
 		}
@@ -128,6 +123,44 @@ class TouchPad extends MobileInputManager implements IMobileControls
 
 		instance = this;
 	}
+
+	function addButtonFromData(buttonData:ButtonsData):Void
+	{
+		var buttonName:String = buttonData.button;
+
+		var buttonIDs:Array<String> = buttonData.buttonIDs;
+		if (buttonIDs == null) buttonIDs = [buttonName.substr(6).toUpperCase()];
+
+		var inputIDs:Array<MobileInputID> = [];
+		for (strId in buttonIDs)
+		{
+			var id:MobileInputID = MobileInputID.fromString(strId);
+			if (id != MobileInputID.NONE && inputIDs.indexOf(id) == -1) inputIDs.push(id);
+		}
+		// JSON'da ID yoksa, önceden tanımlı alanın varsayılan ID'lerini kullan
+		if (inputIDs.length == 0)
+		{
+			var existing:TouchButton = Reflect.field(this, buttonName);
+			if (existing != null) inputIDs = existing.inputIDs.copy();
+		}
+
+		var scale:Float = buttonData.scale != null ? buttonData.scale : 1.0;
+		var button:TouchButton = createButton(buttonData.x, buttonData.y, buttonData.graphic,
+			Util.colorFromString(buttonData.color), inputIDs, scale, buttonData.returnKey);
+
+		button.name = buttonName;
+		button.IDs = buttonIDs;
+		buttonFromName.set(buttonName, button);
+
+		Reflect.setField(this, buttonName, button);
+		add(button);
+	}
+
+	/**
+	 * Eski `getButton` uyumluluğu (yeni sistemdeki `mobilePad.getButton('buttonA')` gibi).
+	 */
+	public function getButton(btnName:String):TouchButton
+		return buttonFromName.get(btnName);
 
 	override public function destroy()
 	{
@@ -183,34 +216,68 @@ class TouchPad extends MobileInputManager implements IMobileControls
 		}
 	}
 
-	private function createButton(X:Float, Y:Float, Graphic:String, ?Color:FlxColor = 0xFFFFFF, ?IDs:Array<MobileInputID>):TouchButton
+	/**
+	 * Yeni (ArkoseLabs) tarzı buton oluşturma: MobilePad/Textures'daki 2 kareli
+	 * doku şeridini kullanır.
+	 */
+	private function createButton(X:Float, Y:Float, Graphic:String, ?Color:FlxColor = 0xFFFFFF,
+		?IDs:Array<MobileInputID> = null, ?scale:Float = 1.0, ?returned:String = null):TouchButton
 	{
 		var button = new TouchButton(X, Y, IDs);
-		button.label = new FlxSprite();
-		button.loadGraphic(Paths.image('touchpad/bg', "mobile"));
-		button.label.loadGraphic(Paths.image('touchpad/${Graphic.toUpperCase()}', "mobile"));
 
-		button.scale.set(0.243, 0.243);
+		var frames:FlxGraphic;
+		final path:String = MobileConfig.mobileFolderPath + 'MobilePad/Textures/${Graphic.toLowerCase()}.png';
+
+		#if MODS_ALLOWED
+		var modsPath:String = null;
+		for (folder in Mods.directoriesWithFile(Paths.getSharedPath(), 'mobile/MobilePad/Textures/')) {
+			var candidate:String = haxe.io.Path.join([folder, '${Graphic.toLowerCase()}.png']);
+			if (FileSystem.exists(candidate)) {
+				modsPath = candidate;
+				break;
+			}
+		}
+		if (modsPath != null)
+			frames = FlxGraphic.fromBitmapData(BitmapData.fromFile(modsPath));
+		else #end if (Assets.exists(path))
+			frames = FlxGraphic.fromBitmapData(Assets.getBitmapData(path));
+		else
+			frames = FlxGraphic.fromBitmapData(Assets.getBitmapData(MobileConfig.mobileFolderPath + 'MobilePad/Textures/default.png'));
+
+		button.scale.set(scale, scale);
+		button.frames = FlxTileFrames.fromGraphic(frames, FlxPoint.get(Std.int(frames.width / 2), frames.height));
+
 		button.updateHitbox();
 		button.updateLabelPosition();
-
-		button.statusBrightness = [1, 0.8, 0.4];
-		button.statusIndicatorType = BRIGHTNESS;
-		button.indicateStatus();
 
 		button.bounds.makeGraphic(Std.int(button.width - 50), Std.int(button.height - 50), FlxColor.TRANSPARENT);
 		button.centerBounds();
 
 		button.immovable = true;
 		button.solid = button.moves = false;
-		button.label.antialiasing = button.antialiasing = ClientPrefs.data.antialiasing;
+		button.antialiasing = ClientPrefs.data.antialiasing;
 		button.tag = Graphic.toUpperCase();
 		button.color = Color;
-		button.parentAlpha = button.alpha;
+		button.returnedKey = returned;
 
-		button.onDown.callback = () -> onButtonDown.dispatch(button);
-		button.onOut.callback = button.onUp.callback = () -> onButtonUp.dispatch(button);
+		// NOT: onDown/onUp callback'leri burada BAĞLANMAZ — sinyaller `update()`
+		// içindeki justPressed/justReleased izleyicisinden tam bir kez tetiklenir.
 		return button;
+	}
+
+	override function update(elapsed:Float)
+	{
+		super.update(elapsed);
+
+		for (member in members)
+		{
+			if (member != null && member is TouchButton)
+			{
+				var btn:TouchButton = cast member;
+				if (btn.justPressed) onButtonDown.dispatch(btn);
+				if (btn.justReleased) onButtonUp.dispatch(btn);
+			}
+		}
 	}
 
 	override function set_alpha(Value):Float

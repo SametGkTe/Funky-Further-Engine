@@ -43,10 +43,25 @@ import states.TitleState;
 	public var screensaver:Bool = false;
 	public var wideScreen:Bool = false;
 	public var hitboxType:String = "Gradient";
+
+	// Mobile
+	public var mobilePadAlpha:Float = #if mobile 0.6 #else 0 #end;
+	public var hitboxAlpha:Float = #if mobile 0.7 #else 0 #end;
+	public var hitboxMode:String = 'Normal (New)';
+	public var extraKeys:Int = 0;
+	public var hitboxLocation:String = 'Bottom';
+	public var hitboxHint:Bool = false;
+	public var ogGameControls:Bool = false;
+	public var vSliceSpacing:Float = 0.1;
+	public var mobileExtraKeyReturns:Array<String> = ['SHIFT', 'SPACE', 'Q', 'E'];
+	#if android
+	public var storageType:String = "EXTERNAL"; // EXTERNAL = /sdcard/.PsychEngine/ (eski davranış korunur)
+	#end
 	public var popUpRating:Bool = true;
 	public var vsync:Bool = false;
 	public var gameOverVibration:Bool = false;
 	public var fpsRework:Bool = false;
+	public var mania:Int = 4;
 	
 	public var downScroll:Bool = false;
 	public var middleScroll:Bool = false;
@@ -133,6 +148,12 @@ class ClientPrefs {
 		'note_down'		=> [S, DOWN],
 		'note_right'	=> [D, RIGHT],
 		
+		'note_extra1'	=> [Z],
+		'note_extra2'	=> [X],
+		'note_extra3'	=> [C],
+		'note_extra4'	=> [V],
+		'note_extra5'	=> [B],
+		
 		'ui_up'			=> [W, UP],
 		'ui_left'		=> [A, LEFT],
 		'ui_down'		=> [S, DOWN],
@@ -173,6 +194,12 @@ class ClientPrefs {
 		'note_left'		=> [NOTE_LEFT],
 		'note_down'		=> [NOTE_DOWN],
 		'note_right'	=> [NOTE_RIGHT],
+		
+		'note_extra1'	=> [NOTE_5],
+		'note_extra2'	=> [NOTE_6],
+		'note_extra3'	=> [NOTE_7],
+		'note_extra4'	=> [NOTE_8],
+		'note_extra5'	=> [NOTE_9],
 
 		'ui_up'			=> [UP],
 		'ui_left'		=> [LEFT],

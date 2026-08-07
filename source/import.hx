@@ -42,7 +42,6 @@ import backend.CacheSystem;
 
 // Mobile Controls
 import mobile.objects.MobileControls;
-import mobile.objects.IMobileControls;
 import mobile.objects.Hitbox;
 import mobile.objects.TouchPad;
 import mobile.objects.TouchButton;
@@ -50,6 +49,17 @@ import mobile.input.MobileInputID;
 import mobile.backend.MobileData;
 import mobile.input.MobileInputManager;
 import mobile.backend.TouchUtil;
+// Mobile Controls New
+import mobile.MobileConfig;
+import mobile.MobileControlManager;
+import mobile.MobileButton;
+import mobile.objects.FMobileControls;
+import mobile.Util;
+import mobile.ScreenUtil;
+import mobile.objects.FurtherPad;
+import mobile.objects.FurtherHitbox;
+import mobile.objects.UltraJoyStick;
+import mobile.substates.MobileExtraControl;
 // Alert
 import objects.AlertMgr;
 // Android

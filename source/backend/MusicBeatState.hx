@@ -5,6 +5,27 @@ import backend.PsychCamera;
 
 class MusicBeatState extends FlxState
 {
+	public var mobileManager:MobileControlManager;
+	//makes code less messy & easier to write (yeni sistem yardımcıları)
+	public inline function mobileButtonJustPressed(buttons:Dynamic):Bool {
+		return mobileManager?.mobilePad?.justPressed(buttons);
+	}
+	public inline function mobileButtonPressed(buttons:Dynamic):Bool {
+		return mobileManager?.mobilePad?.pressed(buttons);
+	}
+	public inline function mobileButtonJustReleased(buttons:Dynamic):Bool {
+		return mobileManager?.mobilePad?.justReleased(buttons);
+	}
+	public inline function mobileButtonReleased(buttons:Dynamic):Bool {
+		return mobileManager?.mobilePad?.released(buttons);
+	}
+
+	public function new()
+	{
+		super();
+		mobileManager = new MobileControlManager(this);
+	}
+
 	private var curSection:Int = 0;
 	private var stepsToDo:Int = 0;
 
@@ -21,7 +42,7 @@ class MusicBeatState extends FlxState
 
 	public var touchPad:TouchPad;
 	public var touchPadCam:FlxCamera;
-	public var mobileControls:IMobileControls;
+	public var mobileControls:FMobileControls;
 	public var mobileControlsCam:FlxCamera;
 
 	public function addTouchPad(DPad:String, Action:String)
@@ -47,6 +68,7 @@ class MusicBeatState extends FlxState
 
 	public function addMobileControls(defaultDrawTarget:Bool = false):Void
 	{
+		if (ClientPrefs.data.ogGameControls) return; // Kodumun Hitbox'ını ekleme
 		var extraMode = MobileData.extraActions.get(ClientPrefs.data.extraButtons);
 
 		switch (MobileData.mode)
@@ -102,6 +124,7 @@ class MusicBeatState extends FlxState
 	{
 		removeTouchPad();
 		removeMobileControls();
+		if (mobileManager != null) mobileManager.destroy();
 		
 		super.destroy();
 	}

@@ -101,6 +101,15 @@
 	
 	<assets path='art/readme.txt' rename='do NOT readme.txt' unless="mobile" />
 
+	<!-- Mobile Assets (Dokunmatik Kontroller) -->
+	<section if="TOUCH_CONTROLS_ALLOWED">
+		<assets path="mobile/assets"            rename="assets/mobile"/>
+		<assets path="mobile/DPadModes"         rename="assets/mobile/DPadModes"/>
+		<assets path="mobile/ActionModes"       rename="assets/mobile/ActionModes"/>
+		<assets path="mobile/images"            rename="assets/mobile/images"/>
+		<assets path="mobile/storageModes.txt"  rename="mobile/storageModes.txt"/>
+	</section>
+
 	<!-- OpenAL config -->
 	<section if="desktop">
 		<assets path="alsoft.txt" rename="plugins/alsoft.ini" type="text" if="windows"/>

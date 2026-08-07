@@ -25,6 +25,18 @@ class GameplaySettingsSubState extends BaseOptionsMenu
 			'opponentStrums',
 			BOOL);
 		addOption(option);
+		
+		var option:Option = new Option('Mania Modu',
+			'Şarkıyı mania düzenine çevirir (4K/5K/6K/7K/8K/9K). Notalar geniş şeritlere yayılır, oklar ve hitbox mania düzenine geçer.',
+			'mania',
+			INT);
+		option.scrollSpeed = 1;
+		option.minValue = 4;
+		option.maxValue = 9;
+		option.changeValue = 1;
+		option.decimals = 0;
+		option.displayFormat = '%vK';
+		addOption(option);
 
 		var option:Option = new Option('Hayalet Vuruş',
 			'Aktif edildiğinde, vurulabilecek nota yokken tuşlara\nbasmanız miss sayılmaz.',

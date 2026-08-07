@@ -1,65 +1,92 @@
-/*
- * Copyright (C) 2025 Mobile Porting Team
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- */
-
 package mobile.backend;
 
-/**
- * A storage class for mobile.
- * @author Karim Akra and Homura Akemi (HomuHomu833)
- */
- 
 import haxe.io.Path;
+import haxe.io.Bytes;
+import StringTools;
+import lime.system.System as LimeSystem;
+import lime.app.Application;
+import openfl.utils.Assets;
+
 #if sys
 import sys.FileSystem;
 import sys.io.File;
 #end
 
+#if android
+import sys.io.Process;
+#end
+
+/**
+ * Merged StorageUtil
+ * - Keeps modpack functions from old StorageUtil
+ * - Adds custom storage features from new StorageUtil
+ * - Avoids direct crash if ClientPrefs.data.storageType does not exist
+ */
 class StorageUtil
 {
 	#if sys
-	public static function getStorageDirectory():String
-		return #if android haxe.io.Path.addTrailingSlash(AndroidContext.getExternalFilesDir()) #elseif ios lime.system.System.documentsDirectory #else Sys.getCwd() #end;
+	public static var rootDir:String = Path.addTrailingSlash(LimeSystem.applicationStorageDirectory);
+
+	#if android
+	public static var currentExternalStorageDirectory:String = null;
+	public static var lastGettedPermission:Int = 0;
+	#end
+
+	public static inline function getStorageDirectory():String
+	{
+		return #if android
+			Path.addTrailingSlash(AndroidContext.getExternalFilesDir())
+		#elseif ios
+			Path.addTrailingSlash(LimeSystem.documentsDirectory)
+		#else
+			Path.addTrailingSlash(Sys.getCwd())
+		#end;
+	}
 
 	public static function saveContent(fileName:String, fileData:String, ?alert:Bool = true):Void
 	{
-		final folder:String = #if android StorageUtil.getExternalStorageDirectory() + #else Sys.getCwd() + #end 'saves/';
+		final folder:String = getStorageRootDirectory() + 'saves/';
 		try
 		{
-			if (!FileSystem.exists(folder))
-				FileSystem.createDirectory(folder);
+			ensureDirectory(folder);
+			File.saveContent(folder + fileName, fileData);
 
-			File.saveContent('$folder/$fileName', fileData);
 			if (alert)
-				CoolUtil.showPopUp(Language.getPhrase('file_save_success', '{1} has been saved.', [fileName]), Language.getPhrase('mobile_success', "Success!"));
+			{
+				CoolUtil.showPopUp(
+					Language.getPhrase('file_save_success', '{1} has been saved.', [fileName]),
+					Language.getPhrase('mobile_success', "Success!")
+				);
+			}
 		}
 		catch (e:Dynamic)
+		{
+			var err:String = errorToString(e);
+
 			if (alert)
-				CoolUtil.showPopUp(Language.getPhrase('file_save_fail', '{1} couldn\'t be saved.\n({2})', [fileName, e.message]), Language.getPhrase('mobile_error', "Error!"));
+			{
+				CoolUtil.showPopUp(
+					Language.getPhrase('file_save_fail', '{1} couldn\'t be saved.\n({2})', [fileName, err]),
+					Language.getPhrase('mobile_error', "Error!")
+				);
+			}
 			else
-				trace('$fileName couldn\'t be saved. (${e.message})');
+			{
+				trace('$fileName couldn\'t be saved. ($err)');
+			}
+		}
 	}
-	
+
 	public static function getStorageRootDirectory():String
-		return #if android Path.addTrailingSlash(getExternalStorageDirectory()) #elseif ios Path.addTrailingSlash(lime.system.System.documentsDirectory) #else Path.addTrailingSlash(Sys.getCwd()) #end;
+	{
+		return #if android
+			Path.addTrailingSlash(getExternalStorageDirectory())
+		#elseif ios
+			Path.addTrailingSlash(LimeSystem.documentsDirectory)
+		#else
+			Path.addTrailingSlash(Sys.getCwd())
+		#end;
+	}
 
 	public static function getModsDirectory():String
 		return getStorageRootDirectory() + 'mods/';
@@ -78,6 +105,9 @@ class StorageUtil
 
 	public static function ensureDirectory(path:String):Void
 	{
+		if (path == null || StringTools.trim(path) == '')
+			return;
+
 		if (!FileSystem.exists(path))
 			FileSystem.createDirectory(path);
 	}
@@ -101,72 +131,414 @@ class StorageUtil
 			}
 			catch (e:Dynamic)
 			{
-				trace('Directory create failed: $dir (${e.message})');
+				trace('Directory create failed: $dir (${errorToString(e)})');
 			}
 		}
 	}
-	
+
 	#if android
-	// always force path due to haxe
+	public static inline function getCustomStoragePath():String
+		return Path.addTrailingSlash(AndroidContext.getExternalFilesDir()) + 'storageModes.txt';
+
+	public static function getCustomStorageDirectories(?doNotSeperate:Bool):Array<String>
+	{
+		var result:Array<String> = [];
+		var curTextFile:String = getCustomStoragePath();
+
+		if (!FileSystem.exists(curTextFile))
+			return result;
+
+		for (mode in CoolUtil.coolTextFile(curTextFile))
+		{
+			if (mode == null)
+				continue;
+
+			mode = StringTools.trim(mode);
+			if (mode.length < 1)
+				continue;
+
+			mode = StringTools.replace(mode, 'Name: ', '');
+			mode = StringTools.replace(mode, ' Folder: ', '|');
+
+			var dat = mode.split("|");
+
+			if (doNotSeperate == true)
+				result.push(mode);
+			else if (dat.length > 0)
+				result.push(dat[0]);
+		}
+
+		return result;
+	}
+
+	private static function getMetaValue(key:String, defaultValue:String):String
+	{
+		try
+		{
+			var value:Dynamic = Application.current.meta.get(key);
+			if (value != null)
+			{
+				var text:String = Std.string(value);
+				if (StringTools.trim(text) != '')
+					return text;
+			}
+		}
+		catch (e:Dynamic) {}
+
+		return defaultValue;
+	}
+
+	private static function getDefaultStorageType():String
+	{
+		var storageType:String = 'EXTERNAL_DATA';
+
+		try
+		{
+			var prefData:Dynamic = ClientPrefs.data;
+			if (prefData != null && Reflect.hasField(prefData, "storageType"))
+			{
+				var found:Dynamic = Reflect.field(prefData, "storageType");
+				if (found != null)
+				{
+					var text:String = StringTools.trim(Std.string(found));
+					if (text != '')
+						storageType = text;
+				}
+			}
+		}
+		catch (e:Dynamic) {}
+
+		return storageType;
+	}
+
+	private static function getSavedStorageType():String
+	{
+		var filePath:String = rootDir + 'storagetype.txt';
+		var storageType:String = getDefaultStorageType();
+
+		try
+		{
+			ensureDirectory(rootDir);
+
+			if (!FileSystem.exists(filePath))
+			{
+				File.saveContent(filePath, storageType);
+			}
+			else
+			{
+				var content:String = StringTools.trim(File.getContent(filePath));
+				if (content != '')
+					storageType = content;
+			}
+		}
+		catch (e:Dynamic)
+		{
+			trace('Failed to read storagetype.txt: ' + errorToString(e));
+		}
+
+		return storageType;
+	}
+
+	private static function resolveExternalStorageDirectory():String
+	{
+		var daPath:String = '';
+		var curStorageType:String = getSavedStorageType();
+
+		for (line in getCustomStorageDirectories(true))
+		{
+			if (line == null || StringTools.trim(line) == '')
+				continue;
+
+			if (StringTools.startsWith(line, curStorageType))
+			{
+				var dat = line.split("|");
+				if (dat.length > 1)
+					daPath = dat[1];
+			}
+		}
+
+		switch (curStorageType)
+		{
+			case 'EXTERNAL':
+				daPath = AndroidEnvironment.getExternalStorageDirectory() + '/.' + getMetaValue('file', 'PsychEngine');
+
+			case 'EXTERNAL_OBB':
+				daPath = AndroidContext.getObbDir();
+
+			case 'EXTERNAL_MEDIA':
+				daPath = AndroidEnvironment.getExternalStorageDirectory() + '/Android/media/' + getMetaValue('packageName', 'com.psychengine.game');
+
+			case 'EXTERNAL_DATA':
+				daPath = AndroidContext.getExternalFilesDir();
+
+			default:
+				if (daPath == null || StringTools.trim(daPath) == '')
+				{
+					var ext:String = getExternalDirectory(curStorageType);
+					if (ext != null && StringTools.trim(ext) != '')
+						daPath = ext + '.' + getMetaValue('file', 'PsychEngine');
+				}
+		}
+
+		if (daPath == null || StringTools.trim(daPath) == '')
+			daPath = '/sdcard/.PsychEngine/';
+
+		return Path.addTrailingSlash(daPath);
+	}
+
+	public static function initExternalStorageDirectory():String
+	{
+		currentExternalStorageDirectory = resolveExternalStorageDirectory();
+
+		try
+		{
+			ensureDirectory(getStorageDirectory());
+		}
+		catch (e:Dynamic)
+		{
+			CoolUtil.showPopUp(
+				Language.getPhrase('create_directory_error', 'Please create directory to\n{1}\nPress OK to close the game', [getStorageDirectory()]),
+				Language.getPhrase('mobile_error', "Error!")
+			);
+			lime.system.System.exit(1);
+		}
+
+		ensureModpackDirectories();
+
+		try
+		{
+			ensureDirectory(getModsDirectory());
+		}
+		catch (e:Dynamic)
+		{
+			CoolUtil.showPopUp(
+				Language.getPhrase('create_directory_error', 'Please create directory to\n{1}\nPress OK to close the game', [getExternalStorageDirectory()]),
+				Language.getPhrase('mobile_error', "Error!")
+			);
+			lime.system.System.exit(1);
+		}
+
+		return currentExternalStorageDirectory;
+	}
+
 	public static function getExternalStorageDirectory():String
-		return '/sdcard/.PsychEngine/';
+	{
+		if (currentExternalStorageDirectory == null || StringTools.trim(currentExternalStorageDirectory) == '')
+			return initExternalStorageDirectory();
+
+		return Path.addTrailingSlash(currentExternalStorageDirectory);
+	}
 
 	public static function requestPermissions():Void
 	{
-		var hasStoragePermission:Bool = false;
 		if (AndroidVersion.SDK_INT >= AndroidVersionCode.TIRAMISU)
 		{
-			hasStoragePermission = AndroidPermissions.getGrantedPermissions().contains('android.permission.READ_MEDIA_IMAGES')
-				|| AndroidPermissions.getGrantedPermissions().contains('android.permission.READ_EXTERNAL_STORAGE');
+			AndroidPermissions.requestPermissions([
+				'READ_MEDIA_IMAGES',
+				'READ_MEDIA_VIDEO',
+				'READ_MEDIA_AUDIO',
+				'READ_MEDIA_VISUAL_USER_SELECTED'
+			]);
 		}
 		else
 		{
-			hasStoragePermission = AndroidPermissions.getGrantedPermissions().contains('android.permission.READ_EXTERNAL_STORAGE')
-				&& AndroidPermissions.getGrantedPermissions().contains('android.permission.WRITE_EXTERNAL_STORAGE');
+			AndroidPermissions.requestPermissions([
+				'READ_EXTERNAL_STORAGE',
+				'WRITE_EXTERNAL_STORAGE'
+			]);
 		}
 
 		if (!AndroidEnvironment.isExternalStorageManager())
-		{
 			AndroidSettings.requestSetting('MANAGE_APP_ALL_FILES_ACCESS_PERMISSION');
-		}
-		else if (!hasStoragePermission)
+
+		if ((AndroidVersion.SDK_INT >= AndroidVersionCode.TIRAMISU
+			&& !AndroidPermissions.getGrantedPermissions().contains('android.permission.READ_MEDIA_IMAGES'))
+			|| (AndroidVersion.SDK_INT < AndroidVersionCode.TIRAMISU
+				&& !AndroidPermissions.getGrantedPermissions().contains('android.permission.READ_EXTERNAL_STORAGE')))
 		{
-			if (AndroidVersion.SDK_INT >= AndroidVersionCode.TIRAMISU)
-				AndroidPermissions.requestPermissions(['READ_MEDIA_IMAGES', 'READ_MEDIA_VIDEO', 'READ_MEDIA_AUDIO', 'READ_MEDIA_VISUAL_USER_SELECTED']);
-			else
-				AndroidPermissions.requestPermissions(['READ_EXTERNAL_STORAGE', 'WRITE_EXTERNAL_STORAGE']);
+			CoolUtil.showPopUp(
+				Language.getPhrase('permissions_message', 'İzinleri kabul ettiyseniz oyununuz sorunsuz açılacaktır, etmediyseniz izinler bölümünden tüm dosyalara erişime izin verin'),
+				Language.getPhrase('mobile_notice', "Uyarı!")
+			);
 		}
 
-		if (!AndroidEnvironment.isExternalStorageManager() && !hasStoragePermission)
-			CoolUtil.showPopUp(Language.getPhrase('permissions_message', 'İzinleri kabul ettiyseniz oyununuz sorunsuz açılacaktır, etmediyseniz izinler bölümünden tüm dosyalara erişime izin verin'),
-				Language.getPhrase('mobile_notice', "Uyarı!"));
+		initExternalStorageDirectory();
+	}
 
+	public static function chmodPermission(fullPath:String):Int
+	{
+		var process = new Process("sh", ["-c", 'stat -c %a "$fullPath"']);
+		var stringOutput:String = process.stdout.readAll().toString();
+		process.close();
+
+		lastGettedPermission = Std.parseInt(StringTools.trim(stringOutput));
+		return lastGettedPermission;
+	}
+
+	public static function chmod(permissions:Int, fullPath:String):Void
+	{
+		var process = new Process("sh", ["-c", 'chmod -R $permissions "$fullPath"']);
+		var exitCode:Int = process.exitCode();
+
+		if (exitCode == 0)
+		{
+			trace('Başarılı: $fullPath dosyasının izinleri ($permissions) olarak ayarlandı');
+		}
+		else
+		{
+			var errorOutput:String = process.stderr.readAll().toString();
+			trace('HATA: ($fullPath) dosyası için istenen izin değiştirme isteği başarısız. Çıkış Kodu: $exitCode, Hata: $errorOutput');
+		}
+
+		process.close();
+	}
+
+	public static function checkExternalPaths(?splitStorage:Bool = false):Array<String>
+	{
+		var process = new Process("sh", ["-c", 'grep -o "/storage/....-...." /proc/mounts | paste -sd ","']);
+		var paths:String = StringTools.trim(process.stdout.readAll().toString());
+		process.close();
+
+		if (paths == null || paths == '')
+			return [];
+
+		if (splitStorage)
+			paths = StringTools.replace(paths, '/storage/', '');
+
+		return paths.split(',');
+	}
+
+	public static function getExternalDirectory(externalDir:String):String
+	{
+		var daPath:String = '';
+
+		for (path in checkExternalPaths())
+		{
+			if (path != null && path.indexOf(externalDir) != -1)
+				daPath = StringTools.trim(path);
+		}
+
+		if (daPath == null || daPath == '')
+			return '';
+
+		return Path.addTrailingSlash(daPath);
+	}
+	#else
+	public static function getExternalStorageDirectory():String
+	{
+		return #if ios
+			Path.addTrailingSlash(LimeSystem.documentsDirectory)
+		#else
+			Path.addTrailingSlash(Sys.getCwd())
+		#end;
+	}
+
+	public static function requestPermissions():Void {}
+	#end
+
+	public static function copySpesificFileFromAssets(filePathInAssets:String, copyTo:String, ?changeable:Bool):Void
+	{
+		#if sys
 		try
 		{
-			if (!FileSystem.exists(StorageUtil.getStorageDirectory()))
-				FileSystem.createDirectory(StorageUtil.getStorageDirectory());
-		}
-		catch (e:Dynamic)
-		{
-			trace('Could not create storage directory: ' + e);
-			if (AndroidPermissions.getGrantedPermissions().contains('android.permission.READ_EXTERNAL_STORAGE')
-				|| AndroidPermissions.getGrantedPermissions().contains('android.permission.READ_MEDIA_IMAGES'))
+			if (!Assets.exists(filePathInAssets))
+				return;
+
+			var dir:String = Path.directory(copyTo);
+			if (dir != null && StringTools.trim(dir) != '')
+				ensureDirectory(dir);
+
+			var fileData:Bytes = null;
+			try
 			{
-				CoolUtil.showPopUp(Language.getPhrase('create_directory_error', 'Please create directory to\n{1}\nPress OK to close the game', [StorageUtil.getStorageDirectory()]), Language.getPhrase('mobile_error', "Error!"));
+				fileData = Assets.getBytes(filePathInAssets);
+			}
+			catch (e:Dynamic) {}
+
+			if (fileData != null)
+			{
+				if (FileSystem.exists(copyTo))
+				{
+					if (changeable == true)
+					{
+						var existingFileData:Bytes = File.getBytes(copyTo);
+						if (existingFileData == null || !bytesEqual(existingFileData, fileData))
+							File.saveBytes(copyTo, fileData);
+					}
+				}
+				else
+				{
+					File.saveBytes(copyTo, fileData);
+				}
+
+				trace('Copied: $filePathInAssets -> $copyTo');
+				return;
+			}
+
+			var textData:String = null;
+			try
+			{
+				textData = Assets.getText(filePathInAssets);
+			}
+			catch (e:Dynamic) {}
+
+			if (textData != null)
+			{
+				if (FileSystem.exists(copyTo))
+				{
+					if (changeable == true)
+					{
+						var existingTxtData:String = File.getContent(copyTo);
+						if (existingTxtData != textData)
+							File.saveContent(copyTo, textData);
+					}
+				}
+				else
+				{
+					File.saveContent(copyTo, textData);
+				}
+
+				trace('Copied (text): $filePathInAssets -> $copyTo');
 			}
 		}
-		StorageUtil.ensureModpackDirectories();
+		catch (e:Dynamic)
+		{
+			trace('Error copying file $filePathInAssets: ' + errorToString(e));
+		}
+		#end
+	}
+
+	private static function bytesEqual(a:Bytes, b:Bytes):Bool
+	{
+		if (a == null || b == null)
+			return a == b;
+
+		if (a.length != b.length)
+			return false;
+
+		for (i in 0...a.length)
+		{
+			if (a.get(i) != b.get(i))
+				return false;
+		}
+
+		return true;
+	}
+
+	private static function errorToString(e:Dynamic):String
+	{
+		if (e == null)
+			return "Unknown error";
 
 		try
 		{
-			if (!FileSystem.exists(StorageUtil.getExternalStorageDirectory() + 'mods'))
-				FileSystem.createDirectory(StorageUtil.getExternalStorageDirectory() + 'mods');
+			var msg:Dynamic = Reflect.field(e, "message");
+			if (msg != null)
+				return Std.string(msg);
 		}
-		catch (e:Dynamic)
-		{
-			trace('Could not create mods directory: ' + e);
-		}
+		catch (_:Dynamic) {}
+
+		return Std.string(e);
 	}
-	#end
 	#end
 }

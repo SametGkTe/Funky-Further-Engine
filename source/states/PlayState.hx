@@ -184,6 +184,8 @@ class PlayState extends MusicBeatState
 	public static var uiPostfix:String = "";
 	public static var isPixelStage(get, never):Bool;
 	
+	public var luaExtraKeys:Int = -1; // Extra Keys Lua Scripts Support
+	
 	var canSaveScore:Bool = false;
 
 	@:noCompletion
@@ -368,10 +370,8 @@ class PlayState extends MusicBeatState
 		playbackRate = ClientPrefs.getGameplaySetting('songspeed');
 
 		keysArray = [
-			'note_left',
-			'note_down',
-			'note_up',
-			'note_right'
+			'note_left', 'note_down', 'note_up', 'note_right',
+			'note_extra1', 'note_extra2', 'note_extra3', 'note_extra4', 'note_extra5'
 		];
 
 		if(FlxG.sound.music != null)
@@ -695,11 +695,13 @@ class PlayState extends MusicBeatState
 				#end
 			}
 		#end
-		
 		addMobileControls();
-		mobileControls.instance.visible = true;
-		mobileControls.onButtonDown.add(onButtonPress);
-		mobileControls.onButtonUp.add(onButtonRelease);
+		if (mobileControls != null)
+		{
+			mobileControls.instance.visible = true;
+			mobileControls.onButtonDown.add(onButtonPress);
+			mobileControls.onButtonUp.add(onButtonRelease);
+		}
 
 		if(eventNotes.length > 0)
 		{
@@ -727,6 +729,7 @@ class PlayState extends MusicBeatState
 
 		stagesFunc(function(stage:BaseStage) stage.createPost());
 		callOnScripts('onCreatePost');
+		
 		
 		var splash:NoteSplash = new NoteSplash();
 		grpNoteSplashes.add(splash);
@@ -1092,17 +1095,22 @@ class PlayState extends MusicBeatState
 			if (skipCountdown || startOnTime > 0) skipArrowStartTween = true;
 
 			canPause = true;
+
 			generateStaticArrows(0);
 			generateStaticArrows(1);
+
 			for (i in 0...playerStrums.length) {
 				setOnScripts('defaultPlayerStrumX' + i, playerStrums.members[i].x);
 				setOnScripts('defaultPlayerStrumY' + i, playerStrums.members[i].y);
 			}
+
 			for (i in 0...opponentStrums.length) {
 				setOnScripts('defaultOpponentStrumX' + i, opponentStrums.members[i].x);
 				setOnScripts('defaultOpponentStrumY' + i, opponentStrums.members[i].y);
 				//if(ClientPrefs.data.middleScroll) opponentStrums.members[i].visible = false;
 			}
+
+			if (ClientPrefs.data.ogGameControls) enableVSliceControls();
 
 			startedCountdown = true;
 			Conductor.songPosition = -Conductor.crochet * 5 + Conductor.offset;
@@ -1397,7 +1405,7 @@ class PlayState extends MusicBeatState
 
 	private var noteTypes:Array<String> = [];
 	private var eventsPushed:Array<String> = [];
-	private var totalColumns: Int = 4;
+	private var totalColumns: Int = ClientPrefs.data.mania >= 5 ? ClientPrefs.data.mania : 4;
 
 	private function generateSong():Void
 	{
@@ -1475,6 +1483,7 @@ class PlayState extends MusicBeatState
 				final songNotes: Array<Dynamic> = section.sectionNotes[i];
 				var spawnTime: Float = songNotes[0];
 				var noteColumn: Int = Std.int(songNotes[1] % totalColumns);
+				noteColumn = maniaRemap(noteColumn);
 				var holdLength: Float = songNotes[2];
 				var noteType: String = !Std.isOfType(songNotes[3], String) ? Note.defaultNoteTypes[songNotes[3]] : songNotes[3];
 				if (Math.isNaN(holdLength))
@@ -1506,6 +1515,11 @@ class PlayState extends MusicBeatState
 				swagNote.gfNote = (section.gfSection && gottaHitNote == section.mustHitSection);
 				swagNote.animSuffix = isAlt ? "-alt" : "";
 				swagNote.mustPress = gottaHitNote;
+				if (totalColumns > 4)
+				{
+					var strumGroup:FlxTypedGroup<StrumNote> = gottaHitNote ? playerStrums : opponentStrums;
+					if (strumGroup.members[noteColumn] != null) swagNote.x = strumGroup.members[noteColumn].x;
+				}
 				swagNote.sustainLength = holdLength;
 				swagNote.noteType = noteType;
 	
@@ -1531,6 +1545,7 @@ class PlayState extends MusicBeatState
 						swagNote.tail.push(sustainNote);
 
 						sustainNote.correctionOffset = swagNote.height / 2;
+						if (totalColumns > 4) sustainNote.x = swagNote.x;
 						if(!PlayState.isPixelStage)
 						{
 							if(oldNote.isSustainNote)
@@ -1720,9 +1735,8 @@ class PlayState extends MusicBeatState
 	{
 		var strumLineX:Float = ClientPrefs.data.middleScroll ? STRUM_X_MIDDLESCROLL : STRUM_X;
 		var strumLineY:Float = ClientPrefs.data.downScroll ? (FlxG.height - 150) : 50;
-		for (i in 0...4)
+		for (i in 0...totalColumns)
 		{
-			// FlxG.log.add(i);
 			var targetAlpha:Float = 1;
 			if (player < 1)
 			{
@@ -1734,9 +1748,8 @@ class PlayState extends MusicBeatState
 			babyArrow.downScroll = ClientPrefs.data.downScroll;
 			if (!isStoryMode && !skipArrowStartTween)
 			{
-				//babyArrow.y -= 10;
 				babyArrow.alpha = 0;
-				FlxTween.tween(babyArrow, {/*y: babyArrow.y + 10,*/ alpha: targetAlpha}, 1, {ease: FlxEase.circOut, startDelay: 0.5 + (0.2 * i)});
+				FlxTween.tween(babyArrow, {alpha: targetAlpha}, 1, {ease: FlxEase.circOut, startDelay: 0.5 + (0.2 * i)});
 			}
 			else babyArrow.alpha = targetAlpha;
 
@@ -1747,7 +1760,7 @@ class PlayState extends MusicBeatState
 				if(ClientPrefs.data.middleScroll)
 				{
 					babyArrow.x += 310;
-					if(i > 1) { //Up and Right
+					if(i > 1) {
 						babyArrow.x += FlxG.width / 2 + 25;
 					}
 				}
@@ -1756,7 +1769,39 @@ class PlayState extends MusicBeatState
 
 			strumLineNotes.add(babyArrow);
 			babyArrow.playerPosition();
+
+			// MANIA: şeridi oyuncunun yarısında eşit aralıkla yerleştir
+			if (totalColumns > 4) babyArrow.x = getManiaStrumX(i, player);
 		}
+	}
+
+	function maniaRemap(col:Int):Int
+	{
+		if (totalColumns < 5 || col >= 4) return col;
+		return switch (totalColumns)
+		{
+			case 6: [0, 1, 3, 4][col]; // 3+3 düzen, ortada boşluk
+			default: col;
+		};
+	}
+
+	function getManiaStrumX(lane:Int, player:Int):Float
+	{
+		var cols:Int = totalColumns;
+		var halfW:Float = FlxG.width / 2;
+		var laneW:Float = halfW / cols;
+		var offset:Float = (halfW - laneW) / 2;
+
+		if (ClientPrefs.data.middleScroll)
+			return (FlxG.width / 2) - ((cols * laneW) / 2) + lane * laneW;
+
+		return player * halfW + offset + lane * laneW;
+	}
+
+	public static function getExtraKeys():Int
+	{
+		if (instance != null && instance.luaExtraKeys >= 0) return instance.luaExtraKeys;
+		return ClientPrefs.data.extraKeys;
 	}
 
 	override function openSubState(SubState:FlxSubState)
@@ -1893,7 +1938,16 @@ class PlayState extends MusicBeatState
 			botplayTxt.alpha = 1 - Math.sin((Math.PI * botplaySine) / 180);
 		}
 
-		if (controls.PAUSE #if android || FlxG.android.justReleased.BACK #end && startedCountdown && canPause)
+		#if TOUCH_CONTROLS_ALLOWED
+		var mobilePausePressed:Bool = (touchPad != null && touchPad.buttonP != null && touchPad.buttonP.justPressed)
+			|| (mobileManager != null && mobileManager.mobilePad != null && mobileManager.mobilePad.getButton('buttonP') != null
+				&& mobileManager.mobilePad.getButton('buttonP').justPressed)
+			|| (luaTouchPad != null && luaTouchPad.buttonP != null && luaTouchPad.buttonP.justPressed);
+		#else
+		var mobilePausePressed:Bool = false;
+		#end
+
+		if ((controls.PAUSE #if android || FlxG.android.justReleased.BACK #end || mobilePausePressed) && startedCountdown && canPause)
 		{
 			var ret:Dynamic = callOnScripts('onPause', null, true);
 			if(ret != LuaUtils.Function_Stop) {
@@ -2011,6 +2065,7 @@ class PlayState extends MusicBeatState
 							if(!daNote.mustPress) strumGroup = opponentStrums;
 
 							var strum:StrumNote = strumGroup.members[daNote.noteData];
+							if (strum == null) continue; // Fucking Null
 							daNote.followStrumNote(strum, fakeCrochet, songSpeed / playbackRate);
 
 							if(daNote.mustPress)
@@ -3255,10 +3310,11 @@ class PlayState extends MusicBeatState
 
 	private function onButtonPress(button:TouchButton):Void
 	{
-		if (button.IDs.filter(id -> id.toString().startsWith("EXTRA")).length > 0)
+		if (button.inputIDs.filter(id -> id.toString().startsWith("EXTRA")).length > 0)
 			return;
 
-		var buttonCode:Int = (button.IDs[0].toString().startsWith('NOTE')) ? button.IDs[0] : button.IDs[1];
+		var buttonCode:Int = (button.inputIDs[0].toString().startsWith('NOTE')) ? button.inputIDs[0] : button.inputIDs[1];
+		if (buttonCode >= 44 && buttonCode <= 48) buttonCode -= 40; // NOTE_5(44)..NOTE_9(48) → mania şeridi 4-8
 		callOnScripts('onButtonPressPre', [buttonCode]);
 		if (button.justPressed) keyPressed(buttonCode);
 		callOnScripts('onButtonPress', [buttonCode]);
@@ -3266,10 +3322,11 @@ class PlayState extends MusicBeatState
 
 	private function onButtonRelease(button:TouchButton):Void
 	{
-		if (button.IDs.filter(id -> id.toString().startsWith("EXTRA")).length > 0)
+		if (button.inputIDs.filter(id -> id.toString().startsWith("EXTRA")).length > 0)
 			return;
 
-		var buttonCode:Int = (button.IDs[0].toString().startsWith('NOTE')) ? button.IDs[0] : button.IDs[1];
+		var buttonCode:Int = (button.inputIDs[0].toString().startsWith('NOTE')) ? button.inputIDs[0] : button.inputIDs[1];
+		if (buttonCode >= 44 && buttonCode <= 48) buttonCode -= 40; // NOTE_5(44)..NOTE_9(48) → mania şeridi 4-8
 		callOnScripts('onButtonReleasePre', [buttonCode]);
 		if(buttonCode > -1) keyReleased(buttonCode);
 		callOnScripts('onButtonRelease', [buttonCode]);
@@ -4269,6 +4326,169 @@ class PlayState extends MusicBeatState
 				return false;
 		}
 		return false;
+	}
+
+	// ==================== YENİ MOBİL SİSTEM (Psych Engine Online Mobile) ====================
+	public var customManagers:Map<String, Array<Dynamic>> = [];
+	public var lastGettedManager:MobileControlManager;
+	public var lastGettedManagerName:String;
+	public static function checkManager(?managerName:String):MobileControlManager {
+		if (managerName == null || managerName == '') {
+			instance.lastGettedManagerName = 'default';
+			instance.lastGettedManager = MusicBeatState.getState().mobileManager;
+		}
+		else if (instance.lastGettedManagerName != managerName) {
+			instance.lastGettedManagerName = managerName;
+			instance.lastGettedManager = instance.customManagers.get(managerName)[0];
+		}
+		return instance.lastGettedManager;
+	}
+
+	public function createNewManager(name:String, keyDetectionAllowed:Bool) {
+		var mobileManagerNew = new MobileControlManager(this);
+		var managerShit:Array<Dynamic> = [mobileManagerNew, keyDetectionAllowed];
+		customManagers.set(name, managerShit);
+		if(!variables.exists(name))
+			variables.set(name, mobileManagerNew);
+		if(!variables.exists(name + '_mobilePad'))
+			variables.set(name + '_mobilePad', mobileManagerNew.mobilePad);
+		if(!variables.exists(name + '_hitbox'))
+			variables.set(name + '_hitbox', mobileManagerNew.hitbox);
+		if(!variables.exists(name + '_joyStick'))
+			variables.set(name + '_joyStick', mobileManagerNew.joyStick);
+	}
+
+	public static function checkMPadPress(buttonName:String, type = 'justPressed', ?managerName:String) {
+		var manager = checkManager(managerName);
+
+		var button:MobileButton = null;
+		if (manager.mobilePad != null) button = manager.mobilePad.getButton(buttonName);
+		if (button != null) return Reflect.getProperty(button, type);
+		return false;
+	}
+
+	//for lua shit
+	public static function checkHBoxPress(button:String, type = 'justPressed', ?managerName:String) {
+		var manager = checkManager(managerName);
+
+		var buttonObject:MobileButton = null;
+		if (manager.hitbox != null) buttonObject = manager.hitbox.getButton(button);
+		if (buttonObject != null) return Reflect.getProperty(buttonObject, type);
+		return false;
+	}
+	
+	// V-Slice
+	public static var hitboxPositions:Array<Float> = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+	public var defaultPlayerNotePositions:Array<Dynamic> = [-360, -140, 140, 360];
+
+	public function enableVSliceControls() {
+		if (totalColumns <= 4)
+		{
+			// 4K: orijinal FNF Mobile dizilimi (oklar ortada, rakip üstte/küçük)
+			for (i in 0...4) {
+				var strum = playerStrums.members[i];
+				strum.screenCenter(X);
+				strum.x += defaultPlayerNotePositions[i];
+			}
+			for (i in 0...4) {
+				var strum = opponentStrums.members[i];
+				strum.y = 40;
+				strum.x = 10 + (i * 65);
+				strum.scale.x = strum.scale.x / 1.75;
+				strum.scale.y = strum.scale.y / 1.75;
+			}
+			for (note in unspawnNotes) {
+				if (!note.mustPress) note.visible = false;
+			}
+			fixHitboxPos(playerStrums, true);
+		}
+		else
+		{
+			// Mania: oklar zaten mania düzeninde; sadece hitbox pozisyonlarını strum'lardan al
+			for (i in 0...totalColumns) {
+				if (playerStrums.members[i] != null)
+					hitboxPositions[i] = Std.int(playerStrums.members[i].x) - 20;
+			}
+		}
+		reloadPlayStateHitbox("V Slice");
+	}
+
+	public function fixHitboxPos(strumGroup:FlxTypedGroup<StrumNote>, ?keyCountIsDefault:Bool) {
+		if (keyCountIsDefault) {
+			hitboxPositions[0] = Std.int(strumGroup.members[0].x) - 20;
+			hitboxPositions[1] = Std.int(strumGroup.members[1].x) - 20;
+			hitboxPositions[2] = Std.int(strumGroup.members[2].x) - 20;
+			hitboxPositions[3] = Std.int(strumGroup.members[3].x) - 20;
+		}
+	}
+
+	//Lua Stuff for Mobile Controls
+	public function reloadPlayStateHitbox(?mode:String)
+	{
+		removePlayStateHitbox();
+		addPlayStateHitbox(mode);
+	}
+
+	public function addPlayStateHitbox(?mode:String, ?makeInvinsibleFirst:Bool, ?hints:Null<Bool>)
+	{
+		if (hints == null)
+			hints = ClientPrefs.data.hitboxHint;
+
+		mobileManager.addHitbox(mode, hints);
+		mobileManager.addHitboxCamera();
+		if (!cpuControlled) connectControlToNotes(null, 'hitbox');
+		if (makeInvinsibleFirst) mobileManager.hitbox.visible = false;
+	}
+
+	public function addHitboxDeadZone(?managerName:String, deadZoneButtons:Array<String>) {
+		var manager = checkManager(managerName);
+		if (manager.hitbox == null) return;
+		manager.hitbox.forEachAlive((button) ->
+		{
+			for (deadButton in deadZoneButtons) {
+				if (manager.mobilePad != null && manager.mobilePad.getButton(deadButton) != null)
+					button.deadZones.push(manager.mobilePad.getButton(deadButton));
+			}
+		});
+	}
+
+	public function connectControlToNotes(?managerName:String, ?control:String) {
+		var manager = checkManager(managerName);
+
+		switch(control) {
+			case 'mobilePad':
+				manager.mobilePad?.onButtonDown?.add((button:MobileButton, ids:Array<String>, unique:Int) -> mobileKeyFromIDs(ids, true));
+				manager.mobilePad?.onButtonUp?.add((button:MobileButton, ids:Array<String>, unique:Int) -> mobileKeyFromIDs(ids, false));
+			case 'hitbox':
+				manager.hitbox?.onButtonDown?.add((button:MobileButton, ids:Array<String>, unique:Int) -> mobileKeyFromIDs(ids, true));
+				manager.hitbox?.onButtonUp?.add((button:MobileButton, ids:Array<String>, unique:Int) -> mobileKeyFromIDs(ids, false));
+		}
+	}
+
+	// Yeni sistemin buton ID'lerini (String) eski keyPressed/keyReleased sistemine çevirir
+	function mobileKeyFromIDs(ids:Array<String>, pressed:Bool):Void
+	{
+		if (ids == null || ids.length == 0) return;
+		if (ids[0].toString().startsWith('EXTRA')) return;
+
+		var buttonCode:Int = MobileInputID.fromString(ids[0].toString());
+		if (buttonCode >= 44 && buttonCode <= 48) buttonCode -= 40; // Fak yu Bradar
+		if (buttonCode == MobileInputID.NONE && ids.length > 1) buttonCode = MobileInputID.fromString(ids[1].toString());
+		if (buttonCode == MobileInputID.NONE) return;
+
+		callOnScripts(pressed ? 'onButtonPressPre' : 'onButtonReleasePre', [buttonCode]);
+		if (pressed) keyPressed(buttonCode); else keyReleased(buttonCode);
+		callOnScripts(pressed ? 'onButtonPress' : 'onButtonRelease', [buttonCode]);
+	}
+
+	public function removePlayStateHitbox()
+	{
+		if (mobileManager.hitbox == null) return;
+		mobileManager.hitbox.forEachAlive((button) ->
+		{
+			button.deadZones = [];
+		});
+		mobileManager.removeHitbox();
 	}
 
 	function checkForResync()

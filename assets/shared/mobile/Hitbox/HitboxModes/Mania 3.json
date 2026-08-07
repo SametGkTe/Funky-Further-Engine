@@ -1,0 +1,34 @@
+{
+  "hints": [
+    {
+      "button": "buttonNote1",
+      "buttonIDs": ["3K_NOTE_1"],
+      "buttonUniqueID": 0,
+      "x": 0,
+      "y": 0,
+      "width": 427,
+      "height": 720,
+      "color": "0xFFC24B99"
+    },
+    {
+      "button": "buttonNote2",
+      "buttonIDs": ["3K_NOTE_2"],
+      "buttonUniqueID": 1,
+      "x": 427,
+      "y": 0,
+      "width": 426,
+      "height": 720,
+      "color": "0xFFFF00"
+    },
+    {
+      "button": "buttonNote3",
+      "buttonIDs": ["3K_NOTE_3"],
+      "buttonUniqueID": 2,
+      "x": 853,
+      "y": 0,
+      "width": 427,
+      "height": 720,
+      "color": "0xFFF9393F"
+    }
+  ]
+}

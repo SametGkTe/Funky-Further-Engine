@@ -1,0 +1,14 @@
+{
+  "buttons": [
+    {
+      "button": "buttonF",
+      "buttonIDs": [
+        "F"
+      ],
+      "graphic": "f",
+      "x": 1022,
+      "y": 530,
+      "color": "0xFFFFFF"
+    }
+  ]
+}

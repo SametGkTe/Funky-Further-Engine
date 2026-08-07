@@ -204,7 +204,7 @@ class Main extends Sprite
 		#end
 
 		Application.current.window.vsync = ClientPrefs.data.vsync;
-
+		FlxG.signals.preStateCreate.add(function(_) FlxG.mouse.visible = false); // Fak yu Cursor
 		// shader coords fix
 		FlxG.signals.gameResized.add(function (w, h) {
 			if(fpsVar != null)

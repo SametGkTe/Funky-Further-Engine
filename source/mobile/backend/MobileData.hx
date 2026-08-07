@@ -118,8 +118,11 @@ class MobileData
 			buttonsInstance.buttonRight])
 		{
 			button.color = data.arrowRGB[i][0];
-			button.label.color = data.arrowRGB[i][0];
-			button.label.updateColorTransform();
+			// yeni butonlarda ayrı label spritesı olmayabilir (null-safe)
+			if (button.label != null) {
+				button.label.color = data.arrowRGB[i][0];
+				button.label.updateColorTransform();
+			}
 		}
 
 		return buttonsInstance;

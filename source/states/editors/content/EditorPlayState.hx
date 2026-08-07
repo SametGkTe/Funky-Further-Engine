@@ -141,9 +141,12 @@ class EditorPlayState extends MusicBeatSubstate
 		FlxG.mouse.visible = false;
 		
 		addMobileControls();
-		mobileControls.instance.visible = true;
-		mobileControls.onButtonDown.add(onButtonPress);
-		mobileControls.onButtonUp.add(onButtonRelease);
+		if (mobileControls != null)
+		{
+			mobileControls.instance.visible = true;
+			mobileControls.onButtonDown.add(onButtonPress);
+			mobileControls.onButtonUp.add(onButtonRelease);
+		}
 
 		generateSong();
 		_noteList = null;
@@ -513,7 +516,7 @@ class EditorPlayState extends MusicBeatSubstate
 
 		Conductor.songPosition = FlxG.sound.music.time = vocals.time = opponentVocals.time = startPos - Conductor.offset;
 
-		mobileControls.instance.visible = false;
+		if (mobileControls != null) mobileControls.instance.visible = false;
 
 		close();
 	}
@@ -754,19 +757,19 @@ class EditorPlayState extends MusicBeatSubstate
 
 	private function onButtonPress(button:TouchButton):Void
 	{
-		if (button.IDs.filter(id -> id.toString().startsWith("EXTRA")).length > 0)
+		if (button.inputIDs.filter(id -> id.toString().startsWith("EXTRA")).length > 0)
 			return;
 
-		var buttonCode:Int = (button.IDs[0].toString().startsWith('NOTE')) ? button.IDs[0] : button.IDs[1];
+		var buttonCode:Int = (button.inputIDs[0].toString().startsWith('NOTE')) ? button.inputIDs[0] : button.inputIDs[1];
 		if (button.justPressed) keyPressed(buttonCode);
 	}
 
 	private function onButtonRelease(button:TouchButton):Void
 	{
-		if (button.IDs.filter(id -> id.toString().startsWith("EXTRA")).length > 0)
+		if (button.inputIDs.filter(id -> id.toString().startsWith("EXTRA")).length > 0)
 			return;
 
-		var buttonCode:Int = (button.IDs[0].toString().startsWith('NOTE')) ? button.IDs[0] : button.IDs[1];
+		var buttonCode:Int = (button.inputIDs[0].toString().startsWith('NOTE')) ? button.inputIDs[0] : button.inputIDs[1];
 		if(buttonCode > -1) keyReleased(buttonCode);
 	}
 	

@@ -23,6 +23,7 @@ class OptionsState extends MusicBeatState
 		#end
 		#if mobile
 		{ label: 'Mobil Ayarlar',    desc: 'Dokunmatik Kontrol Ayarları.',                          langKey: 'mobile_settings' },
+		{ label: 'Mobil Ekstra Tuşlar', desc: 'Ekstra tuş atamaları.',                              langKey: 'mobile_extra_control' },
 		#end
 	];
 
@@ -82,6 +83,9 @@ class OptionsState extends MusicBeatState
 
 			case 'mobile_settings':
 				openSubState(new mobile.options.MobileOptionsSubState());
+
+			case 'mobile_extra_control':
+				openSubState(new mobile.substates.MobileExtraControl());
 
 			#if TRANSLATIONS_ALLOWED
 			case 'language':

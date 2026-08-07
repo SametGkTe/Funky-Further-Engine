@@ -191,9 +191,9 @@ class MobileInputManager extends FlxTypedSpriteGroup<TouchButton>
 		trackedButtons.clear();
 		forEachExists(function(button:TouchButton)
 		{
-			if (button.IDs != null)
+			if (button.inputIDs != null)
 			{
-				for (id in button.IDs)
+				for (id in button.inputIDs)
 				{
 					if (!trackedButtons.exists(id))
 					{

@@ -2,1075 +2,911 @@ package states;
 
 import backend.WeekData;
 import backend.Mods;
-
 import flixel.FlxBasic;
 import flixel.graphics.FlxGraphic;
 import flash.geom.Rectangle;
 import haxe.Json;
-
 import flixel.util.FlxSpriteUtil;
 import objects.AttachedSprite;
-import options.ModSettingsSubState;
-
 import openfl.display.BitmapData;
 import lime.utils.Assets;
-import substates.ModpackSubState;
+import flixel.group.FlxGroup.FlxTypedGroup;
+import flixel.addons.display.FlxBackdrop;
+import flxanimate.FlxAnimate;
+import objects.Character;
+import sys.FileSystem;
+import sys.io.File;
+import mikolka.vslice.charSelect.CharSelectGF;
 
 class ModsMenuState extends MusicBeatState
 {
-	var bg:FlxSprite;
-	var icon:FlxSprite;
-	var modName:Alphabet;
-	var modDesc:FlxText;
-	var modRestartText:FlxText;
+	// Background elements (from AboutState)
+	var crowdAnim:FlxAnimate;
+	var bgSprite:FlxSprite;
+	var server:FlxSprite;
+	var lights:FlxSprite;
+	
+	// Characters
+	var bfCharacter:Character;
+	var gfCharacter:CharSelectGF;
+	var bfLabel:FlxText;
+	var gfLabel:FlxText;
+	
+	// Character positions (adjustable)
+	var bfX:Float = 900;
+	var bfY:Float = 250;
+	var gfX:Float = 50;
+	var gfY:Float = 100;
+	
+	// Title
+	var titleText:FlxText;
+	
+	// Mod columns
+	var disabledColumnBG:FlxSprite;
+	var activeColumnBG:FlxSprite;
+	var disabledColumnTitle:FlxText;
+	var activeColumnTitle:FlxText;
+	
+	var disabledModsGroup:FlxTypedGroup<ModCard>;
+	var activeModsGroup:FlxTypedGroup<ModCard>;
+	
+	var disabledScrollY:Float = 0;
+	var activeScrollY:Float = 0;
+	var disabledTargetScrollY:Float = 0;
+	var activeTargetScrollY:Float = 0;
+	var disabledMaxScroll:Float = 0;
+	var activeMaxScroll:Float = 0;
+	
+	// Apply button
+	var applyButton:ModernButton;
+	
+	// Dragging
+	var draggingCard:ModCard = null;
+	var dragOffset:FlxPoint = new FlxPoint();
+	var originalColumn:String = '';
+	var originalIndex:Int = 0;
+	
+	// Mod list data
 	var modsList:ModsList = null;
-
-	var bgList:FlxSprite;
-	var buttonReload:MenuButton;
-	//var buttonModFolder:MenuButton;
-	var buttonEnableAll:MenuButton;
-	var buttonDisableAll:MenuButton;
-	var buttons:Array<MenuButton> = [];
-	var settingsButton:MenuButton;
+	var disabledMods:Array<String> = [];
+	var activeMods:Array<String> = [];
 	
-	var buttonModpacks:MenuButton;
-
-	var bgTitle:FlxSprite;
-	var bgDescription:FlxSprite;
-	var bgButtons:FlxSprite;
-
-	var modsGroup:FlxTypedGroup<ModItem>;
-	var curSelectedMod:Int = 0;
+	// Current loaded mod for BF
+	var currentBFMod:String = "";
 	
-	var hoveringOnMods:Bool = true;
-	var curSelectedButton:Int = 0; ///-1 = Enable/Disable All, -2 = Reload
-	var modNameInitialY:Float = 0;
-
-	var noModsSine:Float = 0;
-	var noModsTxt:FlxText;
-
-	var _lastControllerMode:Bool = false;
-	var startMod:String = null;
-	public function new(startMod:String = null)
-	{
-		this.startMod = startMod;
-		super();
-	}
+	// Layout constants
+	static inline var COLUMN_WIDTH:Int = 400;
+	static inline var COLUMN_HEIGHT:Int = 500;
+	static inline var COLUMN_SPACING:Int = 40;
+	static inline var CARD_HEIGHT:Int = 120;
+	static inline var CARD_SPACING:Int = 10;
+	static inline var CORNER_RADIUS:Float = 15;
+	
 	override function create()
 	{
-		var daButton:String = "BACKSPACE";
-
-		if (controls.mobileC)
-			daButton = 'B';
-		Paths.clearStoredMemory();
-		Paths.clearUnusedMemory();
-		persistentUpdate = false;
-
-		modsList = Mods.parseList();
-		Mods.loadTopMod();
-
 		#if DISCORD_ALLOWED
-		// Updating Discord Rich Presence
-		DiscordClient.changePresence("In the Menus", null);
+		DiscordClient.changePresence("Modlar Menüsü", null);
 		#end
-
-		bg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
-		bg.color = 0xFF665AFF;
-		bg.antialiasing = ClientPrefs.data.antialiasing;
-		add(bg);
-		bg.screenCenter();
-
-		bgList = FlxSpriteUtil.drawRoundRect(new FlxSprite(40, 40).makeGraphic(340, 440, FlxColor.TRANSPARENT), 0, 0, 340, 440, 15, 15, FlxColor.BLACK);
-		bgList.alpha = 0.6;
-
-		modsGroup = new FlxTypedGroup<ModItem>();
-
-		for (i => mod in modsList.all)
-		{
-			if(startMod == mod) curSelectedMod = i;
-
-			var modItem:ModItem = new ModItem(mod);
-			if(modsList.disabled.contains(mod))
-			{
-				modItem.icon.color = 0xFFFF6666;
-				modItem.text.color = FlxColor.GRAY;
-			}
-			modsGroup.add(modItem);
-		}
-
-		var mod:ModItem = modsGroup.members[curSelectedMod];
-		if(mod != null) bg.color = mod.bgColor;
-
-		//
-		var buttonX = bgList.x;
-		var buttonWidth = Std.int(bgList.width);
-		var buttonHeight = 80;
-		var daY = 0;
-		if (controls.mobileC)
-			daY = 70;
-		else
-			daY = 20;
-
-		buttonReload = new MenuButton(buttonX, bgList.y + bgList.height + daY, buttonWidth, buttonHeight, Language.getPhrase('reload_button', 'YENiLE'), reload);
-		add(buttonReload);
 		
-		var modpackY = buttonReload.y + buttonReload.bg.height + 20;
-		buttonModpacks = new MenuButton(buttonX, modpackY, buttonWidth, buttonHeight, Language.getPhrase('modpacks_button', 'MOD PAKETLERi'), function() {
-			MusicBeatState.switchState(new ModpackStoreState());
-		});
-		buttonModpacks.bg.color = 0xFF0D9488;
-		buttonModpacks.focusChangeCallback = function(focus:Bool) {
-			if (!focus) buttonModpacks.bg.color = 0xFF0D9488;
-		};
-		add(buttonModpacks);
+		persistentUpdate = persistentDraw = true;
 		
-		var myY = buttonModpacks.y + buttonModpacks.bg.height + 20;
-		/*buttonModFolder = new MenuButton(buttonX, myY, buttonWidth, buttonHeight, "MODS FOLDER", function() {
-			var modFolder = Paths.mods();
-			if(!FileSystem.exists(modFolder))
-			{
-				trace('created missing folder');
-				FileSystem.createDirectory(modFolder);
-			}
-			CoolUtil.openFolder(modFolder);
-		});
-		add(buttonModFolder);*/
-
-		buttonEnableAll = new MenuButton(buttonX, myY, buttonWidth, buttonHeight, Language.getPhrase('enable_all_button', 'ENABLE ALL'), function() {
-			buttonEnableAll.ignoreCheck = false;
-			for (mod in modsGroup.members)
-			{
-				if(modsList.disabled.contains(mod.folder))
-				{
-					modsList.disabled.remove(mod.folder);
-					modsList.enabled.push(mod.folder);
-					mod.icon.color = FlxColor.WHITE;
-					mod.text.color = FlxColor.WHITE;
-				}
-			}
-			updateModDisplayData();
-			checkToggleButtons();
-			FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
-		});
-		buttonEnableAll.bg.color = FlxColor.GREEN;
-		buttonEnableAll.focusChangeCallback = function(focus:Bool) if(!focus) buttonEnableAll.bg.color = FlxColor.GREEN;
-		if(!controls.mobileC)
-			add(buttonEnableAll);
-
-		buttonDisableAll = new MenuButton(buttonX, myY, buttonWidth, buttonHeight, Language.getPhrase('disable_all_button', 'DISABLE ALL'), function() {
-			buttonDisableAll.ignoreCheck = false;
-			for (mod in modsGroup.members)
-			{
-				if(modsList.enabled.contains(mod.folder))
-				{
-					modsList.enabled.remove(mod.folder);
-					modsList.disabled.push(mod.folder);
-					mod.icon.color = 0xFFFF6666;
-					mod.text.color = FlxColor.GRAY;
-				}
-			}
-			updateModDisplayData();
-			checkToggleButtons();
-			FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
-		});
-		buttonDisableAll.bg.color = 0xFFFF6666;
-		buttonDisableAll.focusChangeCallback = function(focus:Bool) if(!focus) buttonDisableAll.bg.color = 0xFFFF6666;
-		if(!controls.mobileC)
-			add(buttonDisableAll);
-		checkToggleButtons();
-
-		if(modsList.all.length < 1)
+		// Load mods list
+		modsList = Mods.parseList();
+		if (modsList != null)
 		{
-			buttonDisableAll.visible = buttonDisableAll.enabled = false;
-			buttonEnableAll.visible = true;
-
-			var myX = bgList.x + bgList.width + 20;
-			noModsTxt = new FlxText(myX, 0, FlxG.width - myX - 20, Language.getPhrase('no_mods_installed', "MOD BULUNAMADI\n{1} tuşuna basarak çıkın veya mod ekleyin.", [daButton]), 48);
-			if(FlxG.random.bool(0.1)) noModsTxt.text += '\nYOK.'; //yok dedik
-			noModsTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-			noModsTxt.borderSize = 2;
-			add(noModsTxt);
-			noModsTxt.screenCenter(Y);
-
-			var txt = new FlxText(bgList.x + 15, bgList.y + 15, bgList.width - 30, Language.getPhrase('no_mods_found', "Mod Bulunmadı."), 16);
-			txt.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE);
-			add(txt);
-
-			FlxG.autoPause = false;
-			changeSelectedMod();
-			addTouchPad('NONE', 'B');
-			return super.create();
-		}
-		//
-
-		bgTitle = FlxSpriteUtil.drawRoundRectComplex(new FlxSprite(bgList.x + bgList.width + 20, 40).makeGraphic(840, 180, FlxColor.TRANSPARENT), 0, 0, 840, 180, 15, 15, 0, 0, FlxColor.BLACK);
-		bgTitle.alpha = 0.6;
-		add(bgTitle);
-
-		icon = new FlxSprite(bgTitle.x + 15, bgTitle.y + 15);
-		add(icon);
-
-		modNameInitialY = icon.y + 80;
-		modName = new Alphabet(icon.x + 165, modNameInitialY, "", true);
-		modName.scaleY = 0.8;
-		add(modName);
-
-		bgDescription = FlxSpriteUtil.drawRoundRectComplex(new FlxSprite(bgTitle.x, bgTitle.y + 200).makeGraphic(840, 450, FlxColor.TRANSPARENT), 0, 0, 840, 450, 0, 0, 15, 15, FlxColor.BLACK);
-		bgDescription.alpha = 0.6;
-		add(bgDescription);
-		
-		modDesc = new FlxText(bgDescription.x + 15, bgDescription.y + 15, bgDescription.width - 30, "", 24);
-		modDesc.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, LEFT);
-		add(modDesc);
-
-		var myHeight = 100;
-		modRestartText = new FlxText(bgDescription.x + 15, bgDescription.y + bgDescription.height - myHeight - 25, bgDescription.width - 30, Language.getPhrase('mod_restart', '* Moving or Toggling On/Off this Mod will restart the game.'), 16);
-		modRestartText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, RIGHT);
-		add(modRestartText);
-
-		bgButtons = FlxSpriteUtil.drawRoundRectComplex(new FlxSprite(bgDescription.x, bgDescription.y + bgDescription.height - myHeight).makeGraphic(840, myHeight, FlxColor.TRANSPARENT), 0, 0, 840, myHeight, 0, 0, 15, 15, FlxColor.WHITE);
-		bgButtons.color = FlxColor.BLACK;
-		bgButtons.alpha = 0.2;
-		add(bgButtons);
-
-		var buttonsX = bgButtons.x + 320;
-		var buttonsY = bgButtons.y + 10;
-
-		var button = new MenuButton(buttonsX, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() moveModToPosition(0), 54, 54); //Move to the top
-		button.icon.animation.add('icon', [0]);
-		button.icon.animation.play('icon', true);
-		add(button);
-		buttons.push(button);
-		
-		var button = new MenuButton(buttonsX + 100, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() moveModToPosition(curSelectedMod - 1), 54, 54); //Move up
-		button.icon.animation.add('icon', [1]);
-		button.icon.animation.play('icon', true);
-		add(button);
-		buttons.push(button);
-		
-		var button = new MenuButton(buttonsX + 200, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() moveModToPosition(curSelectedMod + 1), 54, 54); //Move down
-		button.icon.animation.add('icon', [2]);
-		button.icon.animation.play('icon', true);
-		add(button);
-		buttons.push(button);
-		
-		if(modsList.all.length < 2)
-		{
-			for (button in buttons)
-				button.enabled = false;
-		}
-
-		settingsButton = new MenuButton(buttonsX + 300, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() //Settings
-		{
-			var curMod:ModItem = modsGroup.members[curSelectedMod];
-			if(curMod != null && curMod.settings != null && curMod.settings.length > 0)
-			{
-				openSubState(new ModSettingsSubState(curMod.settings, curMod.folder, curMod.name));
-			}
-		}, 54, 54);
-
-		settingsButton.icon.animation.add('icon', [3]);
-		settingsButton.icon.animation.play('icon', true);
-		add(settingsButton);
-		buttons.push(settingsButton);
-
-		if(modsGroup.members[curSelectedMod].settings == null || modsGroup.members[curSelectedMod].settings.length < 1)
-			settingsButton.enabled = false;
-
-		var button = new MenuButton(buttonsX + 400, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() //On/Off
-		{
-			var curMod:ModItem = modsGroup.members[curSelectedMod];
-			var mod:String = curMod.folder;
-			if(!modsList.disabled.contains(mod)) //Enable
-			{
-				modsList.enabled.remove(mod);
-				modsList.disabled.push(mod);
-			}
-			else //Disable
-			{
-				modsList.disabled.remove(mod);
-				modsList.enabled.push(mod);
-			}
-			curMod.icon.color = modsList.disabled.contains(mod) ? 0xFFFF6666 : FlxColor.WHITE;
-			curMod.text.color = modsList.disabled.contains(mod) ? FlxColor.GRAY : FlxColor.WHITE;
-
-			if(curMod.mustRestart) waitingToRestart = true;
-			updateModDisplayData();
-			checkToggleButtons();
-			FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
-		}, 54, 54);
-		button.icon.animation.add('icon', [4]);
-		button.icon.animation.play('icon', true);
-		add(button);
-		buttons.push(button);
-		button.focusChangeCallback = function(focus:Bool) {
-			if(!focus)
-				button.bg.color = modsList.enabled.contains(modsGroup.members[curSelectedMod].folder) ? FlxColor.GREEN : 0xFFFF6666;
-		};
-
-		if(modsList.all.length < 1)
-		{
-			for (btn in buttons) btn.enabled = false;
-			button.focusChangeCallback = null;
+			if (modsList.disabled != null) disabledMods = modsList.disabled.copy();
+			if (modsList.enabled != null) activeMods = modsList.enabled.copy();
 		}
 		
-		add(bgList);
-		add(modsGroup);
-		_lastControllerMode = controls.controllerMode;
-
-		changeSelectedMod();
-
-		var bottomBG = new FlxSprite(0, FlxG.height - 26).makeGraphic(FlxG.width, 26, 0xFF000000);
-		bottomBG.alpha = 0.6;
-		add(bottomBG);
-
-		var bottomText = new FlxText(bottomBG.x, bottomBG.y + 4, FlxG.width, Language.getPhrase('mods_leave', "Press {1} To Leave", [daButton]), 16);
-		bottomText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, CENTER);
-		bottomText.scrollFactor.set();
-		add(bottomText);
-
-		addTouchPad('UP_DOWN', 'B');
-		touchPad.y -= 215; // so that you can press the buttons.
-		if (controls.mobileC)
-			touchPad.alpha = 0.3;
+		setupBackground();
+		setupTitle();
+		setupModColumns();
+		setupCharacters();
+		setupApplyButton();
+		
+		updateCharacters();
+		updateScrollLimits();
+		
+		FlxG.mouse.visible = true;
+		
 		super.create();
 	}
 	
-	var nextAttempt:Float = 1;
-	var holdingMod:Bool = false;
-	var mouseOffsets:FlxPoint = new FlxPoint();
-	var holdingElapsed:Float = 0;
-	var gottaClickAgain:Bool = false;
-
-	var holdTime:Float = 0;
-	var exiting:Bool = false;
-	override function update(elapsed:Float)
+	function setupBackground()
 	{
-		if(controls.BACK && hoveringOnMods && !exiting)
-		{
-			exiting = true;
-			saveTxt();
-
-			FlxG.sound.play(Paths.sound('cancelMenu'));
-			if(waitingToRestart)
-			{
-				//MusicBeatState.switchState(new TitleState());
-				TitleState.initialized = false;
-				TitleState.closedState = false;
-				FlxG.sound.music.fadeOut(0.3);
-				if(FreeplayState.vocals != null)
-				{
-					FreeplayState.vocals.fadeOut(0.3);
-					FreeplayState.vocals = null;
-				}
-				FlxG.camera.fade(FlxColor.BLACK, 0.5, false, FlxG.resetGame, false);
-			}
-			else MenuStyleRouter.goToMainMenu();
-
-			persistentUpdate = false;
-			FlxG.autoPause = ClientPrefs.data.autoPause;
-			FlxG.mouse.visible = false;
-			return;
-		}
-
-		if(Math.abs(FlxG.mouse.deltaX) > 10 || Math.abs(FlxG.mouse.deltaY) > 10)
-		{
-			controls.controllerMode = false;
-			if(!FlxG.mouse.visible) FlxG.mouse.visible = true;
-		}
+		// Dark fill
+		var darkFill:FlxSprite = new FlxSprite(0, 0).makeGraphic(FlxG.width, FlxG.height, FlxColor.fromRGB(30, 30, 30));
+		add(darkFill);
 		
-		if(controls.controllerMode != _lastControllerMode)
+		// Crowd animation
+		try
 		{
-			if(controls.controllerMode) FlxG.mouse.visible = false;
-			_lastControllerMode = controls.controllerMode;
-		}
-
-		if(controls.UI_DOWN_R || controls.UI_UP_R) holdTime = 0;
-
-		if(modsList.all.length > 0)
-		{
-			if(controls.controllerMode && holdingMod)
+			var crowdPath = Paths.getPath('images/about/crowd/Animation.json', TEXT, 'shared');
+			if (FileSystem.exists(crowdPath))
 			{
-				holdingMod = false;
-				holdingElapsed = 0;
-				updateItemPositions();
-			}
-
-			var lastMode = hoveringOnMods;
-			if(modsList.all.length > 1)
-			{
-				if(!controls.mobileC && FlxG.mouse.justPressed)
+				crowdAnim = new FlxAnimate(0, 0, Paths.getPath('images/about/crowd', TEXT, 'shared'));
+				if (crowdAnim != null && crowdAnim.anim != null)
 				{
-					for (i in centerMod-2...centerMod+3)
-					{
-						var mod = modsGroup.members[i];
-						if(mod != null && mod.visible && FlxG.mouse.overlaps(mod))
-						{
-							hoveringOnMods = true;
-							var button = getButton();
-							button.ignoreCheck = button.onFocus = false;
-							mouseOffsets.x = FlxG.mouse.x - mod.x;
-							mouseOffsets.y = FlxG.mouse.y - mod.y;
-							curSelectedMod = i;
-							changeSelectedMod();
-							break;
-						}
-					}
-					hoveringOnMods = true;
-					var button = getButton();
-					button.ignoreCheck = button.onFocus = false;
-					gottaClickAgain = false;
-				}
-
-				if(hoveringOnMods)
-				{
-					var shiftMult:Int = (FlxG.keys.pressed.SHIFT || FlxG.gamepads.anyPressed(LEFT_SHOULDER) || FlxG.gamepads.anyPressed(RIGHT_SHOULDER)) ? 4 : 1;
-					if(controls.UI_DOWN_P)
-						changeSelectedMod(shiftMult);
-					else if(controls.UI_UP_P)
-						changeSelectedMod(-shiftMult);
-					else if(FlxG.mouse.wheel != 0)
-						changeSelectedMod(-FlxG.mouse.wheel * shiftMult, true);
-					else if(FlxG.keys.justPressed.HOME || FlxG.keys.justPressed.END ||
-						FlxG.gamepads.anyJustPressed(LEFT_TRIGGER) || FlxG.gamepads.anyJustPressed(RIGHT_TRIGGER))
-					{
-						if(FlxG.keys.justPressed.END || FlxG.gamepads.anyJustPressed(RIGHT_TRIGGER)) curSelectedMod = modsList.all.length-1;
-						else curSelectedMod = 0;
-						changeSelectedMod();
-					}
-					else if(controls.UI_UP || controls.UI_DOWN)
-					{
-						var lastHoldTime:Float = holdTime;
-						holdTime += elapsed;
-						if(holdTime > 0.5 && Math.floor(lastHoldTime * 8) != Math.floor(holdTime * 8)) changeSelectedMod(shiftMult * (controls.UI_UP ? -1 : 1));
-					}
-
-					else if(FlxG.mouse.pressed && !controls.mobileC && !gottaClickAgain)
-					{
-						var curMod:ModItem = modsGroup.members[curSelectedMod];
-						if(curMod != null)
-						{
-							if(!holdingMod && FlxG.mouse.justMoved && FlxG.mouse.overlaps(curMod)) holdingMod = true;
-
-							if(holdingMod)
-							{
-								var moved:Bool = false;
-								for (i in centerMod-2...centerMod+3)
-								{
-									var mod = modsGroup.members[i];
-									if(mod != null && mod.visible && FlxG.mouse.overlaps(mod) && curSelectedMod != i)
-									{
-										moveModToPosition(i);
-										moved = true;
-										break;
-									}
-								}
-								
-								if(!moved)
-								{
-									var factor:Float = -1;
-									if(FlxG.mouse.y < bgList.y)
-										factor = Math.abs(Math.max(0.2, Math.min(0.5, 0.5 - (bgList.y - FlxG.mouse.y) / 100)));
-									else if(FlxG.mouse.y > bgList.y + bgList.height)
-										factor = Math.abs(Math.max(0.2, Math.min(0.5, 0.5 - (FlxG.mouse.y - bgList.y - bgList.height) / 100)));
-		
-									if(factor >= 0)
-									{
-										holdingElapsed += elapsed;
-										if(holdingElapsed >= factor)
-										{
-											holdingElapsed = 0;
-											var newPos = curSelectedMod;
-											if(FlxG.mouse.y < bgList.y) newPos--;
-											else newPos++;
-											moveModToPosition(Std.int(Math.max(0, Math.min(modsGroup.length - 1, newPos))));
-										}
-									}
-								}
-								curMod.x = FlxG.mouse.x - mouseOffsets.x;
-								curMod.y = FlxG.mouse.y - mouseOffsets.y;
-							}
-						}
-						
-					}
-					else if(FlxG.mouse.justReleased && !controls.mobileC && holdingMod)
-					{
-						holdingMod = false;
-						holdingElapsed = 0;
-						updateItemPositions();
-					}
-				}
-			}
-
-			if(lastMode == hoveringOnMods)
-			{
-				if(hoveringOnMods)
-				{
-					if(controls.UI_RIGHT_P)
-					{
-						hoveringOnMods = false;
-						var button = getButton();
-						button.ignoreCheck = button.onFocus = false;
-						curSelectedButton = 0;
-						changeSelectedButton();
-					}
-				}
-				else 
-				{
-					if(controls.BACK)
-					{
-						hoveringOnMods = true;
-						var button = getButton();
-						button.ignoreCheck = button.onFocus = false;
-						changeSelectedMod();
-					}
-					else if(controls.ACCEPT)
-					{
-						var button = getButton();
-						if(button.onClick != null) button.onClick();
-					}
-					else if(curSelectedButton < 0)
-					{
-						if(controls.UI_UP_P)
-						{
-							switch(curSelectedButton)
-							{
-								case -2:
-									curSelectedMod = 0;
-									hoveringOnMods = true;
-									var button = getButton();
-									button.ignoreCheck = button.onFocus = false;
-									changeSelectedMod();
-								case -1:
-									changeSelectedButton(-1);
-							}
-						}
-						else if(controls.UI_DOWN_P)
-						{
-							switch(curSelectedButton)
-							{
-								case -2:
-									changeSelectedButton(1);
-								case -1:
-									curSelectedMod = 0;
-									hoveringOnMods = true;
-									var button = getButton();
-									button.ignoreCheck = button.onFocus = false;
-									changeSelectedMod();
-							}
-						}
-						else if(controls.UI_RIGHT_P)
-						{
-							var button = getButton();
-							button.ignoreCheck = button.onFocus = false;
-							curSelectedButton = 0;
-							changeSelectedButton();
-						}
-					}
-					else if(controls.UI_LEFT_P)
-						changeSelectedButton(-1);
-					else if(controls.UI_RIGHT_P)
-						changeSelectedButton(1);
+					crowdAnim.anim.play();
+					crowdAnim.antialiasing = ClientPrefs.data.antialiasing;
+					crowdAnim.x = FlxG.width - 600;
+					crowdAnim.y = FlxG.height - 720;
+					add(crowdAnim);
 				}
 			}
 		}
-		else
+		catch (e:Dynamic)
 		{
-			noModsSine += 180 * elapsed;
-			noModsTxt.alpha = 1 - Math.sin((Math.PI * noModsSine) / 180);
-			
-			// Keep refreshing mods list every 2 seconds until you add a mod on the folder
-			nextAttempt -= elapsed;
-			if(nextAttempt < 0)
-			{
-				nextAttempt = 1;
-				@:privateAccess
-				Mods.updateModList();
-				modsList = Mods.parseList();
-				if(modsList.all.length > 0)
-				{
-					trace('mod(s) found! reloading');
-					reload();
-				}
-			}
-		}
-		super.update(elapsed);
-	}
-
-	function changeSelectedButton(add:Int = 0)
-	{
-		var max = buttons.length - 1;
-		
-		var button = getButton();
-		button.ignoreCheck = button.onFocus = false;
-
-		curSelectedButton += add;
-		if(curSelectedButton < -2)
-			curSelectedButton = -2;
-		else if(curSelectedButton > max)
-			curSelectedButton = max;
-
-		var button = getButton();
-		button.ignoreCheck = button.onFocus = true;
-
-		var curMod:ModItem = modsGroup.members[curSelectedMod];
-		if(curMod != null) curMod.selectBg.visible = false;
-		if(curSelectedButton < 0)
-		{
-			bgButtons.color = FlxColor.BLACK;
-			bgButtons.alpha = 0.2;
-		}
-		else
-		{
-			bgButtons.color = FlxColor.WHITE;
-			bgButtons.alpha = 0.8;
-		}
-
-		FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
-	}
-
-	function getButton()
-	{
-		switch(curSelectedButton)
-		{
-			case -2: return buttonReload;
-			case -1: return buttonEnableAll.enabled ? buttonEnableAll : buttonDisableAll;
-		}
-
-		if(modsList.all.length < 1) return buttonReload; //prevent possible crash from my irresponsibility
-		return buttons[Std.int(Math.max(0, Math.min(buttons.length-1, curSelectedButton)))];
-	}
-
-	function changeSelectedMod(add:Int = 0, isMouseWheel:Bool = false)
-	{
-		var max = modsList.all.length - 1;
-		if(max < 0) return;
-
-		if(hoveringOnMods)
-		{
-			var button = getButton();
-			button.ignoreCheck = button.onFocus = false;
-		}
-
-		var lastSelected = curSelectedMod;
-		curSelectedMod += add;
-
-		var limited:Bool = false;
-		if(curSelectedMod < 0)
-		{
-			curSelectedMod = 0;
-			limited = true;
-		}
-		else if(curSelectedMod > max)
-		{
-			curSelectedMod = max;
-			limited = true;
+			trace('Crowd animation load failed: ' + e);
 		}
 		
-		if(!controls.mobileC && !isMouseWheel && limited && Math.abs(add) == 1)
+		// BG Sprite
+		if (Paths.fileExists('images/about/bg.png', IMAGE, 'shared'))
 		{
-			if(add < 0) // pressed up on first mod
+			bgSprite = new FlxSprite(0, 0).loadGraphic(Paths.image('about/bg', 'shared'));
+			bgSprite.antialiasing = ClientPrefs.data.antialiasing;
+			bgSprite.setGraphicSize(0, FlxG.height);
+			bgSprite.updateHitbox();
+			bgSprite.x = -50;
+			bgSprite.y = 0;
+			add(bgSprite);
+		}
+		
+		// Scrolling backgrounds
+		var scrollBGs:Array<String> = ['menuBG', 'menuBGMagenta', 'menuDesat', 'menuBGBlue'];
+		var nextBgY:Float = FlxG.height;
+		
+		for (bgName in scrollBGs)
+		{
+			if (Paths.fileExists('images/$bgName.png', IMAGE, 'shared'))
 			{
-				curSelectedMod = lastSelected;
-				hoveringOnMods = false;
-				curSelectedButton = -1;
-				changeSelectedButton();
-				return;
-			}
-			else // pressed down on last mod
-			{
-				curSelectedMod = lastSelected;
-				hoveringOnMods = false;
-				curSelectedButton = -2;
-				changeSelectedButton();
-				return;
+				var bg:FlxSprite = new FlxSprite(0, nextBgY).loadGraphic(Paths.image(bgName, 'shared'));
+				bg.antialiasing = ClientPrefs.data.antialiasing;
+				bg.setGraphicSize(FlxG.width);
+				bg.updateHitbox();
+				add(bg);
+				nextBgY += bg.height;
 			}
 		}
 		
-		holdingMod = false;
-		holdingElapsed = 0;
-		gottaClickAgain = true;
-		updateModDisplayData();
-		FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
+		// Server
+		if (Paths.fileExists('images/about/server.png', IMAGE, 'shared'))
+		{
+			server = new FlxSprite(0, 0).loadGraphic(Paths.image('about/server', 'shared'));
+			server.antialiasing = ClientPrefs.data.antialiasing;
+			server.scale.set(0.5, 0.5);
+			server.updateHitbox();
+			server.x = 0;
+			server.y = FlxG.height - server.height - 30;
+			add(server);
+		}
 		
-		if(hoveringOnMods)
+		// Lights
+		if (Paths.fileExists('images/about/lights.png', IMAGE, 'shared'))
 		{
-			var curMod:ModItem = modsGroup.members[curSelectedMod];
-			if(curMod != null) curMod.selectBg.visible = true;
-			bgButtons.color = FlxColor.BLACK;
-			bgButtons.alpha = 0.2;
+			lights = new FlxSprite(0, 0).loadGraphic(Paths.image('about/lights', 'shared'));
+			lights.antialiasing = ClientPrefs.data.antialiasing;
+			lights.scale.set(0.6, 0.6);
+			lights.updateHitbox();
+			lights.screenCenter(flixel.util.FlxAxes.X);
+			lights.y = -20;
+			add(lights);
 		}
-	}
-
-	function updateModDisplayData()
-	{
-		var curMod:ModItem = modsGroup.members[curSelectedMod];
-		if(curMod == null) return;
-
-		FlxTween.cancelTweensOf(bg);
-		FlxTween.color(bg, 1, bg.color, curMod.bgColor);
-
-		if(Math.abs(centerMod - curSelectedMod) > 2)
-		{
-			if(centerMod < curSelectedMod)
-				centerMod = curSelectedMod - 2;
-			else centerMod = curSelectedMod + 2;
-		}
-		updateItemPositions();
-
-		icon.loadGraphic(curMod.icon.graphic, true, 150, 150);
-		icon.antialiasing = curMod.icon.antialiasing;
-
-		if(curMod.totalFrames > 0)
-		{
-			icon.animation.add("icon", [for (i in 0...curMod.totalFrames) i], curMod.iconFps);
-			icon.animation.play("icon");
-			icon.animation.curAnim.curFrame = curMod.icon.animation.curAnim.curFrame;
-		}
-
-		if(modName.scaleX != 0.8) modName.setScale(0.8);
-		modName.text = curMod.name;
-		var newScale = Math.min(620 / (modName.width / 0.8), 0.8);
-		modName.setScale(newScale, Math.min(newScale * 1.35, 0.8));
-		modName.y = modNameInitialY - (modName.height / 2);
-		modRestartText.visible = curMod.mustRestart;
-		modDesc.text = curMod.desc;
-
-		for (button in buttons) if(button.focusChangeCallback != null) button.focusChangeCallback(button.onFocus);
-		settingsButton.enabled = (curMod.settings != null && curMod.settings.length > 0);
-	}
-
-	var centerMod:Int = 2;
-	function updateItemPositions()
-	{
-		var maxVisible = Math.max(4, centerMod + 2);
-		var minVisible = Math.max(0, centerMod - 2);
-		for (i => mod in modsGroup.members)
-		{
-			if(mod == null)
-			{
-				trace('Mod #$i is null, maybe it was ' + modsList.all[i]);
-				continue;
-			}
-
-			mod.visible = (i >= minVisible && i <= maxVisible);
-			mod.x = bgList.x + 5;
-			mod.y = bgList.y + (86 * (i - centerMod + 2)) + 5;
-			
-			mod.alpha = 0.6;
-			if(i == curSelectedMod) mod.alpha = 1;
-			mod.selectBg.visible = (i == curSelectedMod && hoveringOnMods);
-		}
-	}
-
-	var waitingToRestart:Bool = false;
-	function moveModToPosition(?mod:String = null, position:Int = 0)
-	{
-		if(mod == null) mod = modsList.all[curSelectedMod];
-		if(position >= modsList.all.length) position = 0;
-		else if(position < 0) position = modsList.all.length-1;
-
-		trace('Moved mod $mod to position $position');
-		var id:Int = modsList.all.indexOf(mod);
-		if(position == id) return;
-
-		var curMod:ModItem = modsGroup.members[id];
-		if(curMod == null) return;
-
-		if(curMod.mustRestart || modsGroup.members[position].mustRestart) waitingToRestart = true;
-
-		modsGroup.remove(curMod, true);
-		modsList.all.remove(mod);
-		//if(position > id) position--;
-		modsGroup.insert(position, curMod);
-		modsList.all.insert(position, mod);
-
-		curSelectedMod = position;
-		updateModDisplayData();
-		updateItemPositions();
-		
-		if(!hoveringOnMods)
-		{
-			var curMod:ModItem = modsGroup.members[curSelectedMod];
-			if(curMod != null) curMod.selectBg.visible = false;
-		}
-		FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
-	}
-
-	function checkToggleButtons()
-	{
-		buttonEnableAll.visible = buttonEnableAll.enabled = buttonEnableAll.active = modsList.disabled.length > 0;
-		buttonDisableAll.visible = buttonDisableAll.enabled = buttonDisableAll.active = !buttonEnableAll.visible;
-	}
-
-	function reload()
-	{
-		saveTxt();
-		FlxG.autoPause = ClientPrefs.data.autoPause;
-		FlxTransitionableState.skipNextTransIn = true;
-		FlxTransitionableState.skipNextTransOut = true;
-		var curMod:ModItem = modsGroup.members[curSelectedMod];
-		MenuStyleRouter.goToMods();
 	}
 	
-	function saveTxt()
+	function setupCharacters()
+	{
+		// GF Character (Left) - Using CharSelectGF
+		try
+		{
+			gfCharacter = new CharSelectGF();
+			gfCharacter.x = gfX;
+			gfCharacter.y = gfY;
+			gfCharacter.switchGF("bf"); // Load default GF
+			add(gfCharacter);
+			
+			gfLabel = new FlxText(gfCharacter.x, gfCharacter.y - 40, 200, "GF Görünüşü");
+			gfLabel.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+			gfLabel.borderSize = 2;
+			gfLabel.antialiasing = ClientPrefs.data.antialiasing;
+			add(gfLabel);
+			
+			trace('[ModsMenu] GF character loaded successfully');
+		}
+		catch (e:Dynamic)
+		{
+			trace('[ModsMenu] GF character load failed: ' + e);
+		}
+		
+		// BF Character (Right)
+		try
+		{
+			bfCharacter = new Character(bfX, bfY, 'bf', true);
+			if (bfCharacter != null)
+			{
+				bfCharacter.dance();
+				add(bfCharacter);
+				currentBFMod = ""; // Default BF
+				
+				bfLabel = new FlxText(bfCharacter.x, bfCharacter.y - 40, 200, "BF Görünüşü");
+				bfLabel.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+				bfLabel.borderSize = 2;
+				bfLabel.antialiasing = ClientPrefs.data.antialiasing;
+				add(bfLabel);
+				
+				trace('[ModsMenu] BF character loaded successfully');
+			}
+		}
+		catch (e:Dynamic)
+		{
+			trace('[ModsMenu] BF character load failed: ' + e);
+		}
+	}
+	
+	function setupTitle()
+	{
+		titleText = new FlxText(0, 30, FlxG.width, "MODLAR");
+		titleText.setFormat(Paths.font("coolweekfont.ttf"), 56, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		titleText.borderSize = 3;
+		titleText.antialiasing = ClientPrefs.data.antialiasing;
+		add(titleText);
+	}
+	
+	function setupModColumns()
+	{
+		var centerX = FlxG.width / 2;
+		var leftColumnX = centerX - COLUMN_WIDTH - (COLUMN_SPACING / 2);
+		var rightColumnX = centerX + (COLUMN_SPACING / 2);
+		var columnY = 120;
+		
+		// Disabled Mods Column (Left) - Rounded corners
+		disabledColumnBG = FlxSpriteUtil.drawRoundRect(
+			new FlxSprite(leftColumnX, columnY).makeGraphic(COLUMN_WIDTH, COLUMN_HEIGHT, FlxColor.TRANSPARENT),
+			0, 0, COLUMN_WIDTH, COLUMN_HEIGHT, CORNER_RADIUS, CORNER_RADIUS, FlxColor.BLACK
+		);
+		disabledColumnBG.alpha = 0.5;
+		add(disabledColumnBG);
+		
+		disabledColumnTitle = new FlxText(leftColumnX, columnY + 10, COLUMN_WIDTH, "DEAKTİF MODLAR");
+		disabledColumnTitle.setFormat(Paths.font("Avgardd.ttf"), 28, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		disabledColumnTitle.borderSize = 2;
+		disabledColumnTitle.antialiasing = ClientPrefs.data.antialiasing;
+		add(disabledColumnTitle);
+		
+		// Active Mods Column (Right) - Rounded corners
+		activeColumnBG = FlxSpriteUtil.drawRoundRect(
+			new FlxSprite(rightColumnX, columnY).makeGraphic(COLUMN_WIDTH, COLUMN_HEIGHT, FlxColor.TRANSPARENT),
+			0, 0, COLUMN_WIDTH, COLUMN_HEIGHT, CORNER_RADIUS, CORNER_RADIUS, FlxColor.BLACK
+		);
+		activeColumnBG.alpha = 0.5;
+		add(activeColumnBG);
+		
+		activeColumnTitle = new FlxText(rightColumnX, columnY + 10, COLUMN_WIDTH, "AKTİF MODLAR");
+		activeColumnTitle.setFormat(Paths.font("Avgardd.ttf"), 28, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		activeColumnTitle.borderSize = 2;
+		activeColumnTitle.antialiasing = ClientPrefs.data.antialiasing;
+		add(activeColumnTitle);
+		
+		// Mod card groups
+		disabledModsGroup = new FlxTypedGroup<ModCard>();
+		add(disabledModsGroup);
+		
+		activeModsGroup = new FlxTypedGroup<ModCard>();
+		add(activeModsGroup);
+		
+		// Populate cards
+		populateModCards();
+	}
+	
+	function populateModCards()
+	{
+		// Clear existing cards
+		disabledModsGroup.clear();
+		activeModsGroup.clear();
+		
+		var centerX = FlxG.width / 2;
+		var leftColumnX = centerX - COLUMN_WIDTH - (COLUMN_SPACING / 2);
+		var rightColumnX = centerX + (COLUMN_SPACING / 2);
+		var startY = 170;
+		
+		// Disabled mods
+		if (disabledMods != null)
+		{
+			for (i in 0...disabledMods.length)
+			{
+				var card = new ModCard(leftColumnX + 10, startY + (i * (CARD_HEIGHT + CARD_SPACING)), COLUMN_WIDTH - 20, CARD_HEIGHT, disabledMods[i], false);
+				disabledModsGroup.add(card);
+			}
+		}
+		
+		// Active mods
+		if (activeMods != null)
+		{
+			for (i in 0...activeMods.length)
+			{
+				var card = new ModCard(rightColumnX + 10, startY + (i * (CARD_HEIGHT + CARD_SPACING)), COLUMN_WIDTH - 20, CARD_HEIGHT, activeMods[i], true);
+				activeModsGroup.add(card);
+			}
+		}
+	}
+	
+	function setupApplyButton()
+	{
+		var buttonWidth = 200;
+		var buttonHeight = 60;
+		var buttonX = (FlxG.width - buttonWidth) / 2;
+		var buttonY = FlxG.height - 80;
+		
+		applyButton = new ModernButton(buttonX, buttonY, buttonWidth, buttonHeight, "UYGULA", onApplyClick);
+		add(applyButton);
+	}
+	
+	function onApplyClick()
+	{
+		saveMods();
+		FlxG.sound.play(Paths.sound('confirmMenu'));
+		MusicBeatState.switchState(new MainMenuState());
+	}
+	
+	function saveMods()
 	{
 		var fileStr:String = '';
-		for (mod in modsList.all)
+		
+		// Save active mods first (with order)
+		if (activeMods != null)
 		{
-			if(mod.trim().length < 1) continue;
-
-			if(fileStr.length > 0) fileStr += '\n';
-
-			var on = '1';
-			if(modsList.disabled.contains(mod)) on = '0';
-			fileStr += '$mod|$on';
+			for (mod in activeMods)
+			{
+				if(mod.trim().length < 1) continue;
+				if(fileStr.length > 0) fileStr += '\n';
+				fileStr += '$mod|1';
+			}
 		}
-
+		
+		// Save disabled mods
+		if (disabledMods != null)
+		{
+			for (mod in disabledMods)
+			{
+				if(mod.trim().length < 1) continue;
+				if(fileStr.length > 0) fileStr += '\n';
+				fileStr += '$mod|0';
+			}
+		}
+		
 		var path:String = #if android StorageUtil.getExternalStorageDirectory() + #else Sys.getCwd() + #end 'modsList.txt';
 		File.saveContent(path, fileStr);
 		Mods.parseList();
 		Mods.loadTopMod();
 	}
-}
-
-class ModItem extends FlxSpriteGroup
-{
-	public var selectBg:FlxSprite;
-	public var icon:FlxSprite;
-	public var text:FlxText;
-	public var totalFrames:Int = 0;
-
-	// options
-	public var name:String = 'Unknown Mod';
-	public var desc:String = 'No description provided.';
-	public var iconFps:Int = 10;
-	public var bgColor:FlxColor = 0xFF665AFF;
-	public var pack:Dynamic = null;
-	public var folder:String = 'unknownMod';
-	public var mustRestart:Bool = false;
-	public var settings:Array<Dynamic> = null;
-
-	public function new(folder:String)
+	
+	function updateCharacters()
 	{
-		super();
-
-		this.folder = folder;
-		pack = Mods.getPack(folder);
-
-		var path:String = Paths.mods('$folder/data/settings.json');
-		if(FileSystem.exists(path))
+		// Determine which mod's BF to load
+		var targetBFMod:String = "";
+		
+		if (activeMods != null && activeMods.length > 0)
 		{
+			var topMod = activeMods[0];
+			var modBfPath = Paths.mods('$topMod/characters/bf.json');
+			
+			#if sys
+			if (FileSystem.exists(modBfPath))
+			{
+				targetBFMod = topMod;
+			}
+			#end
+		}
+		
+		// Only reload BF if the mod changed
+		if (currentBFMod != targetBFMod)
+		{
+			trace('[ModsMenu] Updating BF: currentMod=${currentBFMod} -> targetMod=${targetBFMod}');
+			loadBFCharacter(targetBFMod);
+		}
+		
+		// GF always stays default
+		if (gfCharacter != null)
+		{
+			gfCharacter.switchGF("bf");
+		}
+	}
+	
+	function loadBFCharacter(modName:String)
+	{
+		trace('[ModsMenu] loadBFCharacter called with mod: ${modName}');
+		
+		// Clean up old BF
+		if (bfCharacter != null)
+		{
+			trace('[ModsMenu] Removing old BF character');
+			var oldIndex = members.indexOf(bfCharacter);
+			remove(bfCharacter);
+			bfCharacter.destroy();
+			bfCharacter = null;
+		}
+		
+		var characterToLoad:String = 'bf';
+		var shouldPlayMiss:Bool = false;
+		
+		if (modName != "" && modName != null)
+		{
+			// Try to load mod BF
+			var modBfPath = Paths.mods('$modName/characters/bf.json');
+			trace('[ModsMenu] Checking mod BF path: ${modBfPath}');
+			
+			#if sys
+			if (FileSystem.exists(modBfPath))
+			{
+				characterToLoad = modName + ':bf';
+				trace('[ModsMenu] Found mod BF, will load: ${characterToLoad}');
+			}
+			else
+			{
+				trace('[ModsMenu] Mod BF not found, using default + miss');
+				characterToLoad = 'bf';
+				shouldPlayMiss = true;
+			}
+			#end
+		}
+		
+		// Load the character
+		try
+		{
+			trace('[ModsMenu] Creating character: ${characterToLoad}');
+			bfCharacter = new Character(bfX, bfY, characterToLoad, true);
+			
+			if (bfCharacter != null)
+			{
+				trace('[ModsMenu] Character created successfully');
+				
+				// Insert before label to maintain layer order
+				if (bfLabel != null)
+				{
+					var labelIndex = members.indexOf(bfLabel);
+					insert(labelIndex, bfCharacter);
+				}
+				else
+				{
+					add(bfCharacter);
+				}
+				
+				currentBFMod = modName;
+				
+				if (shouldPlayMiss)
+				{
+					trace('[ModsMenu] Playing miss animation');
+					// Play miss animation
+					if (bfCharacter.animOffsets.exists('singLEFTmiss'))
+						bfCharacter.playAnim('singLEFTmiss', true);
+					else if (bfCharacter.animOffsets.exists('singDOWNmiss'))
+						bfCharacter.playAnim('singDOWNmiss', true);
+					else if (bfCharacter.animOffsets.exists('singUPmiss'))
+						bfCharacter.playAnim('singUPmiss', true);
+					else if (bfCharacter.animOffsets.exists('singRIGHTmiss'))
+						bfCharacter.playAnim('singRIGHTmiss', true);
+					else
+						bfCharacter.dance();
+				}
+				else
+				{
+					bfCharacter.dance();
+				}
+			}
+			else
+			{
+				trace('[ModsMenu] ERROR: bfCharacter is null after creation!');
+			}
+		}
+		catch (e:Dynamic)
+		{
+			trace('[ModsMenu] EXCEPTION loading BF: ' + e);
+			
+			// Fallback to default BF
 			try
 			{
-				//trace('trying to load settings: $folder');
-				settings = tjson.TJSON.parse(File.getContent(path));
+				trace('[ModsMenu] Attempting fallback to default BF');
+				bfCharacter = new Character(bfX, bfY, 'bf', true);
+				
+				if (bfCharacter != null)
+				{
+					if (bfLabel != null)
+					{
+						var labelIndex = members.indexOf(bfLabel);
+						insert(labelIndex, bfCharacter);
+					}
+					else
+					{
+						add(bfCharacter);
+					}
+					
+					currentBFMod = "";
+					
+					// Play miss animation on fallback
+					if (bfCharacter.animOffsets.exists('singLEFTmiss'))
+						bfCharacter.playAnim('singLEFTmiss', true);
+					else
+						bfCharacter.dance();
+					
+					trace('[ModsMenu] Fallback BF loaded successfully');
+				}
 			}
-			catch(e:Dynamic)
+			catch (fallbackError:Dynamic)
 			{
-				var errorTitle = 'Mod name: ' + Mods.currentModDirectory;
-				var errorMsg = 'An error occurred: $e';
-				CoolUtil.showPopUp(errorMsg, errorTitle);
+				trace('[ModsMenu] FATAL: Failed to load fallback BF: ' + fallbackError);
 			}
 		}
-
-		selectBg = new FlxSprite().makeGraphic(1, 1, FlxColor.WHITE);
-		selectBg.alpha = 0.8;
-		selectBg.visible = false;
-		add(selectBg);
-
-		icon = new FlxSprite(5, 5);
-		icon.antialiasing = ClientPrefs.data.antialiasing;
-		add(icon);
-
-		text = new FlxText(95, 38, 230, "", 16);
-		text.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-		text.borderSize = 2;
-		text.y -= Std.int(text.height / 2);
-		add(text);
-
-		var isPixel = false;
-		var file:String = Paths.mods('$folder/pack.png');
-		if (!FileSystem.exists(file))
-		{
-			file = Paths.mods('$folder/pack-pixel.png');
-			isPixel = true;
-		}
-		
-		var bmp:BitmapData = null;
-		if (FileSystem.exists(file)) bmp = BitmapData.fromFile(file);
-		else isPixel = false;
-
-		if(FileSystem.exists(file))
-		{
-			icon.loadGraphic(Paths.cacheBitmap(file, bmp), true, 150, 150);
-			if(isPixel) icon.antialiasing = false;
-		}
-		else icon.loadGraphic(Paths.image('unknownMod'), true, 150, 150);
-		icon.scale.set(0.5, 0.5);
-		icon.updateHitbox();
-		
-		this.name = folder;
-		if(pack != null)
-		{
-			if(pack.name != null) this.name = pack.name;
-			if(pack.description != null) this.desc = pack.description;
-			if(pack.iconFramerate != null) this.iconFps = pack.iconFramerate;
-			if(pack.color != null)
-			{
-				this.bgColor = FlxColor.fromRGB(pack.color[0] != null ? pack.color[0] : 170,
-											  pack.color[1] != null ? pack.color[1] : 0,
-											  pack.color[2] != null ? pack.color[2] : 255);
-			}
-			this.mustRestart = (pack.restart == true);
-		}
-		text.text = this.name;
-
-		if(bmp != null)
-		{
-			totalFrames = Math.floor(bmp.width / 150) * Math.floor(bmp.height / 150);
-			icon.animation.add("icon", [for (i in 0...totalFrames) i], iconFps);
-			icon.animation.play("icon");
-		}
-		selectBg.scale.set(width + 5, height + 5);
-		selectBg.updateHitbox();
 	}
-}
-
-class MenuButton extends FlxSpriteGroup
-{
-	public var bg:FlxSprite;
-	public var textOn:Alphabet;
-	public var textOff:Alphabet;
-	public var icon:FlxSprite;
-	public var onClick:Void->Void = null;
-	public var enabled(default, set):Bool = true;
-	public function new(x:Float, y:Float, width:Int, height:Int, ?text:String = null, ?img:FlxGraphic = null, onClick:Void->Void = null, animWidth:Int = 0, animHeight:Int = 0)
+	
+	function updateScrollLimits()
 	{
-		super(x, y);
+		var contentHeight = disabledMods != null ? disabledMods.length * (CARD_HEIGHT + CARD_SPACING) : 0;
+		disabledMaxScroll = Math.max(0, contentHeight - (COLUMN_HEIGHT - 60));
 		
-		bg = FlxSpriteUtil.drawRoundRect(new FlxSprite().makeGraphic(width, height, FlxColor.TRANSPARENT), 0, 0, width, height, 15, 15, FlxColor.WHITE);
-		bg.color = FlxColor.BLACK;
-		add(bg);
-
-		if(text != null)
-		{
-			textOn = new Alphabet(0, 0, "", false);
-			textOn.setScale(0.6);
-			textOn.text = text;
-			textOn.alpha = 0.6;
-			textOn.visible = false;
-			centerOnBg(textOn);
-			textOn.y -= 30;
-			add(textOn);
-			
-			textOff = new Alphabet(0, 0, "", true);
-			textOff.setScale(0.52);
-			textOff.text = text;
-			textOff.alpha = 0.6;
-			centerOnBg(textOff);
-			add(textOff);
-		}
-		else if(img != null)
-		{
-			icon = new FlxSprite();
-			if(animWidth > 0 || animHeight > 0) icon.loadGraphic(img, true, animWidth, animHeight);
-			else icon.loadGraphic(img);
-			centerOnBg(icon);
-			add(icon);
-		}
-
-		this.onClick = onClick;
-		setButtonVisibility(false);
+		contentHeight = activeMods != null ? activeMods.length * (CARD_HEIGHT + CARD_SPACING) : 0;
+		activeMaxScroll = Math.max(0, contentHeight - (COLUMN_HEIGHT - 60));
 	}
-
-	public var focusChangeCallback:Bool->Void = null;
-	public var onFocus(default, set):Bool = false;
-	public var ignoreCheck:Bool = false;
-	private var _needACheck:Bool = false;
+	
 	override function update(elapsed:Float)
 	{
 		super.update(elapsed);
-
-		if(!enabled)
+		
+		// BF idle loop kontrol
+		if (bfCharacter != null && bfCharacter.animation.curAnim != null)
 		{
-			onFocus = false;
+			var currentAnimName = bfCharacter.animation.curAnim.name;
+			
+			if (currentAnimName == "idle")
+			{
+				@:privateAccess
+				{
+					var curAnim = bfCharacter.animation.curAnim;
+					if (curAnim.curFrame >= (curAnim.frames.length - 1))
+					{
+						bfCharacter.playAnim('idle', true);
+					}
+				}
+			}
+		}
+		
+		// GF - Manuel loop kontrol
+		if (gfCharacter != null)
+		{
+			@:privateAccess
+			{
+				if (gfCharacter.anim != null)
+				{
+					// Animasyon bitiyse restart et
+					if (gfCharacter.anim.finished)
+					{
+						gfCharacter.anim.play("idle");
+						trace('[ModsMenu] GF animation restarted');
+					}
+				}
+			}
+		}
+		
+		// Back button
+		if (controls.BACK)
+		{
+			FlxG.sound.play(Paths.sound('cancelMenu'));
+			MusicBeatState.switchState(new MainMenuState());
+			FlxG.mouse.visible = false;
 			return;
 		}
+		
+		handleDragging();
+		handleScrolling(elapsed);
+		updateCardPositions();
+	}
 
-		if (Controls.instance.mobileC) {
-			if(!ignoreCheck)
-				onFocus = TouchUtil.overlaps(this);
-
-			if(onFocus && TouchUtil.justReleased)
-				onFocus = false;
-
-			if(onFocus && onClick != null && TouchUtil.justPressed)
-				onClick();
-
-			if(_needACheck) {
-				_needACheck = false;
-				setButtonVisibility(TouchUtil.overlaps(this));
+	override function beatHit()
+	{
+		super.beatHit();
+		
+		// BF
+		if (bfCharacter != null) 
+		{
+			if (bfCharacter.animation.curAnim != null)
+			{
+				var currentAnimName = bfCharacter.animation.curAnim.name;
+				if (currentAnimName != "idle" && !currentAnimName.contains('miss'))
+				{
+					bfCharacter.dance();
+				}
 			}
-		} else {
-			if(!ignoreCheck && !Controls.instance.controllerMode && (FlxG.mouse.justPressed || FlxG.mouse.justMoved) && FlxG.mouse.visible)
-				onFocus = FlxG.mouse.overlaps(this);
+		}
+		
+		// GF - onBeatHit çağır
+		if (gfCharacter != null)
+		{
+			gfCharacter.onBeatHit(curBeat);
+		}
+	}	
+	function handleDragging()
+	{
+		if (FlxG.mouse.justPressed && draggingCard == null)
+		{
+			// Check if clicking on a card
+			if (disabledModsGroup != null)
+			{
+				disabledModsGroup.forEachAlive(function(card:ModCard) {
+					if (card != null && FlxG.mouse.overlaps(card) && !card.isDragging)
+					{
+						startDragging(card, 'disabled');
+					}
+				});
+			}
 			
-			if(onFocus && onClick != null && FlxG.mouse.justPressed)
-				onClick();
-
-			if(_needACheck) {
-				_needACheck = false;
-				if(!Controls.instance.controllerMode)
-					setButtonVisibility(FlxG.mouse.overlaps(this));
+			if (activeModsGroup != null)
+			{
+				activeModsGroup.forEachAlive(function(card:ModCard) {
+					if (card != null && FlxG.mouse.overlaps(card) && !card.isDragging)
+					{
+						startDragging(card, 'active');
+					}
+				});
 			}
 		}
-	}
-
-	function set_onFocus(newValue:Bool)
-	{
-		var lastFocus:Bool = onFocus;
-		onFocus = newValue;
-		if(onFocus != lastFocus && enabled) setButtonVisibility(onFocus);
-		return newValue;
-	}
-
-	function set_enabled(newValue:Bool)
-	{
-		enabled = newValue;
-		setButtonVisibility(false);
-		alpha = enabled ? 1 : 0.4;
-
-		_needACheck = enabled;
-		return newValue;
-	}
-
-	public function setButtonVisibility(focusVal:Bool)
-	{
-		alpha = 1;
-		bg.color = focusVal ? FlxColor.WHITE : FlxColor.BLACK;
-		bg.alpha = focusVal ? 0.8 : 0.6;
-
-		var focusAlpha = focusVal ? 1 : 0.6;
-		if(textOn != null && textOff != null)
+		
+		if (FlxG.mouse.pressed && draggingCard != null)
 		{
-			textOn.alpha = textOff.alpha = focusAlpha;
-			textOn.visible = focusVal;
-			textOff.visible = !focusVal;
+			// Update card position
+			draggingCard.x = FlxG.mouse.x - dragOffset.x;
+			draggingCard.y = FlxG.mouse.y - dragOffset.y;
 		}
-		else if(icon != null)
+		
+		if (FlxG.mouse.justReleased && draggingCard != null)
 		{
-			icon.alpha = focusAlpha;
-			icon.color = focusVal ? FlxColor.BLACK : FlxColor.WHITE;
+			stopDragging();
 		}
-
-		if(!enabled) alpha = 0.4;
-		if(focusChangeCallback != null) focusChangeCallback(focusVal);
 	}
-
-	public function centerOnBg(spr:FlxSprite)
+	
+	function startDragging(card:ModCard, column:String)
 	{
-		spr.x = bg.width/2 - spr.width/2;
-		spr.y = bg.height/2 - spr.height/2;
+		draggingCard = card;
+		dragOffset.x = FlxG.mouse.x - card.x;
+		dragOffset.y = FlxG.mouse.y - card.y;
+		originalColumn = column;
+		
+		if (column == 'disabled' && disabledMods != null)
+			originalIndex = disabledMods.indexOf(card.modFolder);
+		else if (activeMods != null)
+			originalIndex = activeMods.indexOf(card.modFolder);
+		
+		card.isDragging = true;
+		card.alpha = 0.7;
+		
+		FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
+	}
+	
+	function stopDragging()
+	{
+		if (draggingCard == null) return;
+		
+		var centerX = FlxG.width / 2;
+		var targetColumn = (FlxG.mouse.x < centerX) ? 'disabled' : 'active';
+		
+		// Move mod between lists
+		if (originalColumn != targetColumn)
+		{
+			if (originalColumn == 'disabled' && disabledMods != null && activeMods != null)
+			{
+				disabledMods.remove(draggingCard.modFolder);
+				activeMods.push(draggingCard.modFolder);
+			}
+			else if (activeMods != null && disabledMods != null)
+			{
+				activeMods.remove(draggingCard.modFolder);
+				disabledMods.push(draggingCard.modFolder);
+			}
+			
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
+			populateModCards();
+			updateCharacters();
+			updateScrollLimits();
+		}
+		else
+		{
+			// Return to original position
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.3);
+		}
+		
+		draggingCard.isDragging = false;
+		draggingCard.alpha = 1.0;
+		draggingCard = null;
+	}
+	
+	function handleScrolling(elapsed:Float)
+	{
+		var centerX = FlxG.width / 2;
+		var leftColumnX = centerX - COLUMN_WIDTH - (COLUMN_SPACING / 2);
+		var rightColumnX = centerX + (COLUMN_SPACING / 2);
+		
+		// Determine which column to scroll
+		if (FlxG.mouse.wheel != 0)
+		{
+			if (FlxG.mouse.x >= leftColumnX && FlxG.mouse.x <= leftColumnX + COLUMN_WIDTH)
+			{
+				disabledTargetScrollY -= FlxG.mouse.wheel * 40;
+				disabledTargetScrollY = Math.max(0, Math.min(disabledMaxScroll, disabledTargetScrollY));
+			}
+			else if (FlxG.mouse.x >= rightColumnX && FlxG.mouse.x <= rightColumnX + COLUMN_WIDTH)
+			{
+				activeTargetScrollY -= FlxG.mouse.wheel * 40;
+				activeTargetScrollY = Math.max(0, Math.min(activeMaxScroll, activeTargetScrollY));
+			}
+		}
+		
+		// Smooth scrolling
+		disabledScrollY += (disabledTargetScrollY - disabledScrollY) * 8 * elapsed;
+		activeScrollY += (activeTargetScrollY - activeScrollY) * 8 * elapsed;
+	}
+	
+	function updateCardPositions()
+	{
+		var centerX = FlxG.width / 2;
+		var leftColumnX = centerX - COLUMN_WIDTH - (COLUMN_SPACING / 2);
+		var rightColumnX = centerX + (COLUMN_SPACING / 2);
+		var startY = 170;
+		
+		// Update disabled cards
+		if (disabledModsGroup != null)
+		{
+			disabledModsGroup.forEachAlive(function(card:ModCard) {
+				if (card != null && !card.isDragging)
+				{
+					var index = disabledModsGroup.members.indexOf(card);
+					card.x = leftColumnX + 10;
+					card.y = startY + (index * (CARD_HEIGHT + CARD_SPACING)) - disabledScrollY;
+				}
+			});
+		}
+		
+		// Update active cards
+		if (activeModsGroup != null)
+		{
+			activeModsGroup.forEachAlive(function(card:ModCard) {
+				if (card != null && !card.isDragging)
+				{
+					var index = activeModsGroup.members.indexOf(card);
+					card.x = rightColumnX + 10;
+					card.y = startY + (index * (CARD_HEIGHT + CARD_SPACING)) - activeScrollY;
+				}
+			});
+		}
+	}
+}
+
+class ModCard extends FlxSpriteGroup
+{
+	public var bg:FlxSprite;
+	public var icon:FlxSprite;
+	public var nameText:FlxText;
+	public var descText:FlxText;
+	public var modFolder:String;
+	public var isDragging:Bool = false;
+	
+	public function new(x:Float, y:Float, width:Int, height:Int, folder:String, isActive:Bool)
+	{
+		super(x, y);
+		
+		this.modFolder = folder;
+		
+		// Background - Rounded corners (15px)
+		bg = FlxSpriteUtil.drawRoundRect(
+			new FlxSprite(0, 0).makeGraphic(width, height, FlxColor.TRANSPARENT),
+			0, 0, width, height, 15, 15, FlxColor.BLACK
+		);
+		bg.alpha = 0.5;
+		add(bg);
+		
+		// Icon
+		icon = new FlxSprite(10, 10);
+		icon.antialiasing = ClientPrefs.data.antialiasing;
+		
+		var iconPath = Paths.mods('$folder/pack.png');
+		var iconLoaded = false;
+		
+		#if sys
+		if (FileSystem.exists(iconPath))
+		{
+			try
+			{
+				icon.loadGraphic(iconPath);
+				iconLoaded = true;
+			}
+			catch (e:Dynamic)
+			{
+				trace('Failed to load icon for $folder: ' + e);
+			}
+		}
+		#end
+		
+		if (!iconLoaded)
+		{
+			if (Paths.fileExists('images/unknownMod.png', IMAGE))
+			{
+				icon.loadGraphic(Paths.image('unknownMod'));
+			}
+			else
+			{
+				icon.makeGraphic(100, 100, FlxColor.GRAY);
+			}
+		}
+		
+		icon.setGraphicSize(100, 100);
+		icon.updateHitbox();
+		add(icon);
+		
+		// Load pack.json
+		var pack:Dynamic = null;
+		try
+		{
+			pack = Mods.getPack(folder);
+		}
+		catch (e:Dynamic)
+		{
+			trace('Failed to get pack for $folder: ' + e);
+		}
+		
+		var modName = folder;
+		var modDesc = "Açıklama yok.";
+		
+		if (pack != null)
+		{
+			if (pack.name != null) modName = pack.name;
+			if (pack.description != null) modDesc = pack.description;
+		}
+		
+		// Name text
+		nameText = new FlxText(120, 15, width - 130, modName);
+		nameText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		nameText.borderSize = 1.5;
+		nameText.antialiasing = ClientPrefs.data.antialiasing;
+		add(nameText);
+		
+		// Description text
+		descText = new FlxText(120, 45, width - 130, modDesc);
+		descText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.GRAY, LEFT);
+		descText.antialiasing = ClientPrefs.data.antialiasing;
+		add(descText);
+	}
+}
+
+class ModernButton extends FlxSpriteGroup
+{
+	public var bg:FlxSprite;
+	public var outline:FlxSprite;
+	public var text:FlxText;
+	public var onClick:Void->Void;
+	
+	public function new(x:Float, y:Float, width:Int, height:Int, label:String, onClick:Void->Void)
+	{
+		super(x, y);
+		
+		this.onClick = onClick;
+		
+		// Black outline/border (4px)
+		outline = FlxSpriteUtil.drawRoundRect(
+			new FlxSprite(-4, -4).makeGraphic(width + 8, height + 8, FlxColor.TRANSPARENT),
+			0, 0, width + 8, height + 8, 15, 15, FlxColor.BLACK
+		);
+		add(outline);
+		
+		// Background - Rounded corners (15px)
+		bg = FlxSpriteUtil.drawRoundRect(
+			new FlxSprite(0, 0).makeGraphic(width, height, FlxColor.TRANSPARENT),
+			0, 0, width, height, 15, 15, FlxColor.BLACK
+		);
+		bg.alpha = 0.5;
+		add(bg);
+		
+		text = new FlxText(0, 0, width, label);
+		text.setFormat(Paths.font("Avgardd.ttf"), 32, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		text.borderSize = 2;
+		text.antialiasing = ClientPrefs.data.antialiasing;
+		text.y = (height - text.height) / 2;
+		add(text);
 	}
 }

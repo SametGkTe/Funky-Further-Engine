@@ -34,8 +34,12 @@ class StrumNote extends FlxSprite
 		
 		var arr:Array<FlxColor> = ClientPrefs.data.arrowRGB[leData];
 		if(PlayState.isPixelStage) arr = ClientPrefs.data.arrowRGBPixel[leData];
-		
-		if(leData <= arr.length)
+		if (arr == null || leData >= arr.length)
+			arr = ClientPrefs.data.arrowRGB[leData % 4];
+		if(PlayState.isPixelStage && (ClientPrefs.data.arrowRGBPixel[leData] == null || leData >= ClientPrefs.data.arrowRGBPixel[leData].length))
+			arr = ClientPrefs.data.arrowRGBPixel[leData % 4];
+
+		if(arr != null && arr.length >= 3)
 		{
 			@:bypassAccessor
 			{

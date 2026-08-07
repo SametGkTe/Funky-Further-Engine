@@ -104,12 +104,34 @@ class VideoSprite extends FlxSpriteGroup {
 			destroy();
 		}
 	}
+	
+	// Mobil Video Geçme
+	#if TOUCH_CONTROLS_ALLOWED
+	function isMobilePSkip():Bool
+	{
+		var st:MusicBeatState = cast (FlxG.state, MusicBeatState);
+		if (st != null)
+		{
+			if (st.touchPad != null && st.touchPad.buttonP != null && st.touchPad.buttonP.pressed) return true;
+			if (st.mobileManager != null && st.mobileManager.mobilePad != null)
+			{
+				var btn:MobileButton = st.mobileManager.mobilePad.getButton('buttonP');
+				if (btn != null && btn.pressed) return true;
+			}
+			if (st is PlayState && PlayState.instance != null && PlayState.instance.luaTouchPad != null
+				&& PlayState.instance.luaTouchPad.buttonP != null && PlayState.instance.luaTouchPad.buttonP.pressed) return true;
+		}
+		return false;
+	}
+	#else
+	function isMobilePSkip():Bool return false;
+	#end
 
 	override function update(elapsed:Float)
 	{
 		if(canSkip)
 		{
-			if(Controls.instance.pressed('accept'))
+			if(Controls.instance.pressed('accept') || isMobilePSkip())
 			{
 				holdingTime = Math.max(0, Math.min(_timeToSkip, holdingTime + elapsed));
 			}

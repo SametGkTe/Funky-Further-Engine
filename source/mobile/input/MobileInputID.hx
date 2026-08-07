@@ -86,6 +86,11 @@ enum abstract MobileInputID(Int) from Int to Int
 	// Extra Buttons
 	var EXTRA_1 = 42;
 	var EXTRA_2 = 43;
+	var NOTE_5 = 44;
+	var NOTE_6 = 45;
+	var NOTE_7 = 46;
+	var NOTE_8 = 47;
+	var NOTE_9 = 48;
 
 	@:from
 	public static inline function fromString(s:String)

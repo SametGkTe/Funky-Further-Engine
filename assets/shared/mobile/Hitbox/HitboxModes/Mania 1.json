@@ -1,0 +1,14 @@
+{
+  "hints": [
+    {
+      "button": "buttonNote1",
+      "buttonIDs": ["1K_NOTE_1"],
+      "buttonUniqueID": 0,
+      "x": 0,
+      "y": 0,
+      "width": 1280,
+      "height": 720,
+      "color": "0xFFFF00"
+    }
+  ]
+}

@@ -105,7 +105,8 @@ class Controls
 		return result
 			|| _myGamepadPressed(gamepadBinds[key]) == true
 			|| mobileCPressed(mobileBinds[key]) == true
-			|| touchPadPressed(mobileBinds[key]) == true;
+			|| touchPadPressed(mobileBinds[key]) == true
+			|| newMobilePressed(mobileBinds[key]) == true;
 	}
 	
 	public var FAVORITE(get, never):Bool;
@@ -174,7 +175,7 @@ class Controls
 
 	public var isInSubstate:Bool = false; // don't worry about this it becomes true and false on it's own in MusicBeatSubstate
 	public var requestedInstance(get, default):Dynamic; // is set to MusicBeatState or MusicBeatSubstate when the constructor is called
-	public var requestedMobileC(get, default):IMobileControls; // for PlayState and EditorPlayState (hitbox and touchPad)
+	public var requestedMobileC(get, default):FMobileControls; // for PlayState and EditorPlayState (hitbox and touchPad)
 	public var mobileC(get, never):Bool;
 
 	private function touchPadPressed(keys:Array<MobileInputID>):Bool
@@ -184,6 +185,42 @@ class Controls
 				return true;
 
 		return false;
+	}
+	
+	private function newMobilePressed(keys:Array<MobileInputID>):Bool
+	{
+		if (keys == null) return false;
+
+		var st:Dynamic = requestedInstance;
+		if (st == null) return false;
+
+		var mgr:MobileControlManager = cast st.mobileManager;
+		if (mgr == null) return false;
+
+		for (k in keys)
+		{
+			var idStr:String = mobileIdToString(k);
+			if (idStr == null) continue;
+
+			if (mgr.hitbox != null && mgr.hitbox.buttonPressed(idStr)) return true;
+			if (mgr.mobilePad != null && mgr.mobilePad.buttonPressed(idStr)) return true;
+		}
+		return false;
+	}
+
+	static function mobileIdToString(id:MobileInputID):String
+	{
+		var v:Int = id;
+		if (v == MobileInputID.NOTE_LEFT) return "NOTE_LEFT";
+		if (v == MobileInputID.NOTE_DOWN) return "NOTE_DOWN";
+		if (v == MobileInputID.NOTE_UP) return "NOTE_UP";
+		if (v == MobileInputID.NOTE_RIGHT) return "NOTE_RIGHT";
+		if (v >= 44 && v <= 48) return "NOTE_" + (v - 39); // NOTE_5..9
+		if (v == MobileInputID.LEFT) return "LEFT";
+		if (v == MobileInputID.DOWN) return "DOWN";
+		if (v == MobileInputID.UP) return "UP";
+		if (v == MobileInputID.RIGHT) return "RIGHT";
+		return null;
 	}
 
 	private function touchPadJustPressed(keys:Array<MobileInputID>):Bool
@@ -241,7 +278,7 @@ class Controls
 	}
 
 	@:noCompletion
-	private function get_requestedMobileC():IMobileControls
+	private function get_requestedMobileC():FMobileControls
 	{
 		return requestedInstance.mobileControls;
 	}
