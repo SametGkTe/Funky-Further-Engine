@@ -152,6 +152,13 @@ class CharSelectGF extends FlxAtlasSprite
    */
   function doFade(animInfo:FramesJSFLInfo):Void
   {
+    // Null-guard: In/Out.txt bulunamadıysa fade yapma (crash yerine)
+    if (animInfo == null || animInfo.frames == null || animInfo.frames.length < 2)
+    {
+      fadingStatus = OFF;
+      return;
+    }
+
     fadeTimer += FlxG.elapsed;
     if (fadeTimer >= 1 / 24)
     {
@@ -163,8 +170,20 @@ class CharSelectGF extends FlxAtlasSprite
         return;
       }
 
+      if (fadeAnimIndex >= animInfo.frames.length)
+      {
+        fadingStatus = OFF;
+        return;
+      }
+
       var curFrame:FramesJSFLFrame = animInfo.frames[fadeAnimIndex];
       var prevFrame:FramesJSFLFrame = animInfo.frames[fadeAnimIndex - 1];
+
+      if (curFrame == null || prevFrame == null)
+      {
+        fadeAnimIndex++;
+        return;
+      }
 
       var xDiff:Float = curFrame.x - prevFrame.x;
       var yDiff:Float = curFrame.y - prevFrame.y;
@@ -221,8 +240,28 @@ class CharSelectGF extends FlxAtlasSprite
 			{
 				loadAtlas(currentGFPath);
 				enableVisualizer = false;
-				animInInfo = FramesJSFLParser.parse(defaultAnimInfoPath + '/In.txt');
-				animOutInfo = FramesJSFLParser.parse(defaultAnimInfoPath + '/Out.txt');
+
+				// FramesJSFLParser.parse dosya yoksa THROW eder (try/catch'siz sessiz çöküş!)
+				// → In/Out.txt bulunamazsa null bırak, fade animasyonları atlanır.
+				try
+				{
+					animInInfo = FramesJSFLParser.parse(defaultAnimInfoPath + '/In.txt');
+				}
+				catch (e)
+				{
+					animInInfo = null;
+					trace('[CharSelectGF] In.txt yok, fade atlanıyor: ' + defaultAnimInfoPath + '/In.txt');
+				}
+
+				try
+				{
+					animOutInfo = FramesJSFLParser.parse(defaultAnimInfoPath + '/Out.txt');
+				}
+				catch (e)
+				{
+					animOutInfo = null;
+					trace('[CharSelectGF] Out.txt yok, fade atlanıyor: ' + defaultAnimInfoPath + '/Out.txt');
+				}
 			}
 
 			playAnimation("idle", true, false, false);
@@ -237,8 +276,27 @@ class CharSelectGF extends FlxAtlasSprite
 			loadAtlas(currentGFPath);
 			enableVisualizer = gfData?.visualizer ?? false;
 			var animInfoPath = 'images/${gfData?.animInfoPath}';
-			animInInfo = FramesJSFLParser.parse(animInfoPath + '/In.txt');
-			animOutInfo = FramesJSFLParser.parse(animInfoPath + '/Out.txt');
+
+			// Aynı şekilde In/Out.txt yoksa throw → try/catch ile koru
+			try
+			{
+				animInInfo = FramesJSFLParser.parse(animInfoPath + '/In.txt');
+			}
+			catch (e)
+			{
+				animInInfo = null;
+				trace('[CharSelectGF] In.txt yok: ' + animInfoPath + '/In.txt');
+			}
+
+			try
+			{
+				animOutInfo = FramesJSFLParser.parse(animInfoPath + '/Out.txt');
+			}
+			catch (e)
+			{
+				animOutInfo = null;
+				trace('[CharSelectGF] Out.txt yok: ' + animInfoPath + '/Out.txt');
+			}
 		}
 		
 		if (anim == null || anim.stageInstance == null)

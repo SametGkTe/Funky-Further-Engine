@@ -4,16 +4,17 @@ import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
-import flixel.tweens.FlxTween;
-import flixel.tweens.FlxEase;
 import flixel.math.FlxMath;
-import flixel.util.FlxTimer;
+import openfl.display.BitmapData;
 import backend.update.UpdateChecker;
-import backend.update.UpdateConfig;
+import backend.modpack.ModpackLinkHelper;
 import backend.modpack.ModpackPaths;
 import backend.modpack.ModpackInstaller;
 import backend.modpack.ModpackTypes;
+import backend.modpack.ModpackTier;
+import backend.modpack.MediafireStats;
 import backend.modpack.DownloadManager;
+import substates.PickDownloadMethodSubState;
 
 enum StoreScreenState {
 	Loading;
@@ -21,16 +22,32 @@ enum StoreScreenState {
 	Detail;
 	Downloading;
 	Installing;
+	Uninstalling;
 	Complete;
 	Error;
 }
 
+/**
+ * Further Engine — Modpack Mağazası
+ *
+ * Ekranlar:
+ *  - Browse   : 2x2 kart grid'i (görsel + paket adı + tier + toplam indirmeler)
+ *  - Detail   : büyük görsel + İÇERİK listesi (scroll) + indirme linkleri
+ *  - Diyalog  : [OTOMATİK] / [MANUEL] indirme yöntemi seçimi (PickDownloadMethodSubState)
+ *
+ * İndirme linkleri: MediaFire (mediafireUrl) ve GitHub (githubUrl).
+ * Kullanıcı hangi linke basarsa OTOMATİK indirme o kaynak üzerinden yapılır;
+ * MANUEL seçilirse tarayıcıda açılır.
+ */
 class ModpackStoreState extends MusicBeatState {
 	// ─── Veri ───
 	var allPacks:Array<Dynamic> = [];
-	var selectedIndex:Int = 0;
-	var scrollOffset:Int = 0;
-	var maxVisible:Int = 8;
+	var pageIndex:Int = 0;
+	var pageCount:Int = 1;
+	var selectedIndex:Int = 0; // grid index (0-3)
+	var currentPack:Dynamic = null; // detay ekranındaki paket
+	var selectedLink:Int = 0; // 0 = MediaFire, 1 = GitHub
+	var expectedBytes:Float = -1;
 
 	// ─── Sistemler ───
 	var downloader:DownloadManager;
@@ -40,503 +57,720 @@ class ModpackStoreState extends MusicBeatState {
 	var screenState:StoreScreenState = Loading;
 	var currentProgress:Float = 0.0;
 	var targetProgress:Float = 0.0;
+	var loadingTimer:Float = 0.0;
+	var loadingDots:Int = 0;
+	var includeOffset:Int = 0;
+	var includeMaxVisible:Int = 10;
+	var dragList:Bool = false;
+	var dragStartY:Float = 0.0;
+	var hoveredLink:Int = -1;
 
-	// ─── UI ───
+	// ─── Genel UI ───
 	var bg:FlxSprite;
-	var headerBg:FlxSprite;
-	var headerLine:FlxSprite;
 	var titleText:FlxText;
 	var subtitleText:FlxText;
-	var listTexts:Array<FlxText> = [];
-	var statusIndicators:Array<FlxText> = [];
+	var controlsText:FlxText;
+	var loadingText:FlxText;
+	var errorText:FlxText;
 
-	// Detay paneli
+	// ─── Browse (kart grid) ───
+	static final GRID_COLS:Int = 2;
+	static final CARDS_PER_PAGE:Int = 4;
+	var cardBg:Array<FlxSprite> = [];
+	var cardBorder:Array<FlxSprite> = [];
+	var cardName:Array<FlxText> = [];
+	var cardTier:Array<FlxText> = [];
+	var cardThumb:Array<FlxSprite> = [];
+	var cardThumbText:Array<FlxText> = [];
+	var cardDownloads:Array<FlxText> = [];
+	var selector:FlxSprite;
+	var pageText:FlxText;
+
+	// ─── Detail ───
 	var detailBg:FlxSprite;
+	var detailImage:FlxSprite;
+	var detailImageText:FlxText;
 	var detailName:FlxText;
-	var detailAuthor:FlxText;
-	var detailDesc:FlxText;
-	var detailVersion:FlxText;
-	var detailSize:FlxText;
-	var detailModCount:FlxText;
-	var detailChangelog:FlxText;
-	var detailStatus:FlxText;
-	var detailControls:FlxText;
+	var detailUpdated:FlxText;
+	var detailMeta:FlxText;
+	var includesTitle:FlxText;
+	var includeTexts:Array<FlxText> = [];
+	var scrollTrack:FlxSprite;
+	var scrollThumb:FlxSprite;
+	var linksTitle:FlxText;
+	var linkRow:Array<FlxSprite> = [];
+	var linkLogo:Array<FlxSprite> = [];
+	var linkLogoText:Array<FlxText> = [];
+	var linkText:Array<FlxText> = [];
+	var linkLabel:Array<FlxText> = [];
 
-	// Progress
+	// ─── Progress / Durum ───
+	var barBorder:FlxSprite;
 	var barBg:FlxSprite;
 	var barFill:FlxSprite;
-	var barBorder:FlxSprite;
 	var percentText:FlxText;
 	var sizeText:FlxText;
 	var speedText:FlxText;
 	var phaseText:FlxText;
 
-	// Yükleniyor
-	var loadingText:FlxText;
-	var loadingDots:Int = 0;
-	var loadingTimer:Float = 0;
+	static final ACCENT:Int = 0xFF0D9488;
+	static final INSTALLED_COLOR:Int = 0xFF22C55E;
+	static final UPDATE_COLOR:Int = 0xFFF59E0B;
+	static final NEW_COLOR:Int = 0xFF3B82F6;
 
-	// Kontrol bilgisi
-	var controlsText:FlxText;
+	// ═════════════════════════════════════════════
+	//  CREATE
+	// ═════════════════════════════════════════════
 
-	// Hata
-	var errorText:FlxText;
-
-	static inline final ACCENT:Int = 0xFF14B8A6;
-	static inline final INSTALLED_COLOR:Int = 0xFF22C55E;
-	static inline final UPDATE_COLOR:Int = 0xFFEAB308;
-	static inline final NEW_COLOR:Int = 0xFF3B82F6;
-	static inline final BAR_HEIGHT:Int = 8;
-	static inline final BAR_MARGIN:Int = 60;
-	static inline final ITEM_HEIGHT:Int = 50;
-	static inline final LIST_START_Y:Int = 90;
-
-	// ─────────────────────────────────────────────
-	//  Create
-	// ─────────────────────────────────────────────
-
-	override function create() {
+	override function create():Void {
 		super.create();
 
 		downloader = new DownloadManager();
 		installer = new ModpackInstaller();
 
-		// ── Arkaplan ──
-		bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, 0xFF000000);
+		bg = new FlxSprite(0, 0).makeGraphic(FlxG.width, FlxG.height, 0xFF0A0E12);
 		add(bg);
 
-		// ── Header ──
-		headerBg = new FlxSprite(0, 0).makeGraphic(FlxG.width, 70, 0xFF0A0A0A);
-		add(headerBg);
-
-		headerLine = new FlxSprite(0, 68).makeGraphic(FlxG.width, 2, ACCENT);
-		headerLine.alpha = 0.6;
-		add(headerLine);
-
-		titleText = new FlxText(30, 12, FlxG.width - 60, "Modpack Mağazası", 28);
-		titleText.setFormat("VCR OSD Mono", 28, FlxColor.WHITE, LEFT);
+		// ── Başlık ──
+		titleText = new FlxText(0, 24, FlxG.width, "MODPACK MAĞAZASI", 34);
+		titleText.setFormat("VCR OSD Mono", 34, FlxColor.WHITE, CENTER);
 		add(titleText);
 
-		subtitleText = new FlxText(30, 45, FlxG.width - 60, "Yükleniyor...", 13);
-		subtitleText.setFormat("VCR OSD Mono", 13, 0xFF666666, LEFT);
+		subtitleText = new FlxText(0, 64, FlxG.width, "Yükleniyor...", 13);
+		subtitleText.setFormat("VCR OSD Mono", 13, 0xFF666666, CENTER);
 		add(subtitleText);
 
-		// ── Yükleniyor ekranı ──
-		loadingText = new FlxText(0, 0, FlxG.width, "Modpackler yükleniyor...", 20);
-		loadingText.setFormat("VCR OSD Mono", 20, 0xFF888888, CENTER);
+		controlsText = new FlxText(0, FlxG.height - 36, FlxG.width, "", 12);
+		controlsText.setFormat("VCR OSD Mono", 12, 0xFF777777, CENTER);
+		add(controlsText);
+
+		loadingText = new FlxText(0, 0, FlxG.width, "Mağaza yükleniyor...", 18);
+		loadingText.setFormat("VCR OSD Mono", 18, 0xFF888888, CENTER);
 		loadingText.screenCenter();
 		add(loadingText);
 
-		// ── Hata ekranı ──
-		errorText = new FlxText(60, 0, FlxG.width - 120, "", 16);
-		errorText.setFormat("VCR OSD Mono", 16, 0xFFEF4444, CENTER);
+		errorText = new FlxText(60, 0, FlxG.width - 120, "", 15);
+		errorText.setFormat("VCR OSD Mono", 15, 0xFFEF4444, CENTER);
 		errorText.screenCenter();
 		errorText.visible = false;
 		add(errorText);
 
-		// ── Alt kontrol bilgisi ──
-		controlsText = new FlxText(0, FlxG.height - 40, FlxG.width, "", 13);
-		controlsText.setFormat("VCR OSD Mono", 13, 0xFF555555, CENTER);
-		add(controlsText);
-
-		// ── Progress bar (başlangıçta gizli) ──
-		var barY:Int = FlxG.height - 90;
-
-		barBorder = new FlxSprite(BAR_MARGIN - 1, barY - 1).makeGraphic(FlxG.width - (BAR_MARGIN * 2) + 2, BAR_HEIGHT + 2, 0xFF333333);
+		// ── Progress bar ──
+		var barY:Int = FlxG.height - 100;
+		barBorder = new FlxSprite(30 - 1, barY - 1).makeGraphic(FlxG.width - 58 + 2, 18 + 2, 0xFF333333);
 		barBorder.visible = false;
 		add(barBorder);
-
-		barBg = new FlxSprite(BAR_MARGIN, barY).makeGraphic(FlxG.width - (BAR_MARGIN * 2), BAR_HEIGHT, 0xFF1A1A1A);
+		barBg = new FlxSprite(30, barY).makeGraphic(FlxG.width - 58, 18, 0xFF1A1A1A);
 		barBg.visible = false;
 		add(barBg);
-
-		barFill = new FlxSprite(BAR_MARGIN, barY).makeGraphic(1, BAR_HEIGHT, ACCENT);
+		barFill = new FlxSprite(30, barY).makeGraphic(1, 18, ACCENT);
 		barFill.visible = false;
 		add(barFill);
-
-		percentText = new FlxText(0, barY - 20, FlxG.width, "", 13);
+		percentText = new FlxText(0, barY - 22, FlxG.width, "", 13);
 		percentText.setFormat("VCR OSD Mono", 13, FlxColor.WHITE, CENTER);
 		percentText.visible = false;
 		add(percentText);
-
-		sizeText = new FlxText(0, barY + BAR_HEIGHT + 4, FlxG.width - BAR_MARGIN, "", 11);
-		sizeText.setFormat("VCR OSD Mono", 11, 0xFF555555, RIGHT);
+		sizeText = new FlxText(0, barY + 22, FlxG.width - 40, "", 11);
+		sizeText.setFormat("VCR OSD Mono", 11, 0xFF666666, RIGHT);
 		sizeText.visible = false;
 		add(sizeText);
-
-		speedText = new FlxText(BAR_MARGIN, barY + BAR_HEIGHT + 4, FlxG.width / 2, "", 11);
-		speedText.setFormat("VCR OSD Mono", 11, 0xFF555555, LEFT);
+		speedText = new FlxText(40, barY + 22, FlxG.width / 2, "", 11);
+		speedText.setFormat("VCR OSD Mono", 11, 0xFF666666, LEFT);
 		speedText.visible = false;
 		add(speedText);
-
-		phaseText = new FlxText(0, 0, FlxG.width, "", 24);
-		phaseText.setFormat("VCR OSD Mono", 24, FlxColor.WHITE, CENTER);
+		phaseText = new FlxText(0, 0, FlxG.width, "", 22);
+		phaseText.setFormat("VCR OSD Mono", 22, FlxColor.WHITE, CENTER);
 		phaseText.screenCenter();
-		phaseText.y -= 30;
+		phaseText.y -= 40;
 		phaseText.visible = false;
 		add(phaseText);
 
-		// ── Detay paneli sprite'ları ──
-		createDetailPanel();
+		createBrowseUI();
+		createDetailUI();
 
-		// ── Giriş ──
 		FlxG.camera.fade(FlxColor.BLACK, 0.3, true);
-
-		// ── Veri çek ──
 		fetchStore();
 	}
 
-	// ─────────────────────────────────────────────
-	//  Detay Paneli Oluştur
-	// ─────────────────────────────────────────────
+	// ═════════════════════════════════════════════
+	//  BROWSE UI (2x2 kart grid)
+	// ═════════════════════════════════════════════
 
-	function createDetailPanel():Void {
-		detailBg = new FlxSprite(40, 80).makeGraphic(FlxG.width - 80, FlxG.height - 180, 0xFF0D0D0D);
+	function createBrowseUI():Void {
+		var gridW:Int = FlxG.width;
+		var gridH:Int = FlxG.height - 120;
+		var gap:Int = 14;
+		var marginX:Int = 26;
+		var marginY:Int = 86;
+		var cardW:Int = Std.int((gridW - marginX * 2 - gap) / GRID_COLS);
+		var cardH:Int = Std.int((gridH - marginY - gap) / 2);
+		var thumbH:Int = cardH - 82;
+
+		selector = new FlxSprite(marginX - 3, marginY - 3).makeGraphic(cardW + 6, cardH + 6, 0xFF0D9488);
+		selector.alpha = 0.35;
+		selector.visible = false;
+		add(selector);
+
+		for (i in 0...CARDS_PER_PAGE) {
+			var col:Int = i % GRID_COLS;
+			var row:Int = Std.int(i / GRID_COLS);
+			var x:Int = marginX + col * (cardW + gap);
+			var y:Int = marginY + row * (cardH + gap);
+
+			var border = new FlxSprite(x - 2, y - 2).makeGraphic(cardW + 4, cardH + 4, 0xFF1E293B);
+			border.visible = false;
+			add(border);
+			cardBorder.push(border);
+
+			var box = new FlxSprite(x, y).makeGraphic(cardW, cardH, 0xFF111827);
+			box.visible = false;
+			add(box);
+			cardBg.push(box);
+
+			// Paket adı (üst)
+			var name = new FlxText(x + 12, y + 8, cardW - 70, "", 16);
+			name.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT);
+			name.visible = false;
+			add(name);
+			cardName.push(name);
+
+			// Tier rozeti (sağ üst)
+			var tier = new FlxText(x + cardW - 66, y + 9, 56, "", 11);
+			tier.setFormat("VCR OSD Mono", 11, FlxColor.WHITE, RIGHT);
+			tier.visible = false;
+			add(tier);
+			cardTier.push(tier);
+
+			// Görsel alanı
+			var thumb = new FlxSprite(x + 10, y + 34);
+			thumb.visible = false;
+			add(thumb);
+			cardThumb.push(thumb);
+
+			var thumbText = new FlxText(x + 10, y + 34 + Std.int(thumbH / 2) - 10, cardW - 20, "", 12);
+			thumbText.setFormat("VCR OSD Mono", 12, 0xFF4B5563, CENTER);
+			thumbText.visible = false;
+			add(thumbText);
+			cardThumbText.push(thumbText);
+
+			// Toplam indirmeler (alt)
+			var dl = new FlxText(x + 12, y + cardH - 30, cardW - 24, "", 12);
+			dl.setFormat("VCR OSD Mono", 12, 0xFF94A3B8, LEFT);
+			dl.visible = false;
+			add(dl);
+			cardDownloads.push(dl);
+		}
+
+		pageText = new FlxText(0, FlxG.height - 58, FlxG.width, "", 12);
+		pageText.setFormat("VCR OSD Mono", 12, 0xFF555555, CENTER);
+		pageText.visible = false;
+		add(pageText);
+	}
+
+	// ═════════════════════════════════════════════
+	//  DETAIL UI
+	// ═════════════════════════════════════════════
+
+	function createDetailUI():Void {
+		var padX:Int = 30;
+		var topY:Int = 96;
+		var bottomY:Int = FlxG.height - 56;
+
+		detailBg = new FlxSprite(0, topY - 10).makeGraphic(FlxG.width, bottomY - topY + 10, 0xFF0D1117);
 		detailBg.visible = false;
 		add(detailBg);
 
-		var dx:Int = 60;
-		var dw:Int = FlxG.width - 120;
+		// Sol: büyük görsel
+		var imgW:Int = Std.int((FlxG.width - padX * 2) * 0.42);
+		var imgH:Int = bottomY - topY - 30;
 
-		detailName = new FlxText(dx, 100, dw, "", 26);
-		detailName.setFormat("VCR OSD Mono", 26, FlxColor.WHITE, LEFT);
+		detailImage = new FlxSprite(padX, topY + 10);
+		detailImage.visible = false;
+		add(detailImage);
+
+		detailImageText = new FlxText(padX, topY + 10 + Std.int(imgH / 2) - 12, imgW, "", 14);
+		detailImageText.setFormat("VCR OSD Mono", 14, 0xFF4B5563, CENTER);
+		detailImageText.visible = false;
+		add(detailImageText);
+
+		// Sağ panel
+		var rightX:Int = padX + imgW + 34;
+		var rightW:Int = FlxG.width - rightX - padX;
+
+		detailName = new FlxText(rightX, topY + 12, rightW, "", 24);
+		detailName.setFormat("VCR OSD Mono", 24, FlxColor.WHITE, LEFT);
 		detailName.visible = false;
 		add(detailName);
 
-		detailAuthor = new FlxText(dx, 135, dw, "", 14);
-		detailAuthor.setFormat("VCR OSD Mono", 14, ACCENT, LEFT);
-		detailAuthor.visible = false;
-		add(detailAuthor);
+		detailUpdated = new FlxText(rightX, topY + 44, rightW, "", 12);
+		detailUpdated.setFormat("VCR OSD Mono", 12, 0xFF94A3B8, LEFT);
+		detailUpdated.visible = false;
+		add(detailUpdated);
 
-		detailVersion = new FlxText(dx, 158, dw / 2, "", 13);
-		detailVersion.setFormat("VCR OSD Mono", 13, 0xFF888888, LEFT);
-		detailVersion.visible = false;
-		add(detailVersion);
+		detailMeta = new FlxText(rightX, topY + 62, rightW, "", 12);
+		detailMeta.setFormat("VCR OSD Mono", 12, 0xFF64748B, LEFT);
+		detailMeta.visible = false;
+		add(detailMeta);
 
-		detailSize = new FlxText(dx + Std.int(dw / 2), 158, dw / 2, "", 13);
-		detailSize.setFormat("VCR OSD Mono", 13, 0xFF888888, RIGHT);
-		detailSize.visible = false;
-		add(detailSize);
+		includesTitle = new FlxText(rightX, topY + 92, rightW, "İÇERİK:", 14);
+		includesTitle.setFormat("VCR OSD Mono", 14, ACCENT, LEFT);
+		includesTitle.visible = false;
+		add(includesTitle);
 
-		detailModCount = new FlxText(dx, 178, dw, "", 13);
-		detailModCount.setFormat("VCR OSD Mono", 13, 0xFF666666, LEFT);
-		detailModCount.visible = false;
-		add(detailModCount);
+		var listTop:Int = topY + 116;
+		var linksReserve:Int = 150;
+		var listH:Int = (bottomY - listTop) - linksReserve;
 
-		detailDesc = new FlxText(dx, 210, dw, "", 15);
-		detailDesc.setFormat("VCR OSD Mono", 15, 0xFFCCCCCC, LEFT);
-		detailDesc.visible = false;
-		add(detailDesc);
+		scrollTrack = new FlxSprite(rightX + rightW - 8, listTop).makeGraphic(4, listH, 0xFF1F2937);
+		scrollTrack.visible = false;
+		add(scrollTrack);
 
-		detailChangelog = new FlxText(dx, 280, dw, "", 13);
-		detailChangelog.setFormat("VCR OSD Mono", 13, 0xFF777777, LEFT);
-		detailChangelog.visible = false;
-		add(detailChangelog);
+		scrollThumb = new FlxSprite(rightX + rightW - 8, listTop).makeGraphic(4, 30, ACCENT);
+		scrollThumb.visible = false;
+		add(scrollThumb);
 
-		detailStatus = new FlxText(dx, FlxG.height - 150, dw, "", 16);
-		detailStatus.setFormat("VCR OSD Mono", 16, INSTALLED_COLOR, CENTER);
-		detailStatus.visible = false;
-		add(detailStatus);
+		linksTitle = new FlxText(rightX, bottomY - 122, rightW, "İNDİRME LİNKLERİ:", 14);
+		linksTitle.setFormat("VCR OSD Mono", 14, ACCENT, LEFT);
+		linksTitle.visible = false;
+		add(linksTitle);
 
-		detailControls = new FlxText(0, FlxG.height - 120, FlxG.width, "", 13);
-		detailControls.setFormat("VCR OSD Mono", 13, 0xFF555555, CENTER);
-		detailControls.visible = false;
-		add(detailControls);
+		for (i in 0...2) {
+			var y:Int = bottomY - 96 + i * 40;
+			var row = new FlxSprite(rightX, y).makeGraphic(rightW, 34, 0xFF111827);
+			row.visible = false;
+			add(row);
+			linkRow.push(row);
+
+			var logo = new FlxSprite(rightX + 6, y + 5).makeGraphic(24, 24, i == 0 ? 0xFF1565C0 : 0xFF0F172A);
+			logo.visible = false;
+			add(logo);
+			linkLogo.push(logo);
+
+			var logoText = new FlxText(rightX + 6, y + 7, 24, i == 0 ? "MF" : "GH", 10);
+			logoText.setFormat("VCR OSD Mono", 10, FlxColor.WHITE, CENTER);
+			logoText.visible = false;
+			add(logoText);
+			linkLogoText.push(logoText);
+
+			var label = new FlxText(rightX + 38, y + 3, 90, i == 0 ? "MediaFire" : "GitHub", 12);
+			label.setFormat("VCR OSD Mono", 12, 0xFF94A3B8, LEFT);
+			label.visible = false;
+			add(label);
+			linkLabel.push(label);
+
+			var txt = new FlxText(rightX + 38, y + 18, rightW - 50, "", 10);
+			txt.setFormat("VCR OSD Mono", 10, 0xFFCBD5E1, LEFT);
+			txt.visible = false;
+			add(txt);
+			linkText.push(txt);
+		}
 	}
 
-	// ─────────────────────────────────────────────
-	//  Veri Çekme
-	// ─────────────────────────────────────────────
+	// ═════════════════════════════════════════════
+	//  VERİ ÇEKME
+	// ═════════════════════════════════════════════
 
 	function fetchStore():Void {
 		screenState = Loading;
+		loadingText.visible = true;
+		errorText.visible = false;
 
 		var checker = UpdateChecker.instance;
-		checker.onError = function(err) {
+		checker.onError = function(err:String) {
 			showError('Bağlantı hatası:\n$err');
 		};
 
-		checker.fetchStoreList(function(packs) {
+		checker.fetchStoreList(function(packs:Array<Dynamic>) {
 			if (packs == null || packs.length == 0) {
-				showError("Hiç modpack bulunamadı.");
+				showError("Hiç modpack bulunamadı.\nKatalog boş veya erişilemiyor.");
 				return;
 			}
 
-			allPacks = cast packs;
+			allPacks = packs;
+			pageCount = Std.int(Math.max(1, Math.ceil(allPacks.length / CARDS_PER_PAGE)));
+			pageIndex = 0;
+			selectedIndex = 0;
+
 			loadingText.visible = false;
 			showBrowse();
 		});
 	}
 
-	// ─────────────────────────────────────────────
-	//  Liste Ekranı
-	// ─────────────────────────────────────────────
+	// ═════════════════════════════════════════════
+	//  BROWSE EKRANI
+	// ═════════════════════════════════════════════
 
 	function showBrowse():Void {
 		screenState = Browse;
 		hideDetail();
 		hideProgress();
 
+		titleText.visible = true;
+		subtitleText.visible = true;
+		pageText.visible = true;
+
 		subtitleText.text = '${allPacks.length} modpack mevcut';
-		controlsText.text = "[↑/↓] Seç  |  [ENTER] Detay  |  [ESC] Geri";
-
-		refreshList();
+		controlsText.text = "[↑/↓/←/→] Kart Seç  |  [ENTER] Detay  |  [ESC] Geri";
+		refreshCards();
 	}
 
-	function refreshList():Void {
-		// Eski text'leri temizle
-		for (t in listTexts) {
-			remove(t, true);
-			t.destroy();
-		}
-		listTexts = [];
+	function refreshCards():Void {
+		var startIdx:Int = pageIndex * CARDS_PER_PAGE;
 
-		for (t in statusIndicators) {
-			remove(t, true);
-			t.destroy();
-		}
-		statusIndicators = [];
+		for (i in 0...CARDS_PER_PAGE) {
+			var packIdx:Int = startIdx + i;
+			var hasPack:Bool = packIdx < allPacks.length;
 
-		// Scroll sınırları
-		if (selectedIndex < scrollOffset)
-			scrollOffset = selectedIndex;
-		if (selectedIndex >= scrollOffset + maxVisible)
-			scrollOffset = selectedIndex - maxVisible + 1;
+			cardBg[i].visible = hasPack;
+			cardBorder[i].visible = hasPack;
+			cardName[i].visible = hasPack;
+			cardTier[i].visible = hasPack;
+			cardThumb[i].visible = false;
+			cardThumbText[i].visible = hasPack;
+			cardDownloads[i].visible = hasPack;
 
-		var endIdx:Int = Std.int(Math.min(allPacks.length, scrollOffset + maxVisible));
+			if (!hasPack) continue;
 
-		for (i in scrollOffset...endIdx) {
-			var mp:Dynamic = allPacks[i];
-			var isSelected:Bool = (i == selectedIndex);
-			var slotY:Int = LIST_START_Y + (i - scrollOffset) * ITEM_HEIGHT;
+			var mp:Dynamic = allPacks[packIdx];
+			var tierId:String = mp.tier != null ? mp.tier : (mp.id != null ? mp.id : "");
+			var tierColor:Int = ModpackTier.colorFor(tierId);
 
-			// Modpack adı
-			var name:String = mp.displayName != null ? mp.displayName : mp.id;
-			var ver:String = mp.versionLabel != null ? mp.versionLabel : mp.version;
-			var prefix:String = isSelected ? "► " : "  ";
+			cardBorder[i].color = tierColor;
+			cardName[i].text = mp.displayName != null ? mp.displayName : mp.id;
+			cardTier[i].text = '[${ModpackTier.labelFor(tierId)}]';
+			cardTier[i].color = tierColor;
+			cardDownloads[i].text = "TOPLAM İNDİRMELER: ...";
 
-			var nameText = new FlxText(50, slotY, FlxG.width - 250, '$prefix$name', 18);
-			nameText.setFormat("VCR OSD Mono", 18, isSelected ? FlxColor.WHITE : 0xFF999999, LEFT);
-			add(nameText);
-			listTexts.push(nameText);
-
-			// Versiyon
-			var verText = new FlxText(50, slotY + 22, FlxG.width - 250, '   $ver', 12);
-			verText.setFormat("VCR OSD Mono", 12, 0xFF555555, LEFT);
-			add(verText);
-			listTexts.push(verText);
-
-			var statusStr:String = "";
-			var statusColor:Int = 0xFF555555;
-			var packStatus = getPackStatus(mp);
-			var mode:String = mp.downloadMode != null ? mp.downloadMode : "direct";
-
-			switch (packStatus) {
-				case "installed":
-					statusStr = "KURULU";
-					statusColor = INSTALLED_COLOR;
-				case "update":
-					statusStr = "GÜNCELLEME VAR";
-					statusColor = UPDATE_COLOR;
-				case "new":
-					statusStr = "YENİ";
-					statusColor = NEW_COLOR;
+			// Görsel yükle (cache varsa anında, yoksa indir)
+			var thumbUrl:String = mp.thumbnail != null ? mp.thumbnail : "";
+			if (thumbUrl.length > 0) {
+				cardThumbText[i].text = "Görsel yükleniyor...";
+				loadThumbnail(Std.string(mp.id), thumbUrl, cardThumb[i], cardThumbText[i],
+					Std.int(cardBg[i].width - 20), Std.int(cardBg[i].height - 82));
+			} else {
+				cardThumbText[i].text = "GÖRSEL YOK";
 			}
 
-			// External modpack ek işareti
-			if (mode == "external") {
-				statusStr += " [MANUEL]";
-			}
-
-			var statText = new FlxText(FlxG.width - 200, slotY + 8, 170, statusStr, 13);
-			statText.setFormat("VCR OSD Mono", 13, statusColor, RIGHT);
-			add(statText);
-			statusIndicators.push(statText);
+			// Toplam indirmeler — MediaFire'dan (fallback: katalog)
+			var mfUrl:String = ModpackLinkHelper.getMediafireUrl(mp) != null ? ModpackLinkHelper.getMediafireUrl(mp) : "";
+			var catDownloads:Int = ModpackLinkHelper.getCatalogDownloads(mp);
+			MediafireStats.getDownloadCount(Std.string(mp.id), mfUrl, catDownloads, function(count:Int, source:String) {
+				if (screenState == Browse)
+					cardDownloads[i].text = "TOPLAM İNDİRMELER: " + formatNumber(count);
+			});
 		}
 
-		// Scroll göstergesi
-		if (allPacks.length > maxVisible) {
-			var scrollInfo = '${scrollOffset + 1}-$endIdx / ${allPacks.length}';
-			subtitleText.text = '${allPacks.length} modpack  •  $scrollInfo';
-		}
+		pageText.text = pageCount > 1 ? 'Sayfa ${pageIndex + 1} / $pageCount   [Q/E] Sayfa' : "";
+		updateSelectorPos();
 	}
 
-	function getPackStatus(mp:Dynamic):String {
-		var packId:String = mp.id;
-		if (packId == null) return "new";
-
-		if (installer.isInstalled(packId)) {
-			var manifest = installer.getInstalledManifest(packId);
-			if (manifest != null && mp.version != null) {
-				if (UpdateChecker.isRemoteNewer(manifest.version, mp.version))
-					return "update";
-			}
-			return "installed";
+	function updateSelectorPos():Void {
+		var visibleCount:Int = Std.int(Math.min(CARDS_PER_PAGE, allPacks.length - pageIndex * CARDS_PER_PAGE));
+		if (visibleCount <= 0) {
+			selector.visible = false;
+			return;
 		}
 
-		return "new";
+		// selectedIndex'i bu sayfadaki geçerli aralığa kilitle
+		if (selectedIndex >= visibleCount) selectedIndex = visibleCount - 1;
+		if (selectedIndex < 0) selectedIndex = 0;
+
+		selector.visible = true;
+
+		var gap:Int = 14;
+		var marginX:Int = 26;
+		var marginY:Int = 86;
+		var cardW:Int = Std.int((FlxG.width - marginX * 2 - gap) / GRID_COLS);
+		var cardH:Int = Std.int((FlxG.height - 120 - marginY - gap) / 2);
+
+		var col:Int = selectedIndex % GRID_COLS;
+		var row:Int = Std.int(selectedIndex / GRID_COLS);
+		selector.x = marginX - 3 + col * (cardW + gap);
+		selector.y = marginY - 3 + row * (cardH + gap);
 	}
 
-	// ─────────────────────────────────────────────
-	//  Detay Ekranı
-	// ─────────────────────────────────────────────
+	// ═════════════════════════════════════════════
+	//  THUMBNAIL (uzaktan görsel + cache)
+	// ═════════════════════════════════════════════
 
-	function showDetail():Void {
-		if (selectedIndex < 0 || selectedIndex >= allPacks.length) return;
+	function thumbCachePath(packId:String):String {
+		return ModpackPaths.getDownloadDirectory() + "thumb-" + packId + ".png";
+	}
 
+	function loadThumbnail(packId:String, url:String, target:FlxSprite, placeholder:FlxText, fitW:Int, fitH:Int):Void {
+		#if sys
+		var cachePath:String = thumbCachePath(packId);
+
+		if (sys.FileSystem.exists(cachePath)) {
+			applyThumbnail(cachePath, target, placeholder, fitW, fitH);
+			return;
+		}
+
+		// Cache yok → indir
+		downloader.download(url, cachePath, {
+			onComplete: function(path:String) {
+				applyThumbnail(path, target, placeholder, fitW, fitH);
+			},
+			onError: function(_err:String) {
+				if (placeholder != null) placeholder.text = "GÖRSEL İNDİRİLEMEDİ";
+			},
+			onProgress: null,
+			onCancelled: null
+		});
+		#else
+		if (placeholder != null) placeholder.text = "GÖRSEL YOK";
+		#end
+	}
+
+	function applyThumbnail(path:String, target:FlxSprite, placeholder:FlxText, fitW:Int, fitH:Int):Void {
+		#if sys
+		try {
+			var bytes:haxe.io.Bytes = sys.io.File.getBytes(path);
+			// OpenFL 9: BitmapData.loadFromBytes bir Future döndürür (async).
+			var future = BitmapData.loadFromBytes(bytes);
+			future.onComplete(function(bmp:BitmapData) {
+				try {
+					target.loadGraphic(bmp);
+					target.setGraphicSize(fitW, fitH);
+					target.updateHitbox();
+					target.antialiasing = true;
+					target.visible = true;
+					if (placeholder != null) placeholder.visible = false;
+				} catch (e2:Dynamic) {
+					trace('[ModpackStore] Görsel uygulanamadı: $path — ${Std.string(e2)}');
+					if (placeholder != null) placeholder.text = "GÖRSEL OKUNAMADI";
+				}
+			});
+		} catch (e:Dynamic) {
+			trace('[ModpackStore] Görsel yüklenemedi: $path — ${Std.string(e)}');
+			if (placeholder != null) placeholder.text = "GÖRSEL OKUNAMADI";
+		}
+		#end
+	}
+
+	// ═════════════════════════════════════════════
+	//  DETAY EKRANI
+	// ═════════════════════════════════════════════
+
+	function openDetail(index:Int):Void {
+		var packIdx:Int = pageIndex * CARDS_PER_PAGE + index;
+		if (packIdx < 0 || packIdx >= allPacks.length) return;
+
+		currentPack = allPacks[packIdx];
 		screenState = Detail;
-		var mp:Dynamic = allPacks[selectedIndex];
+		includeOffset = 0;
+		selectedLink = -1;
+		hoveredLink = -1;
 
-		// Liste text'lerini gizle
-		for (t in listTexts) t.visible = false;
-		for (t in statusIndicators) t.visible = false;
+		titleText.visible = false;
+		subtitleText.visible = false;
+		pageText.visible = false;
+		for (i in 0...CARDS_PER_PAGE) {
+			cardBg[i].visible = false;
+			cardBorder[i].visible = false;
+			cardName[i].visible = false;
+			cardTier[i].visible = false;
+			cardThumb[i].visible = false;
+			cardThumbText[i].visible = false;
+			cardDownloads[i].visible = false;
+		}
+		selector.visible = false;
 
-		// Detay panelini göster
 		detailBg.visible = true;
 		detailName.visible = true;
-		detailAuthor.visible = true;
-		detailVersion.visible = true;
-		detailSize.visible = true;
-		detailModCount.visible = true;
-		detailDesc.visible = true;
-		detailChangelog.visible = true;
-		detailStatus.visible = true;
-		detailControls.visible = true;
+		detailUpdated.visible = true;
+		detailMeta.visible = true;
+		includesTitle.visible = true;
+		scrollTrack.visible = true;
+		scrollThumb.visible = true;
+		linksTitle.visible = true;
 
-		// Doldur
+		var mp:Dynamic = currentPack;
+		var tierId:String = mp.tier != null ? mp.tier : (mp.id != null ? mp.id : "");
+		var tierColor:Int = ModpackTier.colorFor(tierId);
+
 		detailName.text = mp.displayName != null ? mp.displayName : mp.id;
-		detailAuthor.text = mp.author != null ? 'Yapımcı: ${mp.author}' : "";
-		detailVersion.text = 'Sürüm: ${mp.versionLabel != null ? mp.versionLabel : mp.version}';
-		detailSize.text = mp.fileSize != null ? 'Boyut: ${mp.fileSize}' : "";
-		detailModCount.text = mp.modCount != null ? '${mp.modCount} mod içerir' : "";
-		detailDesc.text = mp.description != null ? mp.description : "Açıklama yok.";
-		detailChangelog.text = mp.changelog != null ? 'Değişiklikler: ${mp.changelog}' : "";
+		detailName.color = tierColor;
+		detailUpdated.text = 'SON GÜNCELLEME: ${mp.updatedAt != null ? mp.updatedAt : "bilinmiyor"}';
+		var sizePart:String = mp.fileSize != null ? mp.fileSize : "?";
+		var modPart:String = mp.modCount != null ? '${mp.modCount} mod' : "";
+		var tierPart:String = ModpackTier.labelFor(tierId);
+		detailMeta.text = '[$tierPart]  •  $sizePart  •  $modPart  •  ${mp.author != null ? mp.author : ""}';
 
-		var mode:String = mp.downloadMode != null ? mp.downloadMode : "direct";
-		var status = getPackStatus(mp);
-
-		if (mode == "external") {
-			// External modpack
-			switch (status) {
-				case "installed":
-					detailStatus.text = "✓ KURULU (Manuel İndirme)";
-					detailStatus.color = INSTALLED_COLOR;
-					detailControls.text = "[ENTER] Tarayıcıda Aç  |  [ESC] Geri";
-				case "update":
-					detailStatus.text = "↑ GÜNCELLEME MEVCUT (Manuel İndirme)";
-					detailStatus.color = UPDATE_COLOR;
-					detailControls.text = "[ENTER] Tarayıcıda Aç  |  [ESC] Geri";
-				case "new":
-					detailStatus.text = "Manuel İndirme Gerekli";
-					detailStatus.color = 0xFFFF8800;
-					detailControls.text = "[ENTER] Tarayıcıda Aç  |  [ESC] Geri";
-			}
+		// Görsel
+		detailImage.visible = false;
+		var imgW:Int = Std.int((FlxG.width - 60) * 0.42);
+		var imgH:Int = FlxG.height - 96 - 30 - 30;
+		var thumbUrl:String = mp.thumbnail != null ? mp.thumbnail : "";
+		if (thumbUrl.length > 0) {
+			detailImageText.visible = true;
+			detailImageText.text = "Görsel yükleniyor...";
+			loadThumbnail(Std.string(mp.id), thumbUrl, detailImage, detailImageText, imgW, imgH);
 		} else {
-			// Direct modpack
-			switch (status) {
-				case "installed":
-					detailStatus.text = "✓ KURULU";
-					detailStatus.color = INSTALLED_COLOR;
-					detailControls.text = "[ENTER] Yeniden Kur  |  [ESC] Geri";
-				case "update":
-					detailStatus.text = "↑ GÜNCELLEME MEVCUT";
-					detailStatus.color = UPDATE_COLOR;
-					detailControls.text = "[ENTER] Güncelle  |  [ESC] Geri";
-				case "new":
-					detailStatus.text = "Henüz kurulmamış";
-					detailStatus.color = NEW_COLOR;
-					detailControls.text = "[ENTER] İndir ve Kur  |  [ESC] Geri";
-			}
+			detailImageText.visible = true;
+			detailImageText.text = "GÖRSEL YOK";
 		}
 
-		controlsText.text = "";
+		// İçerik listesi
+		includeLines = ModpackLinkHelper.getIncludes(mp);
+		if (includeLines.length == 0) includeLines = ["(içerik listesi yok)"];
+
+		var listTop:Int = 96 + 116;
+		var listH:Int = (FlxG.height - 56 - listTop) - 150;
+		includeMaxVisible = Std.int(Math.max(1, listH / 20));
+		includeOffset = 0;
+		refreshIncludeList();
+
+		// Linkler
+		var mfUrl:Null<String> = ModpackLinkHelper.getMediafireUrl(mp);
+		var ghUrl:Null<String> = ModpackLinkHelper.getGithubUrl(mp);
+
+		expectedBytes = mp.fileSizeBytes != null ? mp.fileSizeBytes : -1;
+
+		setLinkRow(0, mfUrl, "MediaFire");
+		setLinkRow(1, ghUrl, "GitHub");
+
+		controlsText.text = "[1] MediaFire  [2] GitHub  |  [ENTER] Seçili  |  [ESC] Geri";
+	}
+
+	var includeLines:Array<String> = [];
+
+	function setLinkRow(idx:Int, url:Null<String>, name:String):Void {
+		var hasLink:Bool = url != null && url.length > 0;
+		linkRow[idx].visible = hasLink;
+		linkLogo[idx].visible = hasLink;
+		linkLogoText[idx].visible = hasLink;
+		linkLabel[idx].visible = hasLink;
+		linkText[idx].visible = hasLink;
+
+		if (!hasLink) {
+			if (selectedLink == idx) selectedLink = -1;
+			return;
+		}
+
+		if (selectedLink == -1) selectedLink = idx;
+		linkText[idx].text = ModpackLinkHelper.shortUrl(url);
+	}
+
+	function refreshIncludeList():Void {
+		// Eski satırları temizle
+		for (t in includeTexts) {
+			remove(t, true);
+			t.destroy();
+		}
+		includeTexts = [];
+
+		var rightX:Int = 30 + Std.int((FlxG.width - 60) * 0.42) + 34;
+		var rightW:Int = FlxG.width - rightX - 30;
+		var listTop:Int = 96 + 116;
+		var maxOffset:Int = Std.int(Math.max(0, includeLines.length - includeMaxVisible));
+		if (includeOffset > maxOffset) includeOffset = maxOffset;
+		if (includeOffset < 0) includeOffset = 0;
+
+		var endIdx:Int = Std.int(Math.min(includeLines.length, includeOffset + includeMaxVisible));
+		for (i in includeOffset...endIdx) {
+			var line:FlxText = new FlxText(rightX, listTop + (i - includeOffset) * 20, rightW - 24, "• " + includeLines[i], 12);
+			line.setFormat("VCR OSD Mono", 12, 0xFFCBD5E1, LEFT);
+			add(line);
+			includeTexts.push(line);
+		}
+
+		// Scrollbar
+		if (includeLines.length > includeMaxVisible) {
+			var trackH:Int = (FlxG.height - 56 - listTop) - 150;
+			var thumbH:Int = Std.int(Math.max(18, trackH * (includeMaxVisible / includeLines.length)));
+			var thumbY:Float = listTop + (trackH - thumbH) * (includeOffset / maxOffset);
+			scrollThumb.visible = true;
+			scrollThumb.y = thumbY;
+			scrollThumb.makeGraphic(4, thumbH, ACCENT);
+		} else {
+			scrollThumb.visible = false;
+		}
+	}
+
+	function scrollIncludes(dir:Int):Void {
+		var maxOffset:Int = Std.int(Math.max(0, includeLines.length - includeMaxVisible));
+		var newOffset:Int = Std.int(Math.max(0, Math.min(maxOffset, includeOffset + dir)));
+		if (newOffset != includeOffset) {
+			includeOffset = newOffset;
+			refreshIncludeList();
+		}
 	}
 
 	function hideDetail():Void {
 		detailBg.visible = false;
+		detailImage.visible = false;
+		detailImageText.visible = false;
 		detailName.visible = false;
-		detailAuthor.visible = false;
-		detailVersion.visible = false;
-		detailSize.visible = false;
-		detailModCount.visible = false;
-		detailDesc.visible = false;
-		detailChangelog.visible = false;
-		detailStatus.visible = false;
-		detailControls.visible = false;
-
-		for (t in listTexts) t.visible = true;
-		for (t in statusIndicators) t.visible = true;
+		detailUpdated.visible = false;
+		detailMeta.visible = false;
+		includesTitle.visible = false;
+		scrollTrack.visible = false;
+		scrollThumb.visible = false;
+		linksTitle.visible = false;
+		for (i in 0...2) {
+			linkRow[i].visible = false;
+			linkLogo[i].visible = false;
+			linkLogoText[i].visible = false;
+			linkLabel[i].visible = false;
+			linkText[i].visible = false;
+		}
 	}
 
-	// ─────────────────────────────────────────────
-	//  İndirme/Kurulum
-	// ─────────────────────────────────────────────
+	// ═════════════════════════════════════════════
+	//  İNDİRME YÖNTEMİ SEÇİMİ
+	// ═════════════════════════════════════════════
 
-	function startPackDownload():Void {
-		if (selectedIndex < 0 || selectedIndex >= allPacks.length) return;
+	function openMethodPicker(link:String):Void {
+		if (link == null || link.length == 0) {
+			showError("Bu kaynaktan indirme linki yok.");
+			return;
+		}
 
-		var mp:Dynamic = allPacks[selectedIndex];
-		var mode:String = mp.downloadMode != null ? mp.downloadMode : "direct";
+		var packName:String = currentPack != null && currentPack.displayName != null ? currentPack.displayName : "Modpack";
 
-		// External mode → tarayıcıda aç
-		if (mode == "external") {
-			var pageUrl:String = mp.externalPageUrl != null ? mp.externalPageUrl : "";
-			if (pageUrl.length > 0) {
-				FlxG.openURL(pageUrl);
-				FlxG.sound.play(Paths.sound('confirmMenu'));
-
-				// Bilgilendirme göster
-				hideDetail();
-				for (t in listTexts) t.visible = false;
-				for (t in statusIndicators) t.visible = false;
-
-				phaseText.text = "Tarayıcıda Açıldı";
-				phaseText.color = 0xFFFF8800;
-				phaseText.visible = true;
-
-				subtitleText.text = "İndirdikten sonra ZIP dosyasını mods/ klasörüne çıkarın.";
-				controlsText.text = "[ENTER] Listeye Dön  |  [ESC] Ana Menü";
-				screenState = Complete;
+		openSubState(new PickDownloadMethodSubState(packName, function(method:String) {
+			if (method == "auto") {
+				startPackDownload(link);
 			} else {
-				showError("Harici indirme linki bulunamadı.");
+				FlxG.openURL(link);
+				FlxG.sound.play(Paths.sound('confirmMenu'));
+				showBrowse();
 			}
-			return;
-		}
+		}));
+	}
 
-		// Direct mode → otomatik indir
-		var directUrl:String = mp.directDownloadUrl != null ? mp.directDownloadUrl : "";
+	// ═════════════════════════════════════════════
+	//  İNDİRME / KURULUM
+	// ═════════════════════════════════════════════
 
-		if (directUrl.length == 0) {
-			showError("İndirme linki bulunamadı.");
-			return;
-		}
+	function startPackDownload(link:String):Void {
+		if (currentPack == null) return;
 
-		hideDetail();
-		for (t in listTexts) t.visible = false;
-		for (t in statusIndicators) t.visible = false;
-
+		var mp:Dynamic = currentPack;
 		var packId:String = mp.id != null ? mp.id : "unknown";
 		var version:String = mp.version != null ? mp.version : "0";
 		var displayName:String = mp.displayName != null ? mp.displayName : packId;
-		var fileName = '$packId-v$version.zip';
-		var savePath = ModpackPaths.getDownloadDirectory() + fileName;
+		var fileName:String = '$packId-v$version.zip';
+		var savePath:String = ModpackPaths.getDownloadDirectory() + fileName;
 
-		// UI
+		hideDetail();
 		screenState = Downloading;
 		showProgress();
 		phaseText.text = "İndiriliyor...";
 		phaseText.color = FlxColor.WHITE;
 		phaseText.visible = true;
+		subtitleText.visible = true;
 		subtitleText.text = displayName;
 		targetProgress = 0;
 		currentProgress = 0;
 		controlsText.text = "[ESC] İptal";
 
-		downloader.download(directUrl, savePath, {
+		downloader.smartDownload(link, savePath, {
 			onProgress: function(progress:DownloadProgress) {
 				targetProgress = progress.percent;
-				var dlMB = progress.downloadedBytes / (1024 * 1024);
-				var totMB = progress.totalBytes > 0 ? progress.totalBytes / (1024 * 1024) : 0;
+				var dlMB:Float = progress.downloadedBytes / (1024 * 1024);
+				var totMB:Float = progress.totalBytes > 0 ? progress.totalBytes / (1024 * 1024) : 0;
 
 				if (totMB > 0)
 					sizeText.text = '${formatMB(dlMB)} / ${formatMB(totMB)} MB';
@@ -559,7 +793,7 @@ class ModpackStoreState extends MusicBeatState {
 			onCancelled: function() {
 				showBrowse();
 			}
-		});
+		}, expectedBytes);
 	}
 
 	function startPackInstall(zipPath:String, packId:String, displayName:String):Void {
@@ -583,7 +817,6 @@ class ModpackStoreState extends MusicBeatState {
 						sys.FileSystem.deleteFile(zipPath);
 				} catch (_) {}
 				#end
-
 				showPackComplete(manifest);
 			},
 			onError: function(error:String) {
@@ -598,9 +831,63 @@ class ModpackStoreState extends MusicBeatState {
 		});
 	}
 
+	function startUninstall():Void {
+		if (currentPack == null) return;
+
+		var mp:Dynamic = currentPack;
+		var packId:String = mp.id != null ? mp.id : "";
+		if (packId.length == 0 || !installer.isInstalled(packId)) return;
+
+		var displayName:String = mp.displayName != null ? mp.displayName : packId;
+
+		hideDetail();
+		screenState = Uninstalling;
+		showProgress();
+		targetProgress = 0;
+		currentProgress = 0;
+		phaseText.text = "Kaldırılıyor...";
+		phaseText.color = FlxColor.WHITE;
+		phaseText.visible = true;
+		subtitleText.visible = true;
+		subtitleText.text = displayName;
+		sizeText.text = "Paket kaldırılıyor, lütfen bekleyin...";
+		speedText.text = "";
+		controlsText.text = "";
+
+		installer.uninstall(packId, {
+			onComplete: function(manifest:ModpackManifest) {
+				targetProgress = 1.0;
+				currentProgress = 1.0;
+				phaseText.text = "Kaldırıldı!";
+				phaseText.color = 0xFFEF4444;
+				subtitleText.text = '${manifest.displayName} kaldırıldı';
+				sizeText.text = '${manifest.modFolders.length} mod silindi';
+				speedText.text = "";
+				controlsText.text = "[ENTER] Listeye Dön  |  [ESC] Ana Menü";
+				screenState = Complete;
+			},
+			onError: function(error:String) {
+				showError('Kaldırma hatası:\n$error');
+			},
+			onWarning: function(warning:String) {
+				trace('[ModpackStore] Uyarı: $warning');
+			},
+			onCancelled: function() {
+				showBrowse();
+			}
+		});
+	}
+
 	function showPackComplete(manifest:ModpackManifest):Void {
 		screenState = Complete;
 		FlxG.sound.play(Paths.sound('confirmMenu'));
+
+		// Güncelleme bayrağını tazele — bu paket güncellendi; hâlâ güncelleme
+		// kalan paket varsa rozet ana menüde görünmeye devam eder.
+		UpdateChecker.instance.fetchModpackList(function(result:backend.update.UpdateChecker.CheckResult)
+		{
+			UpdateChecker.instance.hasPendingModpackUpdates = (result != null && result.hasUpdates);
+		});
 
 		phaseText.text = "Tamamlandı!";
 		phaseText.color = 0xFF22C55E;
@@ -608,42 +895,15 @@ class ModpackStoreState extends MusicBeatState {
 
 		targetProgress = 1.0;
 		currentProgress = 1.0;
-		var barWidth:Int = FlxG.width - (BAR_MARGIN * 2);
-		barFill.makeGraphic(barWidth, BAR_HEIGHT, 0xFF22C55E);
 		percentText.text = "100%";
 		sizeText.text = '${manifest.modFolders.length} mod kuruldu';
 		speedText.text = "";
 		controlsText.text = "[ENTER] Listeye Dön  |  [ESC] Ana Menü";
 	}
 
-	// ─────────────────────────────────────────────
-	//  Hata
-	// ─────────────────────────────────────────────
-
-	function showError(msg:String):Void {
-		screenState = Error;
-		loadingText.visible = false;
-		hideDetail();
-		hideProgress();
-
-		for (t in listTexts) t.visible = false;
-		for (t in statusIndicators) t.visible = false;
-
-		phaseText.text = "Hata!";
-		phaseText.color = 0xFFEF4444;
-		phaseText.visible = true;
-
-		errorText.text = msg;
-		errorText.screenCenter();
-		errorText.y = phaseText.y + 50;
-		errorText.visible = true;
-
-		controlsText.text = "[ENTER] Tekrar Dene  |  [ESC] Geri";
-	}
-
-	// ─────────────────────────────────────────────
-	//  Progress UI
-	// ─────────────────────────────────────────────
+	// ═════════════════════════════════════════════
+	//  PROGRESS / HATA
+	// ═════════════════════════════════════════════
 
 	function showProgress():Void {
 		barBorder.visible = true;
@@ -661,15 +921,32 @@ class ModpackStoreState extends MusicBeatState {
 		percentText.visible = false;
 		sizeText.visible = false;
 		speedText.visible = false;
-		phaseText.visible = false;
-		errorText.visible = false;
 	}
 
-	// ─────────────────────────────────────────────
-	//  Update
-	// ─────────────────────────────────────────────
+	function showError(msg:String):Void {
+		screenState = Error;
+		loadingText.visible = false;
+		hideDetail();
+		hideProgress();
 
-	override function update(elapsed:Float) {
+		titleText.visible = true;
+		titleText.text = "HATA!";
+		titleText.color = 0xFFEF4444;
+		subtitleText.visible = false;
+		pageText.visible = false;
+
+		errorText.text = msg;
+		errorText.screenCenter();
+		errorText.y += 30;
+		errorText.visible = true;
+		controlsText.text = "[ENTER] Tekrar Dene  |  [ESC] Ana Menü";
+	}
+
+	// ═════════════════════════════════════════════
+	//  UPDATE
+	// ═════════════════════════════════════════════
+
+	override function update(elapsed:Float):Void {
 		super.update(elapsed);
 
 		// Loading animasyonu
@@ -678,9 +955,9 @@ class ModpackStoreState extends MusicBeatState {
 			if (loadingTimer >= 0.4) {
 				loadingTimer = 0;
 				loadingDots = (loadingDots + 1) % 4;
-				var dots = "";
+				var dots:String = "";
 				for (i in 0...loadingDots) dots += ".";
-				loadingText.text = 'Modpackler yükleniyor$dots';
+				loadingText.text = 'Mağaza yükleniyor$dots';
 			}
 		}
 
@@ -690,46 +967,22 @@ class ModpackStoreState extends MusicBeatState {
 			if (Math.abs(currentProgress - targetProgress) < 0.001)
 				currentProgress = targetProgress;
 
-			var barWidth:Int = FlxG.width - (BAR_MARGIN * 2);
-			var fillW:Int = Std.int(Math.max(1, barWidth * currentProgress));
+			var barW:Int = FlxG.width - 58;
+			var fillW:Int = Std.int(Math.max(1, barW * currentProgress));
 			var barColor:Int = screenState == Installing ? 0xFF3B82F6 : ACCENT;
-			barFill.makeGraphic(fillW, BAR_HEIGHT, barColor);
+			barFill.makeGraphic(fillW, 18, barColor);
 			percentText.text = '${Math.round(currentProgress * 100)}%';
 		}
 
-		// Girdi
 		switch (screenState) {
 			case Loading:
 				if (controls.BACK) goToMainMenu();
 
 			case Browse:
-				if (controls.BACK) {
-					goToMainMenu();
-					return;
-				}
-				if (controls.UI_UP_P && allPacks.length > 0) {
-					selectedIndex--;
-					if (selectedIndex < 0) selectedIndex = allPacks.length - 1;
-					refreshList();
-					FlxG.sound.play(Paths.sound('scrollMenu'));
-				}
-				if (controls.UI_DOWN_P && allPacks.length > 0) {
-					selectedIndex++;
-					if (selectedIndex >= allPacks.length) selectedIndex = 0;
-					refreshList();
-					FlxG.sound.play(Paths.sound('scrollMenu'));
-				}
-				if (controls.ACCEPT && allPacks.length > 0) {
-					showDetail();
-				}
+				handleBrowseInput();
 
 			case Detail:
-				if (controls.BACK) {
-					showBrowse();
-				}
-				if (controls.ACCEPT) {
-					startPackDownload();
-				}
+				handleDetailInput();
 
 			case Downloading | Installing:
 				if (controls.BACK) {
@@ -738,50 +991,197 @@ class ModpackStoreState extends MusicBeatState {
 					showBrowse();
 				}
 
+			case Uninstalling:
+				if (controls.BACK) FlxG.sound.play(Paths.sound('cancelMenu'));
+
 			case Complete:
 				if (controls.ACCEPT) {
 					hideProgress();
+					titleText.text = "MODPACK MAĞAZASI";
+					titleText.color = FlxColor.WHITE;
 					showBrowse();
 				}
-				if (controls.BACK) {
-					goToMainMenu();
-				}
+				if (controls.BACK) goToMainMenu();
 
 			case Error:
 				if (controls.ACCEPT) {
-					hideProgress();
 					errorText.visible = false;
-					if (allPacks.length > 0)
-						showBrowse();
-					else
-						fetchStore();
+					titleText.text = "MODPACK MAĞAZASI";
+					titleText.color = FlxColor.WHITE;
+					fetchStore();
 				}
-				if (controls.BACK) {
-					goToMainMenu();
-				}
+				if (controls.BACK) goToMainMenu();
 		}
 	}
 
-	// ─────────────────────────────────────────────
-	//  Geçiş
-	// ─────────────────────────────────────────────
+	function handleBrowseInput():Void {
+		if (controls.BACK) {
+			goToMainMenu();
+			return;
+		}
+
+		var visibleCount:Int = Std.int(Math.min(CARDS_PER_PAGE, allPacks.length - pageIndex * CARDS_PER_PAGE));
+		if (visibleCount <= 0) return;
+
+		// Sayfa değiştir (paketler 4'ten fazlaysa)
+		if (pageCount > 1) {
+			if (FlxG.keys.justPressed.Q) {
+				pageIndex = (pageIndex - 1 + pageCount) % pageCount;
+				selectedIndex = 0;
+				refreshCards();
+				FlxG.sound.play(Paths.sound('scrollMenu'));
+			}
+			if (FlxG.keys.justPressed.E) {
+				pageIndex = (pageIndex + 1) % pageCount;
+				selectedIndex = 0;
+				refreshCards();
+				FlxG.sound.play(Paths.sound('scrollMenu'));
+			}
+		}
+
+		// Grid navigasyon
+		var prevIndex:Int = selectedIndex;
+		if (controls.UI_UP_P) selectedIndex -= GRID_COLS;
+		if (controls.UI_DOWN_P) selectedIndex += GRID_COLS;
+		if (controls.UI_LEFT_P && selectedIndex % GRID_COLS > 0) selectedIndex--;
+		if (controls.UI_RIGHT_P && selectedIndex % GRID_COLS < GRID_COLS - 1) selectedIndex++;
+
+		// Sınırlara kilitle (sayfadaki görünür kart sayısına göre)
+		var maxRowIndex:Int = visibleCount - 1;
+		if (selectedIndex < 0) selectedIndex = 0;
+		if (selectedIndex > maxRowIndex) selectedIndex = maxRowIndex;
+
+		if (selectedIndex != prevIndex) {
+			updateSelectorPos();
+			FlxG.sound.play(Paths.sound('scrollMenu'));
+		}
+
+		// Mouse / dokunmatik
+		for (i in 0...visibleCount) {
+			if (cardBg[i].visible && FlxG.mouse.overlaps(cardBg[i])) {
+				if (selectedIndex != i) {
+					selectedIndex = i;
+					updateSelectorPos();
+				}
+				if (FlxG.mouse.justPressed) {
+					openDetail(i);
+					return;
+				}
+			}
+		}
+
+		if (controls.ACCEPT) {
+			openDetail(selectedIndex);
+		}
+	}
+
+	function handleDetailInput():Void {
+		if (controls.BACK) {
+			showBrowse();
+			return;
+		}
+
+		// İçerik listesi scroll (klavye)
+		if (controls.UI_DOWN_P) scrollIncludes(1);
+		if (controls.UI_UP_P) scrollIncludes(-1);
+
+		// Mouse tekerleği
+		if (FlxG.mouse.wheel != 0) {
+			scrollIncludes(FlxG.mouse.wheel > 0 ? -1 : 1);
+		}
+
+		// Dokunmatik sürükleme (liste alanında)
+		var listTop:Int = 96 + 116;
+		var listH:Int = (FlxG.height - 56 - listTop) - 150;
+		if (FlxG.mouse.justPressed) {
+			dragList = FlxG.mouse.y > listTop && FlxG.mouse.y < listTop + listH;
+			dragStartY = FlxG.mouse.y;
+		}
+		if (dragList && FlxG.mouse.pressed) {
+			var delta:Float = FlxG.mouse.y - dragStartY;
+			if (Math.abs(delta) > 8) {
+				scrollIncludes(delta > 0 ? -1 : 1);
+				dragStartY = FlxG.mouse.y;
+			}
+		}
+		if (FlxG.mouse.justReleased) dragList = false;
+
+		// Link satırı hover + tıklama
+		for (i in 0...2) {
+			if (!linkRow[i].visible) continue;
+			if (FlxG.mouse.overlaps(linkRow[i])) {
+				if (hoveredLink != i) {
+					hoveredLink = i;
+					linkRow[i].color = 0xFF1F2937;
+				}
+				if (FlxG.mouse.justPressed) {
+					FlxG.sound.play(Paths.sound('confirmMenu'));
+					var url:Null<String> = i == 0 ? ModpackLinkHelper.getMediafireUrl(currentPack) : ModpackLinkHelper.getGithubUrl(currentPack);
+					openMethodPicker(url);
+					return;
+				}
+			} else if (hoveredLink == i) {
+				linkRow[i].color = 0xFF111827;
+				hoveredLink = -1;
+			}
+		}
+
+		// Klavye: [1] MediaFire  [2] GitHub
+		if (FlxG.keys.justPressed.ONE || FlxG.keys.justPressed.NUMPADONE) {
+			if (linkRow[0].visible) {
+				selectedLink = 0;
+				FlxG.sound.play(Paths.sound('confirmMenu'));
+				openMethodPicker(ModpackLinkHelper.getMediafireUrl(currentPack));
+			}
+		}
+		if (FlxG.keys.justPressed.TWO || FlxG.keys.justPressed.NUMPADTWO) {
+			if (linkRow[1].visible) {
+				selectedLink = 1;
+				FlxG.sound.play(Paths.sound('confirmMenu'));
+				openMethodPicker(ModpackLinkHelper.getGithubUrl(currentPack));
+			}
+		}
+
+		// ENTER → seçili link
+		if (controls.ACCEPT && selectedLink >= 0 && selectedLink < 2 && linkRow[selectedLink].visible) {
+			var url:Null<String> = selectedLink == 0 ? ModpackLinkHelper.getMediafireUrl(currentPack) : ModpackLinkHelper.getGithubUrl(currentPack);
+			openMethodPicker(url);
+		}
+
+		// [X] → kurulu paketi kaldır
+		if (FlxG.keys.justPressed.X) {
+			var packId:String = currentPack != null && currentPack.id != null ? currentPack.id : "";
+			if (packId.length > 0 && installer.isInstalled(packId))
+				startUninstall();
+		}
+	}
+
+	// ═════════════════════════════════════════════
+	//  YARDIMCILAR
+	// ═════════════════════════════════════════════
 
 	function goToMainMenu():Void {
-		FlxG.camera.fade(FlxColor.BLACK, 0.4, false, function() {
-			MusicBeatState.switchState(new MainMenuState());
+		FlxG.sound.play(Paths.sound('cancelMenu'));
+		FlxG.camera.fade(FlxColor.BLACK, 0.3, false, function() {
+			backend.MenuStyleRouter.goToMainMenu();
 		});
 	}
 
-	// ─────────────────────────────────────────────
-	//  Yardımcılar
-	// ─────────────────────────────────────────────
+	function formatNumber(n:Int):String {
+		var s:String = Std.string(Math.max(0, n));
+		var out:String = "";
+		var count:Int = 0;
+		for (i in (s.length - 1)...-1) {
+			out = s.charAt(i) + out;
+			count++;
+			if (count % 3 == 0 && i > 0) out = "." + out;
+		}
+		return out;
+	}
 
 	function formatMB(mb:Float):String {
-		if (mb >= 100)
-			return '${Math.round(mb)}';
-		else if (mb >= 10)
-			return '${FlxMath.roundDecimal(mb, 1)}';
-		else
-			return '${FlxMath.roundDecimal(mb, 2)}';
+		if (mb >= 100) return '${Math.round(mb)}';
+		else if (mb >= 10) return '${FlxMath.roundDecimal(mb, 1)}';
+		else return '${FlxMath.roundDecimal(mb, 2)}';
 	}
 }

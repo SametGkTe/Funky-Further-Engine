@@ -18,4 +18,10 @@ typedef StoreModpackEntry = {
 	@:optional var thumbnail:String;
 	@:optional var tags:Array<String>;
 	@:optional var changelog:String;
+
+	// ── Further Engine tier sistemi ──
+	/** Tier kimliği: "lite", "medium", "further". */
+	@:optional var tier:String;
+	/** Tier görünen adı (ör: "Lite Modpack") — UI hızlı erişim için. */
+	@:optional var tierLabel:String;
 }

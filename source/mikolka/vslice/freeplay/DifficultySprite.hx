@@ -4,6 +4,7 @@ import flixel.FlxSprite;
 import flixel.graphics.FlxGraphic;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
+import backend.Difficulty;
 import mikolka.compatibility.VsliceOptions;
 import mikolka.compatibility.funkin.FunkinPath as Paths;
 
@@ -17,6 +18,9 @@ class DifficultySprite extends FlxSprite
 	 */
 	public var difficultyId:String;
 
+	/** Sprite dosyası için normalize edilmiş id (Türkçe adlar İngilizce dosyaya eşlenir). */
+	public var spriteDiffId:String;
+
 	public var hasValidTexture:Bool = true;
 	public var difficultyColor:FlxColor;
 	public var widthOffset:Float = 0;
@@ -25,15 +29,16 @@ class DifficultySprite extends FlxSprite
 	{
 		super();
 		difficultyId = diffId;
+		spriteDiffId = Difficulty.getSpriteDiffId(diffId);
 
 		var tex:FlxGraphic = null;
 		var loadedAnimated:Bool = false;
 
-		if (Paths.exists('images/freeplay/freeplayDifficulties/freeplay' + diffId + ".xml"))
+		if (Paths.exists('images/freeplay/freeplayDifficulties/freeplay' + spriteDiffId + ".xml"))
 		{
 			try
 			{
-				frames = Paths.getSparrowAtlas('freeplay/freeplayDifficulties/freeplay' + diffId, false);
+				frames = Paths.getSparrowAtlas('freeplay/freeplayDifficulties/freeplay' + spriteDiffId, false);
 
 				if (frames != null && frames.frames != null && frames.frames.length > 0)
 				{
@@ -60,13 +65,13 @@ class DifficultySprite extends FlxSprite
 
 		if (!loadedAnimated)
 		{
-			tex = Paths.noGpuImage('freeplay/freeplayDifficulties/freeplay' + diffId);
+			tex = Paths.noGpuImage('freeplay/freeplayDifficulties/freeplay' + spriteDiffId);
 			if (tex != null)
 				widthOffset = (tex.width / 2) - 20;
 
 			if (tex == null)
 			{
-				tex = Paths.noGpuImage('menudifficulties/' + diffId);
+				tex = Paths.noGpuImage('menudifficulties/' + spriteDiffId);
 				if (tex != null)
 					widthOffset = (tex.width / 2) - 80;
 			}
@@ -99,7 +104,8 @@ class DifficultySprite extends FlxSprite
 
 	function resolveDifficultyColor(diffId:String):FlxColor
 	{
-		var id = diffId.toLowerCase();
+		// Türkçe adlar da İngilizce renk sabitleriyle eşleşsin
+		var id = Difficulty.getSpriteDiffId(diffId);
 
 		// Standart zorluklar için direkt sabit renk
 		switch (id)

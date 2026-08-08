@@ -38,7 +38,9 @@ class CharSelectPlayer extends FlxAtlasSprite
 
 	public inline function hasValidAtlasSafe():Bool
 	{
-		return hasValidAtlasSafe();
+		// BUG: Bu fonksiyon kendini çağırıyordu → sonsuz rekürsiyon → stack overflow
+		// → sessiz çöküş (oyundan atma). FlxAtlasSprite'ın gerçek atlas kontrolünü çağır.
+		return hasValidAtlas();
 	}
 
 	public inline function hasAnimSafe(id:String):Bool

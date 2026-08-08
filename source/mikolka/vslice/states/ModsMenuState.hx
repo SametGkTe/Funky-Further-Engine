@@ -14,7 +14,6 @@ import options.ModSettingsSubState;
 
 import openfl.display.BitmapData;
 import lime.utils.Assets;
-import substates.ModpackSubState;
 
 import states.TitleState;
 import mikolka.vslice.freeplay.FreeplayState;
@@ -120,7 +119,8 @@ class ModsMenuState extends MusicBeatState
 		
 		var modpackY = buttonReload.y + buttonReload.bg.height + 20;
 		buttonModpacks = new MenuButton(buttonX, modpackY, buttonWidth, buttonHeight, Language.getPhrase('modpacks_button', 'MOD PAKETLERi'), function() {
-			openSubState(new ModpackSubState());
+			// Further Engine: ModpackSubState kaldırıldı — mağaza tam ekran açılır.
+			MusicBeatState.switchState(new states.ModpackStoreState());
 		});
 		buttonModpacks.bg.color = 0xFF0D9488;
 		buttonModpacks.focusChangeCallback = function(focus:Bool) {

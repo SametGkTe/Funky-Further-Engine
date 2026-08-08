@@ -7,10 +7,13 @@ import sys.FileSystem;
 import sys.io.File;
 import backend.modpack.ModpackTypes;
 import backend.modpack.ModpackPaths;
+import backend.modpack.ModpackTier;
+import backend.modpack.StorageGuard;
 import backend.modpack.zip.ZipExtractorFactory;
 import backend.modpack.zip.ZipSecurity;
 import backend.modpack.zip.ZipTypes;
 import backend.modpack.zip.IZipExtractor;
+import backend.update.UpdateConfig;
 #end
 
 class ModpackInstaller {
@@ -53,7 +56,8 @@ class ModpackInstaller {
 	 * Modpack kurulumunu başlat.
 	 *
 	 * @param zipPath   İndirilen ZIP dosyasının tam yolu
-	 * @param packId    Modpack kimliği ("minimal", "medium", "high")
+	 * @param packId    Modpack kimliği (tier id: "lite", "medium", "further").
+	 *                  Eski id'ler (minimal/high/full) otomatik eşlenir.
 	 * @param callbacks İlerleme ve sonuç callback'leri
 	 */
 	public function install(zipPath:String, packId:String, callbacks:ModpackInstallCallbacks):Void {
@@ -70,6 +74,16 @@ class ModpackInstaller {
 		if (packId == null || packId.length == 0) {
 			fail(callbacks, "Geçersiz packId.");
 			return;
+		}
+
+		// Tier doğrulaması: packId = tier id olmalı (lite/medium/further).
+		// Eski id'ler (minimal/high/full) ModpackTier ile otomatik eşlenir.
+		var tier:Null<ModpackTier> = ModpackTier.fromPackId(packId);
+		if (tier == null) {
+			warn(callbacks, 'Bilinmeyen packId "$packId" — tier tanınamadı. '
+				+ 'Beklenen: lite / medium / further. Kurulum yine de devam edecek.');
+		} else {
+			trace('[ModpackInstaller] Tier: ${tier.getLabel()} (${tier})');
 		}
 
 		_installing = true;
@@ -128,6 +142,148 @@ class ModpackInstaller {
 		return getInstalledManifest(packId) != null;
 	}
 
+	/**
+	 * Kurulu paketin tier'ını döner (lite/medium/further).
+	 * Kurulu değilse veya tier çözülemezse null.
+	 */
+	public function getInstalledTier(packId:String):Null<ModpackTier> {
+		var manifest = getInstalledManifest(packId);
+		if (manifest == null) return null;
+
+		return ModpackTier.fromString(manifest.tier != null ? manifest.tier : manifest.packId);
+	}
+
+	/**
+	 * Kurulu diğer paketlerin id'lerini döner (manifest dosyalarından tarar).
+	 * excludePackId hariç tutulur.
+	 */
+	public function getOtherInstalledPackIds(excludePackId:String):Array<String> {
+		var ids:Array<String> = [];
+		var dir = ModpackPaths.getInstalledDirectory();
+
+		if (!FileSystem.exists(dir)) return ids;
+
+		for (entry in FileSystem.readDirectory(dir)) {
+			if (!StringTools.endsWith(entry, ".json")) continue;
+
+			var id = entry.substr(0, entry.length - ".json".length);
+			if (id == excludePackId || id.length == 0) continue;
+
+			if (getInstalledManifest(id) != null)
+				ids.push(id);
+		}
+
+		return ids;
+	}
+
+	/** Kurulum manifest dosyasını siler (varsa). */
+	function deleteInstalledManifest(packId:String):Void {
+		try {
+			var manifestPath = ModpackPaths.getInstalledManifestPath(packId);
+			if (FileSystem.exists(manifestPath))
+				FileSystem.deleteFile(manifestPath);
+		} catch (e:Dynamic) {
+			trace('[ModpackInstaller] Manifest silinemedi ($packId): ${Std.string(e)}');
+		}
+	}
+
+	/**
+	 * ZIP'teki dosyaların açılmış (uncompressed) toplam boyutunu tahmin eder.
+	 * ZIP okunamazsa -1 döner.
+	 */
+	public function estimateUnpackedSize(zipPath:String):Float {
+		#if sys
+		if (!_extractor.isSupported()) return -1;
+		if (zipPath == null || !FileSystem.exists(zipPath)) return -1;
+
+		var result = _extractor.listEntries(zipPath);
+		return switch (result) {
+			case Success(entries):
+				var total:Float = 0.0;
+				for (entry in entries) {
+					if (entry.uncompressedSize > 0)
+						total += entry.uncompressedSize;
+				}
+				total;
+			case Failure(_):
+				-1.0;
+		}
+		#else
+		return -1.0;
+		#end
+	}
+
+	/**
+	 * Kurulu bir modpack'i kaldırır:
+	 * manifest'teki tüm mod klasörlerini mods/ altından siler ve
+	 * kurulum manifestini temizler.
+	 *
+	 * onComplete → kaldırılan paketin eski manifesti
+	 * onWarning  → silinemeyen klasörler
+	 */
+	public function uninstall(packId:String, callbacks:ModpackInstallCallbacks):Void {
+		#if sys
+		if (_installing) {
+			warn(callbacks, "Zaten bir kurulum/kaldırma işlemi devam ediyor.");
+			return;
+		}
+
+		var manifest = getInstalledManifest(packId);
+		if (manifest == null) {
+			fail(callbacks, 'Kurulu paket bulunamadı: $packId');
+			return;
+		}
+
+		_installing = true;
+		_cancelled = false;
+
+		trace('[ModpackInstaller] Kaldırma başladı: ${manifest.displayName} v${manifest.version}');
+
+		#if target.threaded
+		sys.thread.Thread.create(() -> {
+			doUninstall(packId, manifest, callbacks);
+		});
+		#else
+		doUninstall(packId, manifest, callbacks);
+		#end
+		#else
+		if (callbacks != null && callbacks.onError != null)
+			callbacks.onError("Bu platformda kaldırma desteklenmiyor.");
+		#end
+	}
+
+	function doUninstall(packId:String, manifest:ModpackManifest, callbacks:ModpackInstallCallbacks):Void {
+		var modsDir = ModpackPaths.getModsDirectory();
+
+		for (folder in manifest.modFolders) {
+			var folderPath = Path.join([modsDir, folder]);
+			if (FileSystem.exists(folderPath)) {
+				deleteDirectory(folderPath);
+				trace('[ModpackInstaller] Kaldırıldı: $folder');
+			} else {
+				warn(callbacks, '"$folder" bulunamadı, zaten silinmiş olabilir.');
+			}
+		}
+
+		// Kurulum manifestini sil
+		try {
+			var manifestPath = ModpackPaths.getInstalledManifestPath(packId);
+			if (FileSystem.exists(manifestPath))
+				FileSystem.deleteFile(manifestPath);
+			trace('[ModpackInstaller] Kurulum manifesti silindi: $manifestPath');
+		} catch (e:Dynamic) {
+			warn(callbacks, 'Kurulum manifesti silinemedi: ${e.message}');
+		}
+
+		_installing = false;
+		_cancelled = false;
+
+		trace('[ModpackInstaller] ✓ Kaldırma tamamlandı: ${manifest.packId}');
+
+		if (callbacks != null && callbacks.onComplete != null)
+			callbacks.onComplete(manifest);
+	}
+
 	// ─────────────────────────────────────────────
 	//  Adım 1 — Doğrulama
 	// ─────────────────────────────────────────────
@@ -184,6 +340,23 @@ class ModpackInstaller {
 					case Clean:
 						// devam
 				}
+
+				// ── Depolama alanı kontrolü (çıkarma öncesi) ──
+				// ZIP'teki tüm dosyaların açılmış boyutları toplanır;
+				// ZIP + açılmış hal + güvenlik payı kadar boş alan aranır.
+				var estimatedUnpacked:Float = 0.0;
+				for (entry in entries) {
+					if (entry.uncompressedSize > 0)
+						estimatedUnpacked += entry.uncompressedSize;
+				}
+
+				var spaceError:Null<String> = StorageGuard.checkExtractionSpace(estimatedUnpacked, stat.size);
+				if (spaceError != null) {
+					fail(callbacks, spaceError);
+					return;
+				}
+
+				trace('[ModpackInstaller] Tahmini açılmış boyut: ${StorageGuard.formatBytes(estimatedUnpacked)}');
 
 				reportPhase(callbacks, Validating, 1.0, "", "Doğrulama tamamlandı.");
 				step_extract(zipPath, packId, tempDir, callbacks);
@@ -316,10 +489,24 @@ class ModpackInstaller {
 		if (checkCancelled(callbacks)) return;
 
 		var foldersToRemove:Array<String> = [];
+		var newTier:Null<ModpackTier> = ModpackTier.fromPackId(packId);
+
+		// ── 1) Aynı paketin önceki kurulumu ──
 		var oldManifest = getInstalledManifest(packId);
 
 		if (oldManifest != null) {
 			trace('[ModpackInstaller] Önceki kurulum bulundu: v${oldManifest.version}');
+
+			var oldTier:Null<ModpackTier> = ModpackTier.fromString(oldManifest.tier != null ? oldManifest.tier : oldManifest.packId);
+
+			if (oldTier != null && newTier != null) {
+				if (newTier.isHigherThan(oldTier)) {
+					trace('[ModpackInstaller] Tier yükseltme: ${oldTier.getLabel()} → ${newTier.getLabel()}');
+				} else if (newTier.isLowerThan(oldTier)) {
+					warn(callbacks, 'Tier düşürme: ${oldTier.getLabel()} → ${newTier.getLabel()}. '
+						+ 'Bu pakette olmayan modlar kaldırılacak.');
+				}
+			}
 
 			for (oldFolder in oldManifest.modFolders) {
 				// Yeni modFolders listesinde yoksa silinecek
@@ -330,6 +517,50 @@ class ModpackInstaller {
 			}
 		} else {
 			trace('[ModpackInstaller] İlk kurulum, eski mod silinmeyecek.');
+		}
+
+		// ── 2) Diğer kurulu paketler (tek aktif paket modeli) ──
+		// Lite / Medium / Further birbirinin yerine geçer: yeni paket kurulunca
+		// önceki resmî paketin manifesti silinir ve yeni pakette olmayan
+		// modları kaldırılır. Böylece Lite'a geçiş GERÇEKTEN yer açar.
+		// Kullanıcının kendi eliyle kurduğu modlar (manifest'i olmayanlar)
+		// ve bilinmeyen/özel packId'ler ASLA dokunulmaz.
+		var otherPacks = getOtherInstalledPackIds(packId);
+
+		for (otherId in otherPacks) {
+			var otherManifest = getInstalledManifest(otherId);
+			if (otherManifest == null) continue;
+
+			var otherTier:Null<ModpackTier> = ModpackTier.fromString(otherManifest.tier != null ? otherManifest.tier : otherManifest.packId);
+
+			// Tier'ı bilinmeyen paketlere dokunma (özel/custom paketler).
+			if (otherTier == null) {
+				trace('[ModpackInstaller] Custom paket atlanıyor (dokunulmadı): $otherId');
+				continue;
+			}
+
+			var removedFolders:Array<String> = [];
+			for (folder in otherManifest.modFolders) {
+				if (newManifest.modFolders.indexOf(folder) == -1 && foldersToRemove.indexOf(folder) == -1) {
+					foldersToRemove.push(folder);
+					removedFolders.push(folder);
+					trace('[ModpackInstaller] Diğer paketten kaldırılacak: $folder');
+				}
+			}
+
+			// Eski paketin kaydını sil (yerini yeni paket aldı).
+			deleteInstalledManifest(otherId);
+
+			if (newTier != null && otherTier != null && newTier.isLowerThan(otherTier)) {
+				warn(callbacks, 'Tier düşürme: ${otherTier.getLabel()} → ${newTier.getLabel()}. '
+					+ (removedFolders.length > 0
+						? 'Bu pakete özel modlar kaldırılıyor (${removedFolders.join(", ")}).'
+						: 'Tüm modlar yeni pakette mevcut.'));
+			} else if (newTier != null && otherTier != null && newTier.isHigherThan(otherTier)) {
+				trace('[ModpackInstaller] Tier yükseltme: ${otherTier.getLabel()} → ${newTier.getLabel()}. Eski paket kaydı silindi.');
+			} else {
+				trace('[ModpackInstaller] Paket değişimi: $otherId → $packId');
+			}
 		}
 
 		step_install(packId, tempDir, newManifest, foldersToRemove, callbacks, zipPath);
@@ -416,7 +647,19 @@ class ModpackInstaller {
 			currentStep++;
 		}
 
-		// ── c) Manifest'i kaydet
+		// ── c) Manifest'i damgala ve kaydet ──
+
+		// Tier: manifest'teki değer geçerliyse onu koru, yoksa packId'den çöz.
+		var resolvedTier:Null<ModpackTier> = ModpackTier.fromString(manifest.tier);
+		if (resolvedTier == null)
+			resolvedTier = ModpackTier.fromPackId(packId);
+
+		if (resolvedTier != null)
+			manifest.tier = resolvedTier;
+
+		manifest.installedAt = Date.now().toString();
+		manifest.installedEngineVersion = UpdateConfig.CURRENT_ENGINE_VERSION;
+		manifest.modCount = manifest.modFolders.length;
 
 		try {
 			var installedPath = ModpackPaths.getInstalledManifestPath(packId);
@@ -426,7 +669,8 @@ class ModpackInstaller {
 				FileSystem.createDirectory(installedDir);
 
 			File.saveContent(installedPath, Json.stringify(manifest, null, "  "));
-			trace('[ModpackInstaller] Manifest kaydedildi: $installedPath');
+			trace('[ModpackInstaller] Manifest kaydedildi: $installedPath'
+				+ (manifest.tier != null ? ' (tier: $manifest.tier)' : ''));
 		} catch (e:Dynamic) {
 			// Manifest kaydedilemese bile kurulum başarılı sayılır
 			// ama uyarı ver
@@ -675,12 +919,17 @@ class ModpackInstaller {
 
 		trace('[ModpackInstaller] Auto manifest oluşturuldu. Klasörler: $folders');
 
+		var tier:Null<ModpackTier> = ModpackTier.fromPackId(packId);
+
 		return {
 			packId: packId,
 			displayName: capitalize(packId) + " Modpack",
 			version: "unknown",
 			engineVersion: "unknown",
-			modFolders: folders
+			modFolders: folders,
+			tier: tier != null ? tier : null,
+			installedAt: Date.now().toString(),
+			installedEngineVersion: UpdateConfig.CURRENT_ENGINE_VERSION
 		};
 	}
 
@@ -789,5 +1038,12 @@ class ModpackInstaller {
 	public function isInstalling():Bool return false;
 	public function isInstalled(packId:String):Bool return false;
 	public function getInstalledManifest(packId:String):Null<ModpackManifest> return null;
+	public function getInstalledTier(packId:String):Null<ModpackTier> return null;
+	public function estimateUnpackedSize(zipPath:String):Float return -1.0;
+
+	public function uninstall(packId:String, callbacks:ModpackInstallCallbacks):Void {
+		if (callbacks != null && callbacks.onError != null)
+			callbacks.onError("Bu platformda kaldırma desteklenmiyor.");
+	}
 	#end
 }

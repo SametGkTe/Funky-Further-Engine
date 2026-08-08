@@ -1,7 +1,6 @@
 package states;
 
 import backend.WeekData;
-import states.UpdatePromptState;
 
 import flixel.input.keyboard.FlxKey;
 import flixel.graphics.frames.FlxAtlasFrames;
@@ -61,7 +60,6 @@ class TitleState extends MusicBeatState
 	
 	var checkingUpdates:Bool = false;
 	var updateCheckDone:Bool = false;
-	var pendingUpdates:Array<Dynamic> = [];
 	var waitingForUpdateCheck:Bool = false;
 	
 	var titleTextColors:Array<FlxColor> = [0xFF33FFFF, 0xFF3333CC];
@@ -540,17 +538,17 @@ class TitleState extends MusicBeatState
 			if (result != null && result.hasUpdates)
 			{
 				trace('[TitleState] ${result.availableUpdates.length} güncelleme bulundu!');
-				for (u in result.availableUpdates)
-				{
-					pendingUpdates.push(u.remote);
-				}
+
+				// Further Engine: otomatik popup YOK — rozet için bayrağı sakla
+				UpdateChecker.instance.hasPendingModpackUpdates = true;
 			}
 			else
 			{
 				trace('[TitleState] Güncelleme yok.');
+				UpdateChecker.instance.hasPendingModpackUpdates = false;
 			}
 
-			// Eğer kullanıcı enter'a basıp bekliyorsa
+			// Eğer kullanıcı enter'a basıp bekliyorsa, artık geçebilir
 			if (waitingForUpdateCheck)
 			{
 				waitingForUpdateCheck = false;
@@ -561,26 +559,9 @@ class TitleState extends MusicBeatState
 	
 	function goToNextState():Void
 	{
-		// External modpackleri filtrele (sadece direct olanları say)
-		var directUpdates:Array<Dynamic> = [];
-		for (mp in pendingUpdates)
-		{
-			var mode:String = mp.downloadMode != null ? mp.downloadMode : "direct";
-			if (mode == "direct")
-				directUpdates.push(mp);
-		}
-
-		if (directUpdates.length > 0)
-		{
-			trace('[TitleState] ${directUpdates.length} güncelleme bulundu, kullanıcıya soruluyor...');
-			FlxTransitionableState.skipNextTransIn = true;
-			FlxTransitionableState.skipNextTransOut = true;
-			MusicBeatState.switchState(new UpdatePromptState(directUpdates));
-		}
-		else
-		{
-			MenuStyleRouter.goToMainMenu();
-		}
+		// Further Engine: otomatik UpdatePromptState kaldırıldı —
+		// güncelleme varsa MainMenuState'teki rozet haber verir, kurulum mağazadan yapılır.
+		MenuStyleRouter.goToMainMenu();
 		closedState = true;
 	}
 

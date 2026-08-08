@@ -1,5 +1,6 @@
 package mikolka.compatibility.freeplay;
 
+import backend.CustomFadeTransition;
 import backend.WeekData;
 import mikolka.vslice.states.SongPrepareState;
 import haxe.Exception;
@@ -67,7 +68,10 @@ class FreeplayHelpers
 	public static function moveToPlaystate(state:FreeplayState, cap:FreeplaySongData, currentDifficulty:String, ?targetInstId:String)
 	{
 		state.persistentUpdate = false;
-		FlxG.switchState(new SongPrepareState(cap, currentDifficulty, targetInstId));
+
+		// Şarkıya giriş: CustomFadeTransition (siyah) ile geçiş
+		FlxG.state.openSubState(new CustomFadeTransition(0.5, false));
+		CustomFadeTransition.finishCallback = function() FlxG.switchState(new SongPrepareState(cap, currentDifficulty, targetInstId));
 	}
 
 	public static function weekIsLocked(name:String):Bool

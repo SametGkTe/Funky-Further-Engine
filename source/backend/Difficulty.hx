@@ -227,4 +227,47 @@ class Difficulty
 	{
 		return defaultDifficulty;
 	}
+
+	/**
+	 * Sprite dosyası için kullanılacak İngilizce diff id'sini döner.
+	 *
+	 * Zorluk adları Türkçeye çevrildiğinde ("Kolay", "Zor", "Kabus" vb.)
+	 * freeplay sprite dosyaları hâlâ İngilizce isimlidir:
+	 *   freeplayDifficulties/freeplay-easy.png  (kolay → easy)
+	 *   freeplayDifficulties/freeplay-hard.png  (zor → hard)
+	 * Bu fonksiyon görünen adı dosya adına eşler; bilinmeyen adlar olduğu gibi döner.
+	 *
+	 * @param diffId Görünen/gelen zorluk adı ("Kolay", "Easy", "normal" vb.)
+	 * @return Sprite dosyasında kullanılacak normalize id ("easy", "hard" vb.)
+	 */
+	public static function getSpriteDiffId(diffId:String):String
+	{
+		if(diffId == null || diffId.length < 1)
+			return diffId != null ? diffId : 'normal';
+
+		var normalized:String = Paths.formatToSongPath(diffId);
+
+		// Türkçe → İngilizce dosya adı eşlemesi
+		switch(normalized)
+		{
+			case 'kolay':
+				return 'easy';
+			case 'normal':
+				return 'normal';
+			case 'zor':
+				return 'hard';
+			case 'kabus':
+				return 'nightmare';
+			case 'klasik':
+				return 'classic';
+			case 'cok-zor':
+				return 'very-hard';
+			case 'cilgin':
+				return 'insane';
+			case 'erect':
+				return 'erect';
+		}
+
+		return normalized;
+	}
 }

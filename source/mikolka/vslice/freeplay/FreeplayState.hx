@@ -1169,7 +1169,11 @@ class FreeplayState extends MusicBeatSubstate
 
 		var visibleCount:Int = visibleEnd - visibleStart;
 		var dropdownHeight:Int = visibleCount * DROPDOWN_ITEM_HEIGHT + 10;
-		dropdownBG.makeGraphic(SEARCH_BAR_WIDTH, Std.int(Math.max(dropdownHeight, 50)), FlxColor.fromRGB(25, 25, 35));
+		var targetHeight:Int = Std.int(Math.max(dropdownHeight, 50));
+
+		// makeGraphic her çağrıda yeni bitmap üretir — boyut değişmediyse atla
+		if (Std.int(dropdownBG.height) != targetHeight)
+			dropdownBG.makeGraphic(SEARCH_BAR_WIDTH, targetHeight, FlxColor.fromRGB(25, 25, 35));
 
 		for (vi in visibleStart...visibleEnd)
 		{
@@ -1397,7 +1401,7 @@ class FreeplayState extends MusicBeatSubstate
 		var justClicked:Bool = FlxG.mouse.justPressed;
 
 		#if TOUCH_CONTROLS_ALLOWED
-		if (!justClicked)
+		if (!justClicked && FlxG.touches.list.length > 0)
 		{
 			for (touch in FlxG.touches.list)
 			{
@@ -1516,7 +1520,7 @@ class FreeplayState extends MusicBeatSubstate
 		if (key == 86 && e.ctrlKey)
 		{
 			var clipText = Clipboard.text;
-			if (clipText != null)
+			if (clipText != null && clipText.length > 0)
 				newText = clipText;
 		}
 
@@ -1535,11 +1539,13 @@ class FreeplayState extends MusicBeatSubstate
 	{
 		if (searchString.length > 0)
 		{
-			generateSongList({filterType: STARTSWITH, filterData: searchString.toLowerCase()}, true, false, true);
+			// onlyIfChanged=true: sonuç aynıysa capsule'ları yeniden kurma
+			// (arama yazarken her tuşta komple yeniden üretim yavaşlatıyordu)
+			generateSongList({filterType: STARTSWITH, filterData: searchString.toLowerCase()}, true, true, true);
 		}
 		else
 		{
-			generateSongList(currentFilter, true, false);
+			generateSongList(currentFilter, true, true);
 		}
 	}
 
@@ -1612,6 +1618,22 @@ class FreeplayState extends MusicBeatSubstate
 		grpCapsules.setInitialAnimPosition();
 	}
 
+	// Regex karakter sınıfı ([...]) içinde güvenli hale getirme.
+	// filterData kullanıcı girdisi olabileceği için özel karakterler kaçırılır.
+	// NOT: backslash kaçışı EN SON yapılmalı — yoksa diğer kaçışlar bozulur.
+	static function escapeRegexClass(input:String):String
+	{
+		if (input == null || input.length == 0)
+			return '';
+		var escaped:String = input;
+		escaped = escaped.replace('[', '\\[');
+		escaped = escaped.replace(']', '\\]');
+		escaped = escaped.replace('^', '\\^');
+		escaped = escaped.replace('-', '\\-');
+		escaped = escaped.replace('\\', '\\\\');
+		return escaped;
+	}
+
 	public function sortSongs(songsToFilter:Array<Null<FreeplaySongData>>, songFilter:SongFilter):Array<Null<FreeplaySongData>>
 	{
 		var filterAlphabetically = function(a:Null<FreeplaySongData>, b:Null<FreeplaySongData>):Int
@@ -1622,13 +1644,26 @@ class FreeplayState extends MusicBeatSubstate
 		switch (songFilter.filterType)
 		{
 			case REGEXP:
-				var filterRegexp:EReg = new EReg('^[' + songFilter.filterData + '].*', 'i');
-				songsToFilter = songsToFilter.filter(str ->
+				// filterData kullanıcı girdisi olabilir ([, \, ] içerebilir) —
+				// EReg çökerterek oyunu kilitlemesin diye kaçış + try/catch.
+				var rawFilter:String = songFilter.filterData != null ? Std.string(songFilter.filterData) : "";
+				var safeFilter:String = escapeRegexClass(rawFilter);
+
+				try
 				{
-					if (str == null)
-						return true;
-					return filterRegexp.match(str.songName);
-				});
+					var filterRegexp:EReg = new EReg('^[' + safeFilter + '].*', 'i');
+					songsToFilter = songsToFilter.filter(str ->
+					{
+						if (str == null)
+							return true;
+						return filterRegexp.match(str.songName);
+					});
+				}
+				catch (e:Dynamic)
+				{
+					// Geçersiz regex → filtreyi güvenli şekilde atla
+					trace('[FreeplayState] Geçersiz REGEXP filtresi: "$rawFilter" — ${Std.string(e)}');
+				}
 				songsToFilter.sort(filterAlphabetically);
 
 			case STARTSWITH:
@@ -2338,9 +2373,14 @@ class FreeplayState extends MusicBeatSubstate
 		lerpScoreDisplays(elapsed);
 		handleInputs(elapsed);
 
+		#if debug
 		if (dj != null)
 			FlxG.watch.addQuick('dj-anim', dj.getCurrentAnimation());
+		#end
 	}
+
+	var lastShownScore:Int = -1;
+	var lastShownCompletion:Int = -1;
 
 	function lerpScoreDisplays(elapsed:Float):Void
 	{
@@ -2352,20 +2392,33 @@ class FreeplayState extends MusicBeatSubstate
 		if (Math.isNaN(lerpCompletion))
 			lerpCompletion = intendedCompletion;
 
-		fp.updateScore(Std.int(lerpScore));
+		// Değer değişmediyse her frame UI güncellemesi yapma (string alloc + hitbox yenileme)
+		var scoreInt:Int = Std.int(lerpScore);
+		var completionInt:Int = Math.floor(lerpCompletion * 100);
 
-		txtCompletion.text = '${Math.floor(lerpCompletion * 100)}';
-
-		switch (txtCompletion.text.length)
+		if (scoreInt != lastShownScore)
 		{
-			case 3:
-				txtCompletion.offset.x = 10;
-			case 2:
-				txtCompletion.offset.x = 0;
-			case 1:
-				txtCompletion.offset.x = -24;
-			default:
-				txtCompletion.offset.x = 0;
+			lastShownScore = scoreInt;
+			fp.updateScore(scoreInt);
+		}
+
+		if (completionInt != lastShownCompletion)
+		{
+			lastShownCompletion = completionInt;
+
+			txtCompletion.text = '${completionInt}';
+
+			switch (txtCompletion.text.length)
+			{
+				case 3:
+					txtCompletion.offset.x = 10;
+				case 2:
+					txtCompletion.offset.x = 0;
+				case 1:
+					txtCompletion.offset.x = -24;
+				default:
+					txtCompletion.offset.x = 0;
+			}
 		}
 	}
 
@@ -2589,13 +2642,23 @@ class FreeplayState extends MusicBeatSubstate
 
 		FlxG.stage.removeEventListener(KeyboardEvent.KEY_DOWN, onKeyDown);
 
-		super.destroy();
+		// super.destroy()'dan ÖNCE ihtiyaç duyulan verileri al
 		var daSong:Null<FreeplaySongData> = (curSelected >= 0 && curSelected < currentFilteredSongs.length) ? currentFilteredSongs[curSelected] : null;
+		var camToRemove:FunkinCamera = funnyCam;
+		var rankCamToRemove:FunkinCamera = rankCamera;
+
+		instance = null;
+
+		super.destroy();
+
 		if (daSong != null)
 			clearDaCache(daSong.songName);
 
-		FlxG.cameras.remove(funnyCam);
-		instance = null;
+		// Hem funnyCam hem rankCamera kaldırılmalı — aksi halde kamera birikir
+		if (camToRemove != null)
+			FlxG.cameras.remove(camToRemove);
+		if (rankCamToRemove != null)
+			FlxG.cameras.remove(rankCamToRemove);
 	}
 
 	var difficultyLastChange:Int = 0;
@@ -2603,22 +2666,30 @@ class FreeplayState extends MusicBeatSubstate
 	var _diffAnimTimer:Null<FlxTimer> = null;
 	var _diffAnimToken:Int = 0;
 	
+	static final _difficultySpriteCache:Map<String, Bool> = [];
+
 	function hasDifficultySprite(diffId:String):Bool
 	{
 		if (diffId == null || diffId.length < 1)
 			return false;
 
-		var formatted:String = diffId.toLowerCase();
-		formatted = formatted.replace(" ", "-");
-		formatted = formatted.replace("_", "-");
+		// Türkçe zorluk adlarını İngilizce sprite dosyasına eşle:
+		// "kolay" → freeplay-easy, "zor" → freeplay-hard ...
+		var spriteId:String = backend.Difficulty.getSpriteDiffId(diffId);
 
+		// Aynı diff için Paths.image'ı tekrar tekrar deneme — sonucu cache'le
+		if (_difficultySpriteCache.exists(spriteId))
+			return _difficultySpriteCache.get(spriteId);
+
+		var found:Bool = false;
 		try
 		{
-			return Paths.image('freeplay/freeplayDifficulties/freeplay' + formatted) != null;
+			found = Paths.image('freeplay/freeplayDifficulties/freeplay' + spriteId) != null;
 		}
 		catch (e:Dynamic) {}
 
-		return false;
+		_difficultySpriteCache.set(spriteId, found);
+		return found;
 	}
 
 	function getDifficultySpriteById(diffId:String):Null<DifficultySprite>
@@ -2626,9 +2697,13 @@ class FreeplayState extends MusicBeatSubstate
 		if (grpDifficulties == null || grpDifficulties.group == null || diffId == null)
 			return null;
 
+		// Türkçe adlar da İngilizce sprite'larla eşleşsin:
+		// "zor" → spriteDiffId "hard" olan sprite bulunur
+		var wantedSpriteId:String = backend.Difficulty.getSpriteDiffId(diffId);
+
 		for (diffSprite in grpDifficulties.group.members)
 		{
-			if (diffSprite != null && diffSprite.difficultyId == diffId)
+			if (diffSprite != null && diffSprite.spriteDiffId == wantedSpriteId)
 				return diffSprite;
 		}
 
@@ -3048,10 +3123,13 @@ class FreeplayState extends MusicBeatSubstate
 			curSelectedFractal = curSelected;
 		curSelected += change;
 
+		// countLiving() her çağrıda tüm listeyi tarar — bir kez al
+		var totalSongs:Int = grpCapsules.countLiving();
+
 		if (curSelected < 0)
 			if (updateCardPosition)
 			{
-				curSelected = grpCapsules.countLiving() - 1;
+				curSelected = totalSongs - 1;
 				change = 0;
 				curSelectedFractal = curSelected;
 			}
@@ -3060,7 +3138,7 @@ class FreeplayState extends MusicBeatSubstate
 				curSelected = prevSelected;
 				return;
 			}
-		if (curSelected >= grpCapsules.countLiving())
+		if (curSelected >= totalSongs)
 			if (updateCardPosition)
 			{
 				curSelected = 0;
@@ -3098,11 +3176,10 @@ class FreeplayState extends MusicBeatSubstate
 		if (updateCardPosition)
 			changeSelectionFractal(change);
 
-		if (grpCapsules.countLiving() > 0 && !prepForNewRank)
+		if (totalSongs > 0 && !prepForNewRank)
 		{
 			if (daSongCapsule.songData != null)
 				FreeplayHelpers.loadDiffsFromWeek(daSongCapsule.songData);
-
 			if (FlxG.sound.music != null)
 				FlxG.sound.music.pause();
 

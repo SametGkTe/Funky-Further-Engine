@@ -1,25 +1,7 @@
 package backend.update;
-
 import haxe.Http;
 import haxe.Json;
-
-typedef RemoteModpackInfo = {
-	var id:String;
-	var displayName:String;
-	var version:String;
-
-	@:optional var versionLabel:String;
-	@:optional var author:String;
-	@:optional var description:String;
-	@:optional var category:String;
-
-	@:optional var downloadMode:String;
-	@:optional var directDownloadUrl:String;
-	@:optional var externalPageUrl:String;
-
-	@:optional var fileSize:String;
-	@:optional var modCount:Int;
-}
+import backend.modpack.ModpackTier;
 
 typedef ModpackListData = {
     @:optional var lastUpdated:String;
@@ -38,11 +20,62 @@ typedef CheckResult = {
     var hasUpdates:Bool;
 }
 
+
+
+typedef RemoteModpackInfo = {
+	var id:String;
+	var displayName:String;
+	var version:String;
+
+	@:optional var versionLabel:String;
+	@:optional var author:String;
+	@:optional var description:String;
+	@:optional var category:String;
+
+	@:optional var downloadMode:String;
+	@:optional var directDownloadUrl:String;
+	@:optional var externalPageUrl:String;
+
+	@:optional var fileSize:String;
+	@:optional var fileSizeBytes:Float;
+	@:optional var modCount:Int;
+
+	// ── Further Engine tier sistemi ──
+	/** Tier kimliği: "lite", "medium", "further" (ModpackTier ile normalleştirilir). */
+	@:optional var tier:String;
+	@:optional var tierLabel:String;
+
+	// ── Mağaza kartı/detay alanları ──
+	/** Kart görseli URL'si (uzaktan indirilir, cache'lenir). */
+	@:optional var thumbnail:String;
+	/** Paketteki mod adları (INCLUDES listesi). */
+	@:optional var includes:Array<String>;
+	/** Son güncelleme zamanı (gösterim amaçlı, ör: "2026-08-07 22:39"). */
+	@:optional var updatedAt:String;
+	/** Katalog fallback indirme sayısı (MediaFire'dan çekilemezse gösterilir). */
+	@:optional var downloads:Int;
+	/** MediaFire indirme linki (dosya sayfası). */
+	@:optional var mediafireUrl:String;
+	/** GitHub release/direct indirme linki. */
+	@:optional var githubUrl:String;
+}
+
 class UpdateChecker {
     public var onError:Null<String->Void> = null;
     public var isChecking:Bool = false;
     public var lastResult:Null<CheckResult> = null;
     public var cachedModpacks:Null<Array<RemoteModpackInfo>> = null;
+
+    // ── Further Engine: kalıcı "güncelleme var" bayrağı ──
+    // TitleState'teki kontrol sonucunu saklar; MainMenuState rozeti bunu okur.
+    // Kullanıcı mağazadan tüm güncellemeleri yapınca clearModpackUpdates() çağrılır.
+    public var hasPendingModpackUpdates:Bool = false;
+
+    /** Mağaza güncellemeleri yapılınca rozetin bir daha çıkmaması için temizlenir. */
+    public function clearModpackUpdates():Void
+    {
+        hasPendingModpackUpdates = false;
+    }
 
     static var _instance:UpdateChecker;
     public static var instance(get, never):UpdateChecker;
@@ -83,6 +116,16 @@ class UpdateChecker {
                 }
 
                 cachedModpacks = parsed.modpacks;
+
+                // Tier normalleştirme: katalogda tier yoksa id'den çöz,
+                // eski id'ler (minimal/high/full) otomatik eşlenir.
+                for (mp in parsed.modpacks) {
+                    var tier:Null<ModpackTier> = ModpackTier.fromString(mp.tier != null ? mp.tier : mp.id);
+                    if (tier != null) {
+                        mp.tier = tier;
+                        mp.tierLabel = tier.getLabel();
+                    }
+                }
 
                 var updates = findUpdates(parsed.modpacks);
 
@@ -157,8 +200,24 @@ class UpdateChecker {
     /**
      * Kurulu modpack'in versiyonunu oku.
      * Kurulu değilse null döner.
+     *
+     * Eski sistem id'leriyle (minimal, high, full) yapılmış kurulumlar
+     * da yeni tier id'leriyle bulunur — ör: "lite" aranırken "minimal"
+     * kurulumu da algılanır. (Geçiş dönemi uyumluluğu.)
      */
     function getInstalledVersion(packId:String):Null<String> {
+        var v = getInstalledVersionExact(packId);
+        if (v != null) return v;
+
+        for (legacyId in ModpackTier.legacyIdsFor(packId)) {
+            v = getInstalledVersionExact(legacyId);
+            if (v != null) return v;
+        }
+
+        return null;
+    }
+
+    function getInstalledVersionExact(packId:String):Null<String> {
         #if sys
         var manifestPath = backend.modpack.ModpackPaths.getInstalledManifestPath(packId);
 

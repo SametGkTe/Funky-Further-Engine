@@ -58,14 +58,32 @@ class DownloadManager {
 		trace('[DownloadManager] İptal isteği.');
 	}
 
-	public function smartDownload(url:String, savePath:String, callbacks:DownloadCallbacks):Void {
+	/**
+	 * Akıllı indirme:
+	 *  - MediaFire sayfa linki → gerçek indirme linki çözülür
+	 *  - Google Drive linki → doğrudan indirme linkine çevrilir
+	 *  - Diğer linkler → doğrudan indirilir
+	 *
+	 * @param expectedBytes Katalogdaki beklenen ZIP boyutu (fileSizeBytes).
+	 *   > 0 ise indirme öncesi StorageGuard ile alan kontrolü yapılır.
+	 */
+	public function smartDownload(url:String, savePath:String, callbacks:DownloadCallbacks, ?expectedBytes:Float = -1):Void {
 		if (url == null || url.length == 0) {
 			safeError(callbacks, "İndirme URL'si boş.");
 			return;
 		}
 
-		if (StringTools.startsWith(url, "https://www.mediafire.com/file/")
-			|| StringTools.startsWith(url, "http://www.mediafire.com/file/")) {
+		// ── Depolama alanı kontrolü (tier sisteminin koruması) ──
+		if (expectedBytes > 0) {
+			var spaceError:Null<String> = StorageGuard.checkDownloadSpace(expectedBytes);
+			if (spaceError != null) {
+				trace('[DownloadManager] Alan kontrolü reddetti: $spaceError');
+				safeError(callbacks, spaceError);
+				return;
+			}
+		}
+
+		if (isMediafirePage(url)) {
 			resolveMediafire(url, savePath, callbacks);
 			return;
 		}
@@ -76,6 +94,16 @@ class DownloadManager {
 		}
 
 		download(url, savePath, callbacks);
+	}
+
+	/** URL bir MediaFire dosya sayfası mı? */
+	public static function isMediafirePage(url:String):Bool {
+		if (url == null) return false;
+
+		return StringTools.startsWith(url, "https://www.mediafire.com/file/")
+			|| StringTools.startsWith(url, "http://www.mediafire.com/file/")
+			|| StringTools.startsWith(url, "https://mediafire.com/file/")
+			|| StringTools.startsWith(url, "http://mediafire.com/file/");
 	}
 
 	function resolveMediafire(pageUrl:String, savePath:String, callbacks:DownloadCallbacks):Void {
@@ -290,6 +318,30 @@ class DownloadManager {
 		}
 	}
 
+	/**
+	 * URL'den sayfa/doküman metnini çeker (HTML, JSON vb.).
+	 * İndirme kuyruğunu KULLANMAZ — ayrı, hafif bir istektir.
+	 * MediaFire sayaç sorguları ve benzeri küçük fetch'ler için.
+	 */
+	public function fetchUrlText(url:String, onData:String->Void, onError:String->Void):Void {
+		#if target.threaded
+		Thread.create(() -> {
+			doFetchUrlText(url, onData, onError);
+		});
+		#else
+		doFetchUrlText(url, onData, onError);
+		#end
+	}
+
+	function doFetchUrlText(url:String, onData:String->Void, onError:String->Void):Void {
+		var content:Null<String> = fetchPageContent(url);
+		if (content == null || content.length == 0) {
+			if (onError != null) onError("Sayfa yüklenemedi: $url");
+			return;
+		}
+		if (onData != null) onData(content);
+	}
+
 	public function download(url:String, savePath:String, callbacks:DownloadCallbacks):Void {
 		if (_downloading) {
 			safeError(callbacks, "Zaten bir indirme devam ediyor.");
@@ -298,6 +350,13 @@ class DownloadManager {
 
 		if (url == null || url.length == 0) {
 			safeError(callbacks, "İndirme URL'si boş.");
+			return;
+		}
+
+		// Güvenlik ağı: MediaFire sayfa linki yanlışlıkla download()'a gelirse
+		// HTML indirilmesin — link çözümlemesine yönlendir.
+		if (isMediafirePage(url)) {
+			resolveMediafire(url, savePath, callbacks);
 			return;
 		}
 
@@ -713,12 +772,16 @@ class DownloadManager {
 			callbacks.onError("Bu platformda indirme desteklenmiyor.");
 	}
 
-	public function smartDownload(url:String, savePath:String, callbacks:DownloadCallbacks):Void {
+	public function smartDownload(url:String, savePath:String, callbacks:DownloadCallbacks, ?expectedBytes:Float = -1):Void {
 		download(url, savePath, callbacks);
 	}
 
 	public function downloadFromGitHub(url:String, savePath:String, callbacks:DownloadCallbacks):Void {
 		download(url, savePath, callbacks);
+	}
+
+	public function fetchUrlText(url:String, onData:String->Void, onError:String->Void):Void {
+		if (onError != null) onError("Bu platformda istek desteklenmiyor.");
 	}
 	#end
 }

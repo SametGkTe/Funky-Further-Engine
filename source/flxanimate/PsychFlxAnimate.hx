@@ -81,11 +81,14 @@ class PsychFlxAnimate extends OriginalFlxAnimate
 		}
 		catch(e:haxe.Exception)
 		{
-			anim.curInstance = FlxDestroyUtil.destroy(anim.curInstance);
-			anim.stageInstance = FlxDestroyUtil.destroy(anim.stageInstance);
-			//anim.metadata = FlxDestroyUtil.destroy(anim.metadata);
-			anim.metadata.destroy();
-			anim.symbolDictionary = null;
+			if (anim != null)
+			{
+				anim.curInstance = FlxDestroyUtil.destroy(anim.curInstance);
+				anim.stageInstance = FlxDestroyUtil.destroy(anim.stageInstance);
+				if (anim.metadata != null)
+					anim.metadata.destroy();
+				anim.symbolDictionary = null;
+			}
 		}
 	}
 

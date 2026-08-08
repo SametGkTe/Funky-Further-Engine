@@ -1,10 +1,10 @@
 package backend.modpack;
 
-enum abstract ModpackId(String) from String to String {
-	public var MINIMAL = "minimal";
-	public var MEDIUM = "medium";
-	public var HIGH = "high";
-}
+/**
+ * Tier tanımları ve yardımcıları: backend.modpack.ModpackTier
+ * (ModpackId kaldırıldı — tier sistemi onun yerini aldı:
+ *  lite / medium / further, eski id'ler otomatik eşlenir.)
+ */
 
 typedef ModpackManifestChecksum = {
 	var algorithm:String;
@@ -35,6 +35,20 @@ typedef ModpackManifest = {
 	@:optional var maxEngineVersion:String;
 	@:optional var checksum:ModpackManifestChecksum;
 	@:optional var changelog:Array<ModpackManifestChangelogEntry>;
+
+	// ── Further Engine tier sistemi ──
+	/** Tier kimliği: "lite", "medium", "further" (backend.modpack.ModpackTier). */
+	@:optional var tier:String;
+	/** Kurulum zamanı (Date.now().toString()). */
+	@:optional var installedAt:String;
+	/** Kurulumu yapan engine sürümü (UpdateConfig.CURRENT_ENGINE_VERSION). */
+	@:optional var installedEngineVersion:String;
+	/** Paketin indirildiği kaynak (katalog URL'si / MediaFire sayfası). */
+	@:optional var sourceUrl:String;
+	/** Kurulan mod klasörü sayısı (modFolders.length). */
+	@:optional var modCount:Int;
+	/** ZIP açılmış halinin tahmini boyutu (bayt). */
+	@:optional var estimatedSizeBytes:Float;
 }
 
 enum ModpackInstallPhase {
