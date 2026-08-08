@@ -6,7 +6,7 @@ permissions:
   discussions: write
 
 env:
-  PROJECT_NAME: PsychEngine
+  PROJECT_NAME: FurtherEngine
   REPO_PATH: SametGkTe/Further-Engine
 
 jobs:

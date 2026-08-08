@@ -23,7 +23,7 @@ on:
 
 env:
   HAXE_VERSION: 4.3.6
-  PROJECT_NAME: PsychEngine
+  PROJECT_NAME: FurtherEngine
 
 jobs:
   build:
