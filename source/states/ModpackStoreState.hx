@@ -3,16 +3,20 @@ package states;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.text.FlxText;
+import flixel.text.FlxText.FlxTextBorderStyle;
 import flixel.util.FlxColor;
 import flixel.math.FlxMath;
+import flixel.group.FlxSpriteGroup.FlxTypedSpriteGroup;
 import openfl.display.BitmapData;
+import openfl.events.KeyboardEvent;
 import backend.update.UpdateChecker;
-import backend.modpack.ModpackLinkHelper;
+import backend.ClientPrefs;
 import backend.modpack.ModpackPaths;
 import backend.modpack.ModpackInstaller;
 import backend.modpack.ModpackTypes;
 import backend.modpack.ModpackTier;
 import backend.modpack.MediafireStats;
+import backend.modpack.ModpackLinkHelper;
 import backend.modpack.DownloadManager;
 import substates.PickDownloadMethodSubState;
 
@@ -28,26 +32,33 @@ enum StoreScreenState {
 }
 
 /**
- * Further Engine — Modpack Mağazası
+ * Further Engine — Modpack Mağazası (GameBanana tarzı modern tasarım)
  *
- * Ekranlar:
- *  - Browse   : 2x2 kart grid'i (görsel + paket adı + tier + toplam indirmeler)
- *  - Detail   : büyük görsel + İÇERİK listesi (scroll) + indirme linkleri
- *  - Diyalog  : [OTOMATİK] / [MANUEL] indirme yöntemi seçimi (PickDownloadMethodSubState)
- *
- * İndirme linkleri: MediaFire (mediafireUrl) ve GitHub (githubUrl).
- * Kullanıcı hangi linke basarsa OTOMATİK indirme o kaynak üzerinden yapılır;
- * MANUEL seçilirse tarayıcıda açılır.
+ * Browse:
+ *  - Üstte arama çubuğu (işlevsel: paket adına göre filtreler)
+ *  - 4 sütunlu kart grid (ModpackCard): thumbnail, tier+boyut etiketi,
+ *    isim, indirme sayısı; seçiliyken İNDİR + LINK butonları
+ *  - Sayfalama: Q/E veya mouse wheel (12 kart / sayfa)
+ *  - [ENTER] → detay ekranı (görsel + İÇERİK + linkler + OTOMATİK/MANUEL)
  */
 class ModpackStoreState extends MusicBeatState {
 	// ─── Veri ───
 	var allPacks:Array<Dynamic> = [];
-	var pageIndex:Int = 0;
-	var pageCount:Int = 1;
-	var selectedIndex:Int = 0; // grid index (0-3)
-	var currentPack:Dynamic = null; // detay ekranındaki paket
-	var selectedLink:Int = 0; // 0 = MediaFire, 1 = GitHub
-	var expectedBytes:Float = -1;
+	var displayList:Array<Dynamic> = []; // arama filtresi uygulanmış liste
+	var cards:FlxTypedSpriteGroup<ModpackCard> = new FlxTypedSpriteGroup<ModpackCard>();
+	var selectedIndex:Int = 0;
+	var page:Int = 1;
+	var totalPages:Int = 1;
+	var currentPack:Dynamic = null;
+
+	// ─── Arama ───
+	var searchString:String = "";
+	var searchFocused:Bool = false;
+	var searchBg:FlxSprite;
+	var searchPlaceholder:FlxText;
+	var searchInputText:FlxText;
+	var searchCursor:FlxText;
+	var cursorTimer:Float = 0;
 
 	// ─── Sistemler ───
 	var downloader:DownloadManager;
@@ -59,34 +70,18 @@ class ModpackStoreState extends MusicBeatState {
 	var targetProgress:Float = 0.0;
 	var loadingTimer:Float = 0.0;
 	var loadingDots:Int = 0;
-	var includeOffset:Int = 0;
-	var includeMaxVisible:Int = 10;
-	var dragList:Bool = false;
-	var dragStartY:Float = 0.0;
-	var hoveredLink:Int = -1;
 
 	// ─── Genel UI ───
 	var bg:FlxSprite;
 	var titleText:FlxText;
-	var subtitleText:FlxText;
+	var pageInfo:FlxText;
+	var pageTip1:FlxText;
+	var pageTip2:FlxText;
 	var controlsText:FlxText;
 	var loadingText:FlxText;
 	var errorText:FlxText;
 
-	// ─── Browse (kart grid) ───
-	static final GRID_COLS:Int = 2;
-	static final CARDS_PER_PAGE:Int = 4;
-	var cardBg:Array<FlxSprite> = [];
-	var cardBorder:Array<FlxSprite> = [];
-	var cardName:Array<FlxText> = [];
-	var cardTier:Array<FlxText> = [];
-	var cardThumb:Array<FlxSprite> = [];
-	var cardThumbText:Array<FlxText> = [];
-	var cardDownloads:Array<FlxText> = [];
-	var selector:FlxSprite;
-	var pageText:FlxText;
-
-	// ─── Detail ───
+	// ─── Detay UI (korunan) ───
 	var detailBg:FlxSprite;
 	var detailImage:FlxSprite;
 	var detailImageText:FlxText;
@@ -102,9 +97,15 @@ class ModpackStoreState extends MusicBeatState {
 	var linkLogo:Array<FlxSprite> = [];
 	var linkLogoText:Array<FlxText> = [];
 	var linkText:Array<FlxText> = [];
-	var linkLabel:Array<FlxText> = [];
+	var includeLines:Array<String> = [];
+	var includeOffset:Int = 0;
+	var includeMaxVisible:Int = 10;
+	var selectedLink:Int = 0;
+	var hoveredLink:Int = -1;
+	var dragList:Bool = false;
+	var dragStartY:Float = 0.0;
 
-	// ─── Progress / Durum ───
+	// ─── Progress ───
 	var barBorder:FlxSprite;
 	var barBg:FlxSprite;
 	var barFill:FlxSprite;
@@ -113,10 +114,16 @@ class ModpackStoreState extends MusicBeatState {
 	var speedText:FlxText;
 	var phaseText:FlxText;
 
+	// ─── Grid sabitleri ───
+	static final GRID_COLS:Int = 4;
+	static final CARDS_PER_PAGE:Int = 12; // 4 x 3
+	static final CARD_W:Int = 220;
+	static final CARD_H:Int = 170;
+	static final CARD_GAP:Int = 16;
+	static final GRID_TOP:Int = 150;
+	static final GRID_BOTTOM_MARGIN:Int = 60;
+
 	static final ACCENT:Int = 0xFF0D9488;
-	static final INSTALLED_COLOR:Int = 0xFF22C55E;
-	static final UPDATE_COLOR:Int = 0xFFF59E0B;
-	static final NEW_COLOR:Int = 0xFF3B82F6;
 
 	// ═════════════════════════════════════════════
 	//  CREATE
@@ -128,20 +135,65 @@ class ModpackStoreState extends MusicBeatState {
 		downloader = new DownloadManager();
 		installer = new ModpackInstaller();
 
-		bg = new FlxSprite(0, 0).makeGraphic(FlxG.width, FlxG.height, 0xFF0A0E12);
+		// ── Arka plan (GameBanana: menuDesat renkli + coolLines) ──
+		bg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
+		bg.color = 0xFF3A3A40;
+		bg.screenCenter();
+		bg.antialiasing = ClientPrefs.data.antialiasing;
+		bg.scrollFactor.set(0, 0);
 		add(bg);
 
+		var lines:FlxSprite = new FlxSprite().loadGraphic(Paths.image('coolLines'));
+		lines.screenCenter();
+		lines.antialiasing = ClientPrefs.data.antialiasing;
+		lines.scrollFactor.set(0, 0);
+		lines.alpha = 0.25;
+		add(lines);
+
 		// ── Başlık ──
-		titleText = new FlxText(0, 24, FlxG.width, "MODPACK MAĞAZASI", 34);
-		titleText.setFormat("VCR OSD Mono", 34, FlxColor.WHITE, CENTER);
+		titleText = new FlxText(0, 24, FlxG.width, "MODPACK MAĞAZASI", 30);
+		titleText.setFormat("VCR OSD Mono", 30, FlxColor.WHITE, CENTER);
+		titleText.borderStyle = OUTLINE;
+		titleText.borderColor = 0xFF000000;
+		titleText.borderSize = 2;
 		add(titleText);
 
-		subtitleText = new FlxText(0, 64, FlxG.width, "Yükleniyor...", 13);
-		subtitleText.setFormat("VCR OSD Mono", 13, 0xFF666666, CENTER);
-		add(subtitleText);
+		// ── Arama çubuğu ──
+		createSearchBar();
 
-		controlsText = new FlxText(0, FlxG.height - 36, FlxG.width, "", 12);
-		controlsText.setFormat("VCR OSD Mono", 12, 0xFF777777, CENTER);
+		// ── Kart grid ──
+		add(cards);
+
+		// ── Sayfa bilgisi + ipuçları (GameBanana tarzı) ──
+		pageInfo = new FlxText(0, 0, FlxG.width);
+		pageInfo.text = "< Sayfa 1 >";
+		pageInfo.setFormat("VCR OSD Mono", 20, FlxColor.WHITE, CENTER);
+		pageInfo.borderStyle = OUTLINE;
+		pageInfo.borderColor = 0xFF000000;
+		pageInfo.borderSize = 1.5;
+		pageInfo.y = FlxG.height - pageInfo.height - 30;
+		add(pageInfo);
+
+		pageTip1 = new FlxText(20, 0, FlxG.width, "Q - Önceki sayfa");
+		pageTip1.setFormat("VCR OSD Mono", 15, FlxColor.WHITE, LEFT);
+		pageTip1.borderStyle = OUTLINE;
+		pageTip1.borderColor = 0xFF000000;
+		pageTip1.borderSize = 1.5;
+		pageTip1.y = pageInfo.y;
+		pageTip1.alpha = 0.6;
+		add(pageTip1);
+
+		pageTip2 = new FlxText(-20, 0, FlxG.width, "E - Sonraki sayfa");
+		pageTip2.setFormat("VCR OSD Mono", 15, FlxColor.WHITE, RIGHT);
+		pageTip2.borderStyle = OUTLINE;
+		pageTip2.borderColor = 0xFF000000;
+		pageTip2.borderSize = 1.5;
+		pageTip2.y = pageInfo.y;
+		pageTip2.alpha = 0.6;
+		add(pageTip2);
+
+		controlsText = new FlxText(0, FlxG.height - 26, FlxG.width, "", 11);
+		controlsText.setFormat("VCR OSD Mono", 11, 0xFF777777, CENTER);
 		add(controlsText);
 
 		loadingText = new FlxText(0, 0, FlxG.width, "Mağaza yükleniyor...", 18);
@@ -156,7 +208,54 @@ class ModpackStoreState extends MusicBeatState {
 		add(errorText);
 
 		// ── Progress bar ──
-		var barY:Int = FlxG.height - 100;
+		createProgressUI();
+		createDetailUI();
+
+		// Klavye girişi (arama)
+		FlxG.stage.addEventListener(KeyboardEvent.KEY_DOWN, onSearchKeyDown);
+
+		FlxG.camera.fade(FlxColor.BLACK, 0.3, true);
+		fetchStore();
+	}
+
+	function createSearchBar():Void {
+		var barW:Int = Std.int(Math.min(700, FlxG.width - 60));
+		var barH:Int = 46;
+		var barY:Int = 78;
+
+		searchBg = new FlxSprite();
+		searchBg.makeGraphic(barW, barH, FlxColor.BLACK);
+		searchBg.screenCenter(X);
+		searchBg.y = barY;
+		searchBg.alpha = 0.55;
+		add(searchBg);
+
+		searchPlaceholder = new FlxText();
+		searchPlaceholder.text = "Paket ara...";
+		searchPlaceholder.setFormat("VCR OSD Mono", 18, FlxColor.WHITE, LEFT);
+		searchPlaceholder.borderStyle = OUTLINE;
+		searchPlaceholder.borderColor = 0xFF000000;
+		searchPlaceholder.borderSize = 1.5;
+		searchPlaceholder.alpha = 0.45;
+		searchPlaceholder.x = searchBg.x + 16;
+		searchPlaceholder.y = searchBg.y + searchBg.height / 2 - searchPlaceholder.height / 2;
+		add(searchPlaceholder);
+
+		searchInputText = new FlxText(searchPlaceholder.x, searchPlaceholder.y, Std.int(searchBg.width - 40), "", 18);
+		searchInputText.setFormat("VCR OSD Mono", 18, FlxColor.WHITE, LEFT);
+		searchInputText.borderStyle = OUTLINE;
+		searchInputText.borderColor = 0xFF000000;
+		searchInputText.borderSize = 1.5;
+		add(searchInputText);
+
+		searchCursor = new FlxText(searchPlaceholder.x, searchPlaceholder.y, 20, "|", 18);
+		searchCursor.setFormat("VCR OSD Mono", 18, FlxColor.WHITE, LEFT);
+		searchCursor.visible = false;
+		add(searchCursor);
+	}
+
+	function createProgressUI():Void {
+		var barY:Int = FlxG.height - 108;
 		barBorder = new FlxSprite(30 - 1, barY - 1).makeGraphic(FlxG.width - 58 + 2, 18 + 2, 0xFF333333);
 		barBorder.visible = false;
 		add(barBorder);
@@ -184,91 +283,227 @@ class ModpackStoreState extends MusicBeatState {
 		phaseText.y -= 40;
 		phaseText.visible = false;
 		add(phaseText);
-
-		createBrowseUI();
-		createDetailUI();
-
-		FlxG.camera.fade(FlxColor.BLACK, 0.3, true);
-		fetchStore();
 	}
 
 	// ═════════════════════════════════════════════
-	//  BROWSE UI (2x2 kart grid)
+	//  VERİ ÇEKME
 	// ═════════════════════════════════════════════
 
-	function createBrowseUI():Void {
-		var gridW:Int = FlxG.width;
-		var gridH:Int = FlxG.height - 120;
-		var gap:Int = 14;
-		var marginX:Int = 26;
-		var marginY:Int = 86;
-		var cardW:Int = Std.int((gridW - marginX * 2 - gap) / GRID_COLS);
-		var cardH:Int = Std.int((gridH - marginY - gap) / 2);
-		var thumbH:Int = cardH - 82;
+	function fetchStore():Void {
+		screenState = Loading;
+		loadingText.visible = true;
+		errorText.visible = false;
 
-		selector = new FlxSprite(marginX - 3, marginY - 3).makeGraphic(cardW + 6, cardH + 6, 0xFF0D9488);
-		selector.alpha = 0.35;
-		selector.visible = false;
-		add(selector);
+		var checker = UpdateChecker.instance;
+		checker.onError = function(err:String) {
+			showError('Bağlantı hatası:\n$err');
+		};
 
-		for (i in 0...CARDS_PER_PAGE) {
+		checker.fetchStoreList(function(packs:Array<Dynamic>) {
+			if (packs == null || packs.length == 0) {
+				showError("Hiç modpack bulunamadı.\nKatalog boş veya erişilemiyor.");
+				return;
+			}
+
+			allPacks = packs;
+			loadingText.visible = false;
+			showBrowse();
+		});
+	}
+
+	// ═════════════════════════════════════════════
+	//  BROWSE (kart grid + arama)
+	// ═════════════════════════════════════════════
+
+	function showBrowse():Void {
+		screenState = Browse;
+		hideDetail();
+		hideProgress();
+
+		titleText.visible = true;
+		searchBg.visible = true;
+		searchPlaceholder.visible = true;
+		searchInputText.visible = true;
+		pageInfo.visible = true;
+		pageTip1.visible = true;
+		pageTip2.visible = true;
+
+		applySearchFilter(true);
+	}
+
+	function applySearchFilter(?resetPage:Bool = false):Void {
+		var query:String = searchString.toLowerCase();
+
+		if (query.length == 0)
+			displayList = allPacks.copy();
+		else
+			displayList = allPacks.filter(function(mp:Dynamic):Bool {
+				var name:String = mp.displayName != null ? Std.string(mp.displayName).toLowerCase() : "";
+				var id:String = mp.id != null ? Std.string(mp.id).toLowerCase() : "";
+				return name.indexOf(query) != -1 || id.indexOf(query) != -1;
+			});
+
+		totalPages = Std.int(Math.max(1, Math.ceil(displayList.length / CARDS_PER_PAGE)));
+		if (resetPage || page > totalPages) page = 1;
+		selectedIndex = 0;
+
+		refreshCards();
+	}
+
+	function refreshCards():Void {
+		// Eski kartları temizle
+		for (card in cards.members)
+		{
+			if (card != null)
+			{
+				remove(card);
+				card.destroy();
+			}
+		}
+		cards.clear();
+		cards = new FlxTypedSpriteGroup<ModpackCard>();
+		add(cards);
+
+		var startIdx:Int = (page - 1) * CARDS_PER_PAGE;
+		var gridW:Int = GRID_COLS * CARD_W + (GRID_COLS - 1) * CARD_GAP;
+		var startX:Float = (FlxG.width - gridW) / 2;
+
+		var count:Int = Std.int(Math.min(CARDS_PER_PAGE, displayList.length - startIdx));
+		for (i in 0...count)
+		{
+			var packIdx:Int = startIdx + i;
+			if (packIdx >= displayList.length) break;
+
+			var mp:Dynamic = displayList[packIdx];
 			var col:Int = i % GRID_COLS;
 			var row:Int = Std.int(i / GRID_COLS);
-			var x:Int = marginX + col * (cardW + gap);
-			var y:Int = marginY + row * (cardH + gap);
+			var x:Float = startX + col * (CARD_W + CARD_GAP);
+			var y:Float = GRID_TOP + row * (CARD_H + CARD_GAP);
 
-			var border = new FlxSprite(x - 2, y - 2).makeGraphic(cardW + 4, cardH + 4, 0xFF1E293B);
-			border.visible = false;
-			add(border);
-			cardBorder.push(border);
+			var card:ModpackCard = new ModpackCard(mp, packIdx, x, y, CARD_W, CARD_H);
+			card.ID = packIdx;
+			card.selected = (packIdx == selectedIndex);
 
-			var box = new FlxSprite(x, y).makeGraphic(cardW, cardH, 0xFF111827);
-			box.visible = false;
-			add(box);
-			cardBg.push(box);
+			// Buton callback'leri
+			card.onDownloadPress = function() {
+				if (currentPack == null) currentPack = mp;
+				startCardDownload(mp);
+			};
+			card.onLinkPress = function() {
+				openCardLink(mp);
+			};
 
-			// Paket adı (üst)
-			var name = new FlxText(x + 12, y + 8, cardW - 70, "", 16);
-			name.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT);
-			name.visible = false;
-			add(name);
-			cardName.push(name);
+			cards.add(card);
 
-			// Tier rozeti (sağ üst)
-			var tier = new FlxText(x + cardW - 66, y + 9, 56, "", 11);
-			tier.setFormat("VCR OSD Mono", 11, FlxColor.WHITE, RIGHT);
-			tier.visible = false;
-			add(tier);
-			cardTier.push(tier);
+			// Thumbnail (cache'ten, yoksa indir)
+			var thumbUrl:String = mp.thumbnail != null ? Std.string(mp.thumbnail) : "";
+			if (thumbUrl.length > 0)
+				loadCardThumbnail(Std.string(mp.id), thumbUrl, card);
+			else
+				card.showFallback("GÖRSEL YOK");
 
-			// Görsel alanı
-			var thumb = new FlxSprite(x + 10, y + 34);
-			thumb.visible = false;
-			add(thumb);
-			cardThumb.push(thumb);
-
-			var thumbText = new FlxText(x + 10, y + 34 + Std.int(thumbH / 2) - 10, cardW - 20, "", 12);
-			thumbText.setFormat("VCR OSD Mono", 12, 0xFF4B5563, CENTER);
-			thumbText.visible = false;
-			add(thumbText);
-			cardThumbText.push(thumbText);
-
-			// Toplam indirmeler (alt)
-			var dl = new FlxText(x + 12, y + cardH - 30, cardW - 24, "", 12);
-			dl.setFormat("VCR OSD Mono", 12, 0xFF94A3B8, LEFT);
-			dl.visible = false;
-			add(dl);
-			cardDownloads.push(dl);
+			// İndirme sayısı (MediafireStats)
+			var mfUrl:Null<String> = ModpackLinkHelper.getMediafireUrl(mp);
+			var catDownloads:Int = ModpackLinkHelper.getCatalogDownloads(mp);
+			MediafireStats.getDownloadCount(Std.string(mp.id), mfUrl != null ? mfUrl : "", catDownloads, function(count:Int, source:String) {
+				if (card.exists)
+					card.setDownloadCount(count);
+			});
 		}
 
-		pageText = new FlxText(0, FlxG.height - 58, FlxG.width, "", 12);
-		pageText.setFormat("VCR OSD Mono", 12, 0xFF555555, CENTER);
-		pageText.visible = false;
-		add(pageText);
+		pageInfo.text = '< Sayfa $page / $totalPages >';
+		if (displayList.length == 0)
+			pageInfo.text = "Paket Bulunamadı!";
+
+		controlsText.text = "[↑/↓/←/→] Kart Seç  |  [ENTER] Detay  |  [Q/E] Sayfa  |  [ESC] Geri";
+	}
+
+	function thumbCachePath(packId:String):String {
+		return ModpackPaths.getDownloadDirectory() + "thumb-" + packId + ".png";
+	}
+
+	function loadCardThumbnail(packId:String, url:String, card:ModpackCard):Void {
+		#if sys
+		var cachePath:String = thumbCachePath(packId);
+
+		if (sys.FileSystem.exists(cachePath)) {
+			card.applyThumbFromFile(cachePath);
+			return;
+		}
+
+		// Cache yok → indir
+		downloader.download(url, cachePath, {
+			onComplete: function(path:String) {
+				if (card.exists)
+					card.applyThumbFromFile(path);
+			},
+			onError: function(_err:String) {
+				if (card.exists)
+					card.showFallback("GÖRSEL YOK");
+			},
+			onProgress: null,
+			onCancelled: null
+		});
+		#else
+		card.showFallback("GÖRSEL YOK");
+		#end
+	}
+
+	function changeSelection(value:Int):Void {
+		selectedIndex += value;
+
+		if (selectedIndex >= displayList.length)
+			selectedIndex = displayList.length - 1;
+		else if (selectedIndex < 0)
+			selectedIndex = 0;
+
+		for (card in cards.members)
+			if (card != null)
+				card.selected = (card.ID == selectedIndex);
+
+		FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
+	}
+
+	function changePage(value:Int):Void {
+		var newPage:Int = page + value;
+		if (newPage < 1 || newPage > totalPages) return;
+
+		page = newPage;
+		selectedIndex = (page - 1) * CARDS_PER_PAGE;
+		refreshCards();
+		FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
+	}
+
+	// ── Kart aksiyonları ──
+
+	function startCardDownload(mp:Dynamic):Void {
+		var link:Null<String> = ModpackLinkHelper.getMediafireUrl(mp);
+		if (link == null) link = ModpackLinkHelper.getGithubUrl(mp);
+
+		if (link == null) {
+			showError("İndirme linki bulunamadı.");
+			return;
+		}
+
+		currentPack = mp;
+		openMethodPicker(link);
+	}
+
+	function openCardLink(mp:Dynamic):Void {
+		var link:Null<String> = ModpackLinkHelper.getGithubUrl(mp);
+		if (link == null) link = ModpackLinkHelper.getMediafireUrl(mp);
+
+		if (link == null) {
+			showError("Link bulunamadı.");
+			return;
+		}
+
+		FlxG.openURL(link);
+		FlxG.sound.play(Paths.sound('confirmMenu'));
 	}
 
 	// ═════════════════════════════════════════════
-	//  DETAIL UI
+	//  DETAY EKRANI (korunan)
 	// ═════════════════════════════════════════════
 
 	function createDetailUI():Void {
@@ -280,7 +515,6 @@ class ModpackStoreState extends MusicBeatState {
 		detailBg.visible = false;
 		add(detailBg);
 
-		// Sol: büyük görsel
 		var imgW:Int = Std.int((FlxG.width - padX * 2) * 0.42);
 		var imgH:Int = bottomY - topY - 30;
 
@@ -293,7 +527,6 @@ class ModpackStoreState extends MusicBeatState {
 		detailImageText.visible = false;
 		add(detailImageText);
 
-		// Sağ panel
 		var rightX:Int = padX + imgW + 34;
 		var rightW:Int = FlxG.width - rightX - padX;
 
@@ -356,7 +589,7 @@ class ModpackStoreState extends MusicBeatState {
 			label.setFormat("VCR OSD Mono", 12, 0xFF94A3B8, LEFT);
 			label.visible = false;
 			add(label);
-			linkLabel.push(label);
+			linkRow.push(label);
 
 			var txt = new FlxText(rightX + 38, y + 18, rightW - 50, "", 10);
 			txt.setFormat("VCR OSD Mono", 10, 0xFFCBD5E1, LEFT);
@@ -366,215 +599,24 @@ class ModpackStoreState extends MusicBeatState {
 		}
 	}
 
-	// ═════════════════════════════════════════════
-	//  VERİ ÇEKME
-	// ═════════════════════════════════════════════
-
-	function fetchStore():Void {
-		screenState = Loading;
-		loadingText.visible = true;
-		errorText.visible = false;
-
-		var checker = UpdateChecker.instance;
-		checker.onError = function(err:String) {
-			showError('Bağlantı hatası:\n$err');
-		};
-
-		checker.fetchStoreList(function(packs:Array<Dynamic>) {
-			if (packs == null || packs.length == 0) {
-				showError("Hiç modpack bulunamadı.\nKatalog boş veya erişilemiyor.");
-				return;
-			}
-
-			allPacks = packs;
-			pageCount = Std.int(Math.max(1, Math.ceil(allPacks.length / CARDS_PER_PAGE)));
-			pageIndex = 0;
-			selectedIndex = 0;
-
-			loadingText.visible = false;
-			showBrowse();
-		});
-	}
-
-	// ═════════════════════════════════════════════
-	//  BROWSE EKRANI
-	// ═════════════════════════════════════════════
-
-	function showBrowse():Void {
-		screenState = Browse;
-		hideDetail();
-		hideProgress();
-
-		titleText.visible = true;
-		subtitleText.visible = true;
-		pageText.visible = true;
-
-		subtitleText.text = '${allPacks.length} modpack mevcut';
-		controlsText.text = "[↑/↓/←/→] Kart Seç  |  [ENTER] Detay  |  [ESC] Geri";
-		refreshCards();
-	}
-
-	function refreshCards():Void {
-		var startIdx:Int = pageIndex * CARDS_PER_PAGE;
-
-		for (i in 0...CARDS_PER_PAGE) {
-			var packIdx:Int = startIdx + i;
-			var hasPack:Bool = packIdx < allPacks.length;
-
-			cardBg[i].visible = hasPack;
-			cardBorder[i].visible = hasPack;
-			cardName[i].visible = hasPack;
-			cardTier[i].visible = hasPack;
-			cardThumb[i].visible = false;
-			cardThumbText[i].visible = hasPack;
-			cardDownloads[i].visible = hasPack;
-
-			if (!hasPack) continue;
-
-			var mp:Dynamic = allPacks[packIdx];
-			var tierId:String = mp.tier != null ? mp.tier : (mp.id != null ? mp.id : "");
-			var tierColor:Int = ModpackTier.colorFor(tierId);
-
-			cardBorder[i].color = tierColor;
-			cardName[i].text = mp.displayName != null ? mp.displayName : mp.id;
-			cardTier[i].text = '[${ModpackTier.labelFor(tierId)}]';
-			cardTier[i].color = tierColor;
-			cardDownloads[i].text = "TOPLAM İNDİRMELER: ...";
-
-			// Görsel yükle (cache varsa anında, yoksa indir)
-			var thumbUrl:String = mp.thumbnail != null ? mp.thumbnail : "";
-			if (thumbUrl.length > 0) {
-				cardThumbText[i].text = "Görsel yükleniyor...";
-				loadThumbnail(Std.string(mp.id), thumbUrl, cardThumb[i], cardThumbText[i],
-					Std.int(cardBg[i].width - 20), Std.int(cardBg[i].height - 82));
-			} else {
-				cardThumbText[i].text = "GÖRSEL YOK";
-			}
-
-			// Toplam indirmeler — MediaFire'dan (fallback: katalog)
-			var mfUrl:String = ModpackLinkHelper.getMediafireUrl(mp) != null ? ModpackLinkHelper.getMediafireUrl(mp) : "";
-			var catDownloads:Int = ModpackLinkHelper.getCatalogDownloads(mp);
-			MediafireStats.getDownloadCount(Std.string(mp.id), mfUrl, catDownloads, function(count:Int, source:String) {
-				if (screenState == Browse)
-					cardDownloads[i].text = "TOPLAM İNDİRMELER: " + formatNumber(count);
-			});
-		}
-
-		pageText.text = pageCount > 1 ? 'Sayfa ${pageIndex + 1} / $pageCount   [Q/E] Sayfa' : "";
-		updateSelectorPos();
-	}
-
-	function updateSelectorPos():Void {
-		var visibleCount:Int = Std.int(Math.min(CARDS_PER_PAGE, allPacks.length - pageIndex * CARDS_PER_PAGE));
-		if (visibleCount <= 0) {
-			selector.visible = false;
-			return;
-		}
-
-		// selectedIndex'i bu sayfadaki geçerli aralığa kilitle
-		if (selectedIndex >= visibleCount) selectedIndex = visibleCount - 1;
-		if (selectedIndex < 0) selectedIndex = 0;
-
-		selector.visible = true;
-
-		var gap:Int = 14;
-		var marginX:Int = 26;
-		var marginY:Int = 86;
-		var cardW:Int = Std.int((FlxG.width - marginX * 2 - gap) / GRID_COLS);
-		var cardH:Int = Std.int((FlxG.height - 120 - marginY - gap) / 2);
-
-		var col:Int = selectedIndex % GRID_COLS;
-		var row:Int = Std.int(selectedIndex / GRID_COLS);
-		selector.x = marginX - 3 + col * (cardW + gap);
-		selector.y = marginY - 3 + row * (cardH + gap);
-	}
-
-	// ═════════════════════════════════════════════
-	//  THUMBNAIL (uzaktan görsel + cache)
-	// ═════════════════════════════════════════════
-
-	function thumbCachePath(packId:String):String {
-		return ModpackPaths.getDownloadDirectory() + "thumb-" + packId + ".png";
-	}
-
-	function loadThumbnail(packId:String, url:String, target:FlxSprite, placeholder:FlxText, fitW:Int, fitH:Int):Void {
-		#if sys
-		var cachePath:String = thumbCachePath(packId);
-
-		if (sys.FileSystem.exists(cachePath)) {
-			applyThumbnail(cachePath, target, placeholder, fitW, fitH);
-			return;
-		}
-
-		// Cache yok → indir
-		downloader.download(url, cachePath, {
-			onComplete: function(path:String) {
-				applyThumbnail(path, target, placeholder, fitW, fitH);
-			},
-			onError: function(_err:String) {
-				if (placeholder != null) placeholder.text = "GÖRSEL İNDİRİLEMEDİ";
-			},
-			onProgress: null,
-			onCancelled: null
-		});
-		#else
-		if (placeholder != null) placeholder.text = "GÖRSEL YOK";
-		#end
-	}
-
-	function applyThumbnail(path:String, target:FlxSprite, placeholder:FlxText, fitW:Int, fitH:Int):Void {
-		#if sys
-		try {
-			var bytes:haxe.io.Bytes = sys.io.File.getBytes(path);
-			// OpenFL 9: BitmapData.loadFromBytes bir Future döndürür (async).
-			var future = BitmapData.loadFromBytes(bytes);
-			future.onComplete(function(bmp:BitmapData) {
-				try {
-					target.loadGraphic(bmp);
-					target.setGraphicSize(fitW, fitH);
-					target.updateHitbox();
-					target.antialiasing = true;
-					target.visible = true;
-					if (placeholder != null) placeholder.visible = false;
-				} catch (e2:Dynamic) {
-					trace('[ModpackStore] Görsel uygulanamadı: $path — ${Std.string(e2)}');
-					if (placeholder != null) placeholder.text = "GÖRSEL OKUNAMADI";
-				}
-			});
-		} catch (e:Dynamic) {
-			trace('[ModpackStore] Görsel yüklenemedi: $path — ${Std.string(e)}');
-			if (placeholder != null) placeholder.text = "GÖRSEL OKUNAMADI";
-		}
-		#end
-	}
-
-	// ═════════════════════════════════════════════
-	//  DETAY EKRANI
-	// ═════════════════════════════════════════════
-
 	function openDetail(index:Int):Void {
-		var packIdx:Int = pageIndex * CARDS_PER_PAGE + index;
-		if (packIdx < 0 || packIdx >= allPacks.length) return;
+		if (index < 0 || index >= displayList.length) return;
 
-		currentPack = allPacks[packIdx];
+		currentPack = displayList[index];
 		screenState = Detail;
 		includeOffset = 0;
 		selectedLink = -1;
 		hoveredLink = -1;
 
 		titleText.visible = false;
-		subtitleText.visible = false;
-		pageText.visible = false;
-		for (i in 0...CARDS_PER_PAGE) {
-			cardBg[i].visible = false;
-			cardBorder[i].visible = false;
-			cardName[i].visible = false;
-			cardTier[i].visible = false;
-			cardThumb[i].visible = false;
-			cardThumbText[i].visible = false;
-			cardDownloads[i].visible = false;
-		}
-		selector.visible = false;
+		searchBg.visible = false;
+		searchPlaceholder.visible = false;
+		searchInputText.visible = false;
+		pageInfo.visible = false;
+		pageTip1.visible = false;
+		pageTip2.visible = false;
+		for (card in cards.members)
+			if (card != null) card.visible = false;
 
 		detailBg.visible = true;
 		detailName.visible = true;
@@ -586,32 +628,30 @@ class ModpackStoreState extends MusicBeatState {
 		linksTitle.visible = true;
 
 		var mp:Dynamic = currentPack;
-		var tierId:String = mp.tier != null ? mp.tier : (mp.id != null ? mp.id : "");
+		var tierId:String = mp.tier != null ? Std.string(mp.tier) : (mp.id != null ? Std.string(mp.id) : "");
 		var tierColor:Int = ModpackTier.colorFor(tierId);
 
-		detailName.text = mp.displayName != null ? mp.displayName : mp.id;
+		detailName.text = mp.displayName != null ? Std.string(mp.displayName) : Std.string(mp.id);
 		detailName.color = tierColor;
-		detailUpdated.text = 'SON GÜNCELLEME: ${mp.updatedAt != null ? mp.updatedAt : "bilinmiyor"}';
-		var sizePart:String = mp.fileSize != null ? mp.fileSize : "?";
+		detailUpdated.text = 'SON GÜNCELLEME: ${mp.updatedAt != null ? Std.string(mp.updatedAt) : "bilinmiyor"}';
+		var sizePart:String = mp.fileSize != null ? Std.string(mp.fileSize) : "?";
 		var modPart:String = mp.modCount != null ? '${mp.modCount} mod' : "";
 		var tierPart:String = ModpackTier.labelFor(tierId);
-		detailMeta.text = '[$tierPart]  •  $sizePart  •  $modPart  •  ${mp.author != null ? mp.author : ""}';
+		detailMeta.text = '[$tierPart]  •  $sizePart  •  $modPart  •  ${mp.author != null ? Std.string(mp.author) : ""}';
 
-		// Görsel
 		detailImage.visible = false;
 		var imgW:Int = Std.int((FlxG.width - 60) * 0.42);
 		var imgH:Int = FlxG.height - 96 - 30 - 30;
-		var thumbUrl:String = mp.thumbnail != null ? mp.thumbnail : "";
+		var thumbUrl:String = mp.thumbnail != null ? Std.string(mp.thumbnail) : "";
 		if (thumbUrl.length > 0) {
 			detailImageText.visible = true;
 			detailImageText.text = "Görsel yükleniyor...";
-			loadThumbnail(Std.string(mp.id), thumbUrl, detailImage, detailImageText, imgW, imgH);
+			loadDetailThumbnail(Std.string(mp.id), thumbUrl, imgW, imgH);
 		} else {
 			detailImageText.visible = true;
 			detailImageText.text = "GÖRSEL YOK";
 		}
 
-		// İçerik listesi
 		includeLines = ModpackLinkHelper.getIncludes(mp);
 		if (includeLines.length == 0) includeLines = ["(içerik listesi yok)"];
 
@@ -621,26 +661,69 @@ class ModpackStoreState extends MusicBeatState {
 		includeOffset = 0;
 		refreshIncludeList();
 
-		// Linkler
 		var mfUrl:Null<String> = ModpackLinkHelper.getMediafireUrl(mp);
 		var ghUrl:Null<String> = ModpackLinkHelper.getGithubUrl(mp);
-
-		expectedBytes = mp.fileSizeBytes != null ? mp.fileSizeBytes : -1;
 
 		setLinkRow(0, mfUrl, "MediaFire");
 		setLinkRow(1, ghUrl, "GitHub");
 
-		controlsText.text = "[1] MediaFire  [2] GitHub  |  [ENTER] Seçili  |  [ESC] Geri";
+		controlsText.text = "[1] MediaFire  [2] GitHub  |  [ENTER] Seçili  |  [X] Kaldır  |  [ESC] Geri";
 	}
 
-	var includeLines:Array<String> = [];
+	function loadDetailThumbnail(packId:String, url:String, fitW:Int, fitH:Int):Void {
+		#if sys
+		var cachePath:String = thumbCachePath(packId);
+
+		if (sys.FileSystem.exists(cachePath)) {
+			applyDetailThumb(cachePath, fitW, fitH);
+			return;
+		}
+
+		downloader.download(url, cachePath, {
+			onComplete: function(path:String) {
+				applyDetailThumb(path, fitW, fitH);
+			},
+			onError: function(_err:String) {
+				detailImageText.text = "GÖRSEL YOK";
+			},
+			onProgress: null,
+			onCancelled: null
+		});
+		#else
+		detailImageText.text = "GÖRSEL YOK";
+		#end
+	}
+
+	function applyDetailThumb(path:String, fitW:Int, fitH:Int):Void {
+		#if sys
+		try {
+			var bytes:haxe.io.Bytes = sys.io.File.getBytes(path);
+			// OpenFL 9: Future döndürür (async)
+			var future = BitmapData.loadFromBytes(bytes);
+			future.onComplete(function(bmp:BitmapData) {
+				try {
+					detailImage.loadGraphic(bmp);
+					detailImage.setGraphicSize(fitW, fitH);
+					detailImage.updateHitbox();
+					detailImage.antialiasing = true;
+					detailImage.visible = true;
+					detailImageText.visible = false;
+				} catch (e2:Dynamic) {
+					detailImageText.text = "GÖRSEL OKUNAMADI";
+				}
+			});
+		} catch (e:Dynamic) {
+			detailImageText.text = "GÖRSEL OKUNAMADI";
+		}
+		#end
+	}
 
 	function setLinkRow(idx:Int, url:Null<String>, name:String):Void {
 		var hasLink:Bool = url != null && url.length > 0;
 		linkRow[idx].visible = hasLink;
 		linkLogo[idx].visible = hasLink;
 		linkLogoText[idx].visible = hasLink;
-		linkLabel[idx].visible = hasLink;
+		linkRow[idx + 2].visible = hasLink; // label (2. index)
 		linkText[idx].visible = hasLink;
 
 		if (!hasLink) {
@@ -653,7 +736,6 @@ class ModpackStoreState extends MusicBeatState {
 	}
 
 	function refreshIncludeList():Void {
-		// Eski satırları temizle
 		for (t in includeTexts) {
 			remove(t, true);
 			t.destroy();
@@ -675,7 +757,6 @@ class ModpackStoreState extends MusicBeatState {
 			includeTexts.push(line);
 		}
 
-		// Scrollbar
 		if (includeLines.length > includeMaxVisible) {
 			var trackH:Int = (FlxG.height - 56 - listTop) - 150;
 			var thumbH:Int = Std.int(Math.max(18, trackH * (includeMaxVisible / includeLines.length)));
@@ -712,13 +793,13 @@ class ModpackStoreState extends MusicBeatState {
 			linkRow[i].visible = false;
 			linkLogo[i].visible = false;
 			linkLogoText[i].visible = false;
-			linkLabel[i].visible = false;
+			linkRow[i + 2].visible = false;
 			linkText[i].visible = false;
 		}
 	}
 
 	// ═════════════════════════════════════════════
-	//  İNDİRME YÖNTEMİ SEÇİMİ
+	//  İNDİRME YÖNTEMİ / KURULUM (korunan)
 	// ═════════════════════════════════════════════
 
 	function openMethodPicker(link:String):Void {
@@ -727,7 +808,7 @@ class ModpackStoreState extends MusicBeatState {
 			return;
 		}
 
-		var packName:String = currentPack != null && currentPack.displayName != null ? currentPack.displayName : "Modpack";
+		var packName:String = currentPack != null && currentPack.displayName != null ? Std.string(currentPack.displayName) : "Modpack";
 
 		openSubState(new PickDownloadMethodSubState(packName, function(method:String) {
 			if (method == "auto") {
@@ -740,17 +821,13 @@ class ModpackStoreState extends MusicBeatState {
 		}));
 	}
 
-	// ═════════════════════════════════════════════
-	//  İNDİRME / KURULUM
-	// ═════════════════════════════════════════════
-
 	function startPackDownload(link:String):Void {
 		if (currentPack == null) return;
 
 		var mp:Dynamic = currentPack;
-		var packId:String = mp.id != null ? mp.id : "unknown";
-		var version:String = mp.version != null ? mp.version : "0";
-		var displayName:String = mp.displayName != null ? mp.displayName : packId;
+		var packId:String = mp.id != null ? Std.string(mp.id) : "unknown";
+		var version:String = mp.version != null ? Std.string(mp.version) : "0";
+		var displayName:String = mp.displayName != null ? Std.string(mp.displayName) : packId;
 		var fileName:String = '$packId-v$version.zip';
 		var savePath:String = ModpackPaths.getDownloadDirectory() + fileName;
 
@@ -760,11 +837,12 @@ class ModpackStoreState extends MusicBeatState {
 		phaseText.text = "İndiriliyor...";
 		phaseText.color = FlxColor.WHITE;
 		phaseText.visible = true;
-		subtitleText.visible = true;
-		subtitleText.text = displayName;
+		titleText.text = displayName;
 		targetProgress = 0;
 		currentProgress = 0;
 		controlsText.text = "[ESC] İptal";
+
+		var expectedBytes:Float = mp.fileSizeBytes != null ? mp.fileSizeBytes : -1;
 
 		downloader.smartDownload(link, savePath, {
 			onProgress: function(progress:DownloadProgress) {
@@ -800,7 +878,7 @@ class ModpackStoreState extends MusicBeatState {
 		screenState = Installing;
 		phaseText.text = "Kuruluyor...";
 		phaseText.color = FlxColor.WHITE;
-		subtitleText.text = displayName;
+		titleText.text = displayName;
 		targetProgress = 0;
 		currentProgress = 0;
 		speedText.text = "";
@@ -835,10 +913,10 @@ class ModpackStoreState extends MusicBeatState {
 		if (currentPack == null) return;
 
 		var mp:Dynamic = currentPack;
-		var packId:String = mp.id != null ? mp.id : "";
+		var packId:String = mp.id != null ? Std.string(mp.id) : "";
 		if (packId.length == 0 || !installer.isInstalled(packId)) return;
 
-		var displayName:String = mp.displayName != null ? mp.displayName : packId;
+		var displayName:String = mp.displayName != null ? Std.string(mp.displayName) : packId;
 
 		hideDetail();
 		screenState = Uninstalling;
@@ -848,8 +926,7 @@ class ModpackStoreState extends MusicBeatState {
 		phaseText.text = "Kaldırılıyor...";
 		phaseText.color = FlxColor.WHITE;
 		phaseText.visible = true;
-		subtitleText.visible = true;
-		subtitleText.text = displayName;
+		titleText.text = displayName;
 		sizeText.text = "Paket kaldırılıyor, lütfen bekleyin...";
 		speedText.text = "";
 		controlsText.text = "";
@@ -860,7 +937,7 @@ class ModpackStoreState extends MusicBeatState {
 				currentProgress = 1.0;
 				phaseText.text = "Kaldırıldı!";
 				phaseText.color = 0xFFEF4444;
-				subtitleText.text = '${manifest.displayName} kaldırıldı';
+				titleText.text = '${manifest.displayName} kaldırıldı';
 				sizeText.text = '${manifest.modFolders.length} mod silindi';
 				speedText.text = "";
 				controlsText.text = "[ENTER] Listeye Dön  |  [ESC] Ana Menü";
@@ -882,8 +959,6 @@ class ModpackStoreState extends MusicBeatState {
 		screenState = Complete;
 		FlxG.sound.play(Paths.sound('confirmMenu'));
 
-		// Güncelleme bayrağını tazele — bu paket güncellendi; hâlâ güncelleme
-		// kalan paket varsa rozet ana menüde görünmeye devam eder.
 		UpdateChecker.instance.fetchModpackList(function(result:backend.update.UpdateChecker.CheckResult)
 		{
 			UpdateChecker.instance.hasPendingModpackUpdates = (result != null && result.hasUpdates);
@@ -891,7 +966,7 @@ class ModpackStoreState extends MusicBeatState {
 
 		phaseText.text = "Tamamlandı!";
 		phaseText.color = 0xFF22C55E;
-		subtitleText.text = '${manifest.displayName} v${manifest.version} kuruldu';
+		titleText.text = '${manifest.displayName} v${manifest.version} kuruldu';
 
 		targetProgress = 1.0;
 		currentProgress = 1.0;
@@ -932,8 +1007,14 @@ class ModpackStoreState extends MusicBeatState {
 		titleText.visible = true;
 		titleText.text = "HATA!";
 		titleText.color = 0xFFEF4444;
-		subtitleText.visible = false;
-		pageText.visible = false;
+		searchBg.visible = false;
+		searchPlaceholder.visible = false;
+		searchInputText.visible = false;
+		pageInfo.visible = false;
+		pageTip1.visible = false;
+		pageTip2.visible = false;
+		for (card in cards.members)
+			if (card != null) card.visible = false;
 
 		errorText.text = msg;
 		errorText.screenCenter();
@@ -943,13 +1024,87 @@ class ModpackStoreState extends MusicBeatState {
 	}
 
 	// ═════════════════════════════════════════════
+	//  Arama (klavye)
+	// ═════════════════════════════════════════════
+
+	function onSearchKeyDown(e:KeyboardEvent):Void {
+		if (!searchFocused || screenState != Browse) return;
+
+		var key:Int = e.keyCode;
+
+		if (key == 27) // ESC
+		{
+			searchFocused = false;
+			FlxG.stage.window.textInputEnabled = false;
+			searchCursor.visible = false;
+			return;
+		}
+
+		if (key == 13) // ENTER
+		{
+			searchFocused = false;
+			FlxG.stage.window.textInputEnabled = false;
+			searchCursor.visible = false;
+			return;
+		}
+
+		if (key == 8) // BACKSPACE
+		{
+			if (searchString.length > 0)
+			{
+				searchString = searchString.substring(0, searchString.length - 1);
+				updateSearchDisplay();
+				applySearchFilter(true);
+			}
+			return;
+		}
+
+		if (key == 46) // DELETE
+		{
+			searchString = "";
+			updateSearchDisplay();
+			applySearchFilter(true);
+			return;
+		}
+
+		// Ctrl+V paste desteği — charCode 0 olabilir, önce kontrol et
+		if (key == 86 && e.ctrlKey)
+		{
+			var clipText:String = lime.system.Clipboard.text;
+			if (clipText != null && clipText.length > 0)
+			{
+				searchString += clipText;
+				updateSearchDisplay();
+				applySearchFilter(true);
+			}
+			return;
+		}
+
+		if (e.charCode == 0) return;
+
+		var newChar:String = String.fromCharCode(e.charCode);
+		if (newChar.length > 0 && newChar != "\n" && newChar != "\r")
+		{
+			searchString += newChar;
+			updateSearchDisplay();
+			applySearchFilter(true);
+		}
+	}
+
+	function updateSearchDisplay():Void {
+		searchInputText.text = searchString;
+		searchPlaceholder.visible = searchString.length == 0;
+		searchCursor.x = searchInputText.x + searchInputText.textField.textWidth + 2;
+		searchCursor.visible = searchFocused;
+	}
+
+	// ═════════════════════════════════════════════
 	//  UPDATE
 	// ═════════════════════════════════════════════
 
 	override function update(elapsed:Float):Void {
 		super.update(elapsed);
 
-		// Loading animasyonu
 		if (screenState == Loading) {
 			loadingTimer += elapsed;
 			if (loadingTimer >= 0.4) {
@@ -972,6 +1127,15 @@ class ModpackStoreState extends MusicBeatState {
 			var barColor:Int = screenState == Installing ? 0xFF3B82F6 : ACCENT;
 			barFill.makeGraphic(fillW, 18, barColor);
 			percentText.text = '${Math.round(currentProgress * 100)}%';
+		}
+
+		// Arama imleci yanıp sönme
+		if (searchFocused) {
+			cursorTimer += elapsed;
+			if (cursorTimer >= 0.5) {
+				cursorTimer = 0;
+				searchCursor.visible = !searchCursor.visible;
+			}
 		}
 
 		switch (screenState) {
@@ -1015,61 +1179,73 @@ class ModpackStoreState extends MusicBeatState {
 	}
 
 	function handleBrowseInput():Void {
-		if (controls.BACK) {
+		if (controls.BACK && !searchFocused) {
 			goToMainMenu();
 			return;
 		}
 
-		var visibleCount:Int = Std.int(Math.min(CARDS_PER_PAGE, allPacks.length - pageIndex * CARDS_PER_PAGE));
-		if (visibleCount <= 0) return;
-
-		// Sayfa değiştir (paketler 4'ten fazlaysa)
-		if (pageCount > 1) {
-			if (FlxG.keys.justPressed.Q) {
-				pageIndex = (pageIndex - 1 + pageCount) % pageCount;
-				selectedIndex = 0;
-				refreshCards();
-				FlxG.sound.play(Paths.sound('scrollMenu'));
-			}
-			if (FlxG.keys.justPressed.E) {
-				pageIndex = (pageIndex + 1) % pageCount;
-				selectedIndex = 0;
-				refreshCards();
-				FlxG.sound.play(Paths.sound('scrollMenu'));
-			}
+		// Arama çubuğuna tıklama → focus
+		if (FlxG.mouse.justPressed && FlxG.mouse.overlaps(searchBg)) {
+			searchFocused = true;
+			FlxG.stage.window.textInputEnabled = true;
+			searchCursor.visible = true;
+			updateSearchDisplay();
+			return;
 		}
 
-		// Grid navigasyon
+		// Arama focus'ta: normal navigasyon kapalı
+		if (searchFocused) {
+			if (FlxG.mouse.justPressed && !FlxG.mouse.overlaps(searchBg)) {
+				searchFocused = false;
+				FlxG.stage.window.textInputEnabled = false;
+				searchCursor.visible = false;
+			}
+			return;
+		}
+
+		if (displayList.length == 0) return;
+
+		// Sayfalama: Q/E + wheel
+		if (FlxG.keys.justPressed.Q || FlxG.mouse.wheel > 0) changePage(-1);
+		if (FlxG.keys.justPressed.E || FlxG.mouse.wheel < 0) changePage(1);
+
+		// Grid navigasyonu (4 sütun)
 		var prevIndex:Int = selectedIndex;
+		if (controls.UI_LEFT_P) selectedIndex--;
+		if (controls.UI_RIGHT_P) selectedIndex++;
 		if (controls.UI_UP_P) selectedIndex -= GRID_COLS;
 		if (controls.UI_DOWN_P) selectedIndex += GRID_COLS;
-		if (controls.UI_LEFT_P && selectedIndex % GRID_COLS > 0) selectedIndex--;
-		if (controls.UI_RIGHT_P && selectedIndex % GRID_COLS < GRID_COLS - 1) selectedIndex++;
 
-		// Sınırlara kilitle (sayfadaki görünür kart sayısına göre)
-		var maxRowIndex:Int = visibleCount - 1;
 		if (selectedIndex < 0) selectedIndex = 0;
-		if (selectedIndex > maxRowIndex) selectedIndex = maxRowIndex;
+		if (selectedIndex >= displayList.length) selectedIndex = displayList.length - 1;
 
 		if (selectedIndex != prevIndex) {
-			updateSelectorPos();
-			FlxG.sound.play(Paths.sound('scrollMenu'));
+			for (card in cards.members)
+				if (card != null)
+					card.selected = (card.ID == selectedIndex);
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
 		}
 
-		// Mouse / dokunmatik
-		for (i in 0...visibleCount) {
-			if (cardBg[i].visible && FlxG.mouse.overlaps(cardBg[i])) {
-				if (selectedIndex != i) {
-					selectedIndex = i;
-					updateSelectorPos();
+		// Mouse: kart hover → seç
+		for (card in cards.members) {
+			if (card == null || !card.visible) continue;
+			if (FlxG.mouse.overlaps(card.bg)) {
+				if (card.ID != selectedIndex) {
+					selectedIndex = card.ID;
+					for (c in cards.members)
+						if (c != null)
+							c.selected = (c.ID == selectedIndex);
 				}
+				// Fare ile kartın kendisine tıklama (butonlar değil) → detay
 				if (FlxG.mouse.justPressed) {
-					openDetail(i);
+					openDetail(card.ID);
 					return;
 				}
+				break;
 			}
 		}
 
+		// ENTER → detay
 		if (controls.ACCEPT) {
 			openDetail(selectedIndex);
 		}
@@ -1081,30 +1257,11 @@ class ModpackStoreState extends MusicBeatState {
 			return;
 		}
 
-		// İçerik listesi scroll (klavye)
 		if (controls.UI_DOWN_P) scrollIncludes(1);
 		if (controls.UI_UP_P) scrollIncludes(-1);
 
-		// Mouse tekerleği
-		if (FlxG.mouse.wheel != 0) {
+		if (FlxG.mouse.wheel != 0)
 			scrollIncludes(FlxG.mouse.wheel > 0 ? -1 : 1);
-		}
-
-		// Dokunmatik sürükleme (liste alanında)
-		var listTop:Int = 96 + 116;
-		var listH:Int = (FlxG.height - 56 - listTop) - 150;
-		if (FlxG.mouse.justPressed) {
-			dragList = FlxG.mouse.y > listTop && FlxG.mouse.y < listTop + listH;
-			dragStartY = FlxG.mouse.y;
-		}
-		if (dragList && FlxG.mouse.pressed) {
-			var delta:Float = FlxG.mouse.y - dragStartY;
-			if (Math.abs(delta) > 8) {
-				scrollIncludes(delta > 0 ? -1 : 1);
-				dragStartY = FlxG.mouse.y;
-			}
-		}
-		if (FlxG.mouse.justReleased) dragList = false;
 
 		// Link satırı hover + tıklama
 		for (i in 0...2) {
@@ -1126,7 +1283,6 @@ class ModpackStoreState extends MusicBeatState {
 			}
 		}
 
-		// Klavye: [1] MediaFire  [2] GitHub
 		if (FlxG.keys.justPressed.ONE || FlxG.keys.justPressed.NUMPADONE) {
 			if (linkRow[0].visible) {
 				selectedLink = 0;
@@ -1142,15 +1298,13 @@ class ModpackStoreState extends MusicBeatState {
 			}
 		}
 
-		// ENTER → seçili link
 		if (controls.ACCEPT && selectedLink >= 0 && selectedLink < 2 && linkRow[selectedLink].visible) {
 			var url:Null<String> = selectedLink == 0 ? ModpackLinkHelper.getMediafireUrl(currentPack) : ModpackLinkHelper.getGithubUrl(currentPack);
 			openMethodPicker(url);
 		}
 
-		// [X] → kurulu paketi kaldır
 		if (FlxG.keys.justPressed.X) {
-			var packId:String = currentPack != null && currentPack.id != null ? currentPack.id : "";
+			var packId:String = currentPack != null && currentPack.id != null ? Std.string(currentPack.id) : "";
 			if (packId.length > 0 && installer.isInstalled(packId))
 				startUninstall();
 		}
@@ -1161,22 +1315,11 @@ class ModpackStoreState extends MusicBeatState {
 	// ═════════════════════════════════════════════
 
 	function goToMainMenu():Void {
+		FlxG.stage.removeEventListener(KeyboardEvent.KEY_DOWN, onSearchKeyDown);
 		FlxG.sound.play(Paths.sound('cancelMenu'));
 		FlxG.camera.fade(FlxColor.BLACK, 0.3, false, function() {
 			backend.MenuStyleRouter.goToMainMenu();
 		});
-	}
-
-	function formatNumber(n:Int):String {
-		var s:String = Std.string(Math.max(0, n));
-		var out:String = "";
-		var count:Int = 0;
-		for (i in (s.length - 1)...-1) {
-			out = s.charAt(i) + out;
-			count++;
-			if (count % 3 == 0 && i > 0) out = "." + out;
-		}
-		return out;
 	}
 
 	function formatMB(mb:Float):String {

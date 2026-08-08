@@ -96,6 +96,7 @@ class PetSettingsState extends BaseOptionsMenu
 		var options:Array<String> = [];
 
 		options.push('freakyMenu');
+		options.push('freakyMenuOLD');
 		options.push('freakyMenu2');
 		options.push('freakyMenu3');
 		options.push('freakyMenu4');
@@ -120,6 +121,7 @@ class PetSettingsState extends BaseOptionsMenu
 		var labels:Array<String> = [];
 
 		labels.push(Language.getPhrase('menu_music_default', 'Varsayılan'));
+		labels.push(Language.getPhrase('menu_music_default', 'Eski'));
 		labels.push(Language.getPhrase('menu_music_original', 'Orijinal'));
 		labels.push(Language.getPhrase('menu_music_online', 'Online'));
 		labels.push(Language.getPhrase('menu_music_v2', 'V2'));

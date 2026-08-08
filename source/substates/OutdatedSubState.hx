@@ -8,7 +8,8 @@ import states.TitleState;
 
 class OutdatedSubState extends MusicBeatSubstate
 {
-	public static var updateVersion:String = CoolUtil.checkForUpdates();
+	// Further Engine: sürüm artık ReleaseChecker'dan gelir (GitHub Releases API)
+	public static var updateVersion:String = backend.update.ReleaseChecker.latestVersion;
 	var leftState:Bool = false;
 
 	var bg:FlxSprite;
@@ -22,20 +23,19 @@ class OutdatedSubState extends MusicBeatSubstate
 
 		super.create();
 
+		// ReleaseChecker henüz sonuçlanmadıysa son değeri tazele
+		if (updateVersion == null || updateVersion.length == 0)
+			updateVersion = backend.update.ReleaseChecker.latestVersion;
+		if (updateVersion == null || updateVersion.length == 0)
+			updateVersion = "?";
+
 		bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
 		bg.scrollFactor.set();
 		bg.alpha = 0.0;
 		add(bg);
 
 		warnText = new FlxText(0, 0, FlxG.width,
-			'Sup bro, looks like you\'re running an outdated version of\nPsych Engine (${MainMenuState.psychEngineVersion})\n
-			-----------------------------------------------\n
-			Press $enter to update to the latest version ${updateVersion}\n
-			Press $back to proceed anyway.\n
-			You can disable this warning by unchecking the
-			"Check for Updates" setting in the Options Menu\n
-			-----------------------------------------------\n
-			Thank you for using the Engine!',
+			'Further Engine için yeni bir sürüm mevcut!\n\n			Mevcut sürüm: ${MainMenuState.psychEngineVersion}\n			En son sürüm: ${updateVersion}\n\n			-----------------------------------------------\n\n			$enter — Güncelleme sayfasını aç\n			$back — Yine de devam et\n\n			Bu uyarıyı Ayarlar → "Güncellemeleri Kontrol Et" seçeneğinden kapatabilirsin.\n\n			-----------------------------------------------\n\n			İyi oyunlar!',
 			32);
 		warnText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER);
 		warnText.scrollFactor.set();
@@ -56,7 +56,11 @@ class OutdatedSubState extends MusicBeatSubstate
 		if(!leftState) {
 			if (controls.ACCEPT) {
 				leftState = true;
-				CoolUtil.browserLoad("https://github.com/MobilePorting/FNF-PsychEngine-Mobile/releases");
+				// Further Engine: kendi repo'nun releases sayfası (API'den gelen URL öncelikli)
+				var url:String = backend.update.ReleaseChecker.releaseUrl;
+				if (url == null || url.length == 0)
+					url = 'https://github.com/${backend.update.UpdateConfig.GITHUB_REPO_OWNER}/${backend.update.UpdateConfig.GITHUB_REPO_NAME}/releases';
+				CoolUtil.browserLoad(url);
 			}
 			else if(controls.BACK) {
 				leftState = true;

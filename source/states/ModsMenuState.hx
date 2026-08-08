@@ -109,6 +109,12 @@ class ModsMenuState extends MusicBeatState
 		
 		FlxG.mouse.visible = true;
 		
+		#if TOUCH_CONTROLS_ALLOWED
+		addTouchPad('NONE', 'A_B');
+		if (controls.mobileC)
+			touchPad.alpha = 0.3;
+		#end
+		
 		super.create();
 	}
 	
@@ -592,6 +598,14 @@ class ModsMenuState extends MusicBeatState
 			FlxG.sound.play(Paths.sound('cancelMenu'));
 			MusicBeatState.switchState(new MainMenuState());
 			FlxG.mouse.visible = false;
+			return;
+		}
+
+		// ── Further Engine: A butonu → UYGULA (applyButton) ──
+		if (controls.ACCEPT && applyButton != null)
+		{
+			FlxG.sound.play(Paths.sound('confirmMenu'));
+			applyButton.onClick();
 			return;
 		}
 		

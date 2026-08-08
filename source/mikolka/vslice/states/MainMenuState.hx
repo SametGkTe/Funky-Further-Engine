@@ -19,12 +19,30 @@ import backend.Language;
 
 class MainMenuState extends MusicBeatState
 {
-    public static var psychEngineVersion:String = '1.0.4';
+    public static var psychEngineVersion:String = UpdateConfig.CURRENT_ENGINE_VERSION;
     public static var curRow:Int = 0;
     public static var curCol:Int = 0;
 
     var allowMouse:Bool = true;
     var menuItems:FlxTypedGroup<FlxSprite>;
+
+    // ── Further Engine: güncelleme uyarısı tek sefer gösterilir (zamanlama güvenceli) ──
+    var updateWarningHandled:Bool = false;
+
+    function tryShowUpdateWarning():Void
+    {
+        if (updateWarningHandled) return;
+        // Check bitmediyse bekle (update() her frame tekrar dener)
+        if (!backend.update.ReleaseChecker.checked) return;
+
+        updateWarningHandled = true;
+        if (showOutdatedWarning && ClientPrefs.data.checkForUpdates && backend.update.ReleaseChecker.hasUpdate)
+        {
+            persistentUpdate = false;
+            showOutdatedWarning = false;
+            openSubState(new substates.OutdatedSubState());
+        }
+    }
 
     // ── Further Engine: MODPACK GÜNCELLEMESİ rozeti ──
     var modpackBadge:FlxSprite;
@@ -149,13 +167,6 @@ class MainMenuState extends MusicBeatState
         topBarLine.scrollFactor.set();
         add(topBarLine);
 
-        titleText = new FlxText(20, 0, 0, "PSYCH ENGINE", 18);
-        titleText.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.WHITE, LEFT);
-        titleText.y = (topBarHeight - titleText.height) / 2;
-        titleText.scrollFactor.set();
-        titleText.alpha = 0.9;
-        add(titleText);
-
         clockText = new FlxText(0, 0, 0, "", 16);
         clockText.setFormat(Paths.font("clock.ttf"), 16, FlxColor.WHITE, RIGHT);
         clockText.y = (topBarHeight - clockText.height) / 2;
@@ -174,7 +185,7 @@ class MainMenuState extends MusicBeatState
         bottomBarLine.scrollFactor.set();
         add(bottomBarLine);
 
-        psychVerText = new FlxText(20, FlxG.height - bottomBarHeight + 10, 0, "Psych Engine v" + psychEngineVersion, 14);
+        psychVerText = new FlxText(20, FlxG.height - bottomBarHeight + 10, 0, "Further Engine v" + psychEngineVersion, 14);
         psychVerText.setFormat(Paths.font("vcr.ttf"), 14, FlxColor.WHITE, LEFT);
         psychVerText.scrollFactor.set();
         psychVerText.alpha = 0.7;
@@ -234,14 +245,11 @@ class MainMenuState extends MusicBeatState
         #end
         #end
 
-        #if CHECK_FOR_UPDATES
-        if (showOutdatedWarning && ClientPrefs.data.checkForUpdates && substates.OutdatedSubState.updateVersion != psychEngineVersion)
-        {
-            persistentUpdate = false;
-            showOutdatedWarning = false;
-            openSubState(new substates.OutdatedSubState());
-        }
-        #end
+        // Further Engine: GitHub Releases kontrolü (ReleaseChecker) — gerçek release var mı?
+        // Not: orijinal #if CHECK_FOR_UPDATES define'i projede tanımlı değildi → bu blok hiç
+        // derlenmiyordu. Artık her zaman aktif; "Check for Updates" ayarıyla kapatılabilir.
+        // Zamanlama: check henüz bitmediyse update()'te tekrar denenir (tryShowUpdateWarning).
+        tryShowUpdateWarning();
 		
 		if (stickerSubState != null)
 		{
@@ -505,6 +513,10 @@ class MainMenuState extends MusicBeatState
     override function update(elapsed:Float)
     {
         breathe += elapsed;
+
+        // Further Engine: release kontrolü henüz bitmediyse bitince uyarıyı göster
+        if (!updateWarningHandled)
+            tryShowUpdateWarning();
 
         // ── Modpack güncelleme rozeti: giriş animasyonu → ünlem sürekli zıplar, 5sn sonra İKİSİ BİRDEN söner ──
         if (modpackBadge != null && !modpackBadgeDone)

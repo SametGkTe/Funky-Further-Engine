@@ -55,7 +55,7 @@ import states.TitleState;
 	public var vSliceSpacing:Float = 0.1;
 	public var mobileExtraKeyReturns:Array<String> = ['SHIFT', 'SPACE', 'Q', 'E'];
 	#if android
-	public var storageType:String = "EXTERNAL"; // EXTERNAL = /sdcard/.PsychEngine/ (eski davranış korunur)
+	public var storageType:String = "EXTERNAL_PE";
 	#end
 	public var popUpRating:Bool = true;
 	public var vsync:Bool = false;

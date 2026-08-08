@@ -515,6 +515,7 @@ class TitleState extends MusicBeatState
 
 		checkingUpdates = true;
 		trace('[TitleState] Güncelleme kontrolü başlatılıyor...');
+		backend.update.ReleaseChecker.check();
 
 		UpdateChecker.instance.onError = function(error:String)
 		{

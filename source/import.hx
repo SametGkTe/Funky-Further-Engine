@@ -40,6 +40,9 @@ import backend.ui.*; //Psych-UI
 import flixel.ui.FlxBar;
 import backend.CacheSystem;
 
+// Fucking Update Shit
+import backend.update.UpdateConfig;
+
 // Mobile Controls
 import mobile.objects.MobileControls;
 import mobile.objects.Hitbox;

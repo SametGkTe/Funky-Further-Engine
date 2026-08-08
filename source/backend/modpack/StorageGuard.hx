@@ -151,10 +151,10 @@ class StorageGuard {
 
 			var file:Dynamic = null;
 			if (_getExternalStorageDir != null) {
-				try file = _getExternalStorageDir(); catch (_) {}
+				try { file = _getExternalStorageDir(); } catch (_) {}
 			}
 			if (file == null && _getDataDir != null) {
-				try file = _getDataDir(); catch (_) {}
+				try { file = _getDataDir(); } catch (_) {}
 			}
 			if (file == null || _fileGetFreeSpace == null) return -1;
 
@@ -174,18 +174,20 @@ class StorageGuard {
 
 		try {
 			if (_getExternalStorageDir == null)
-				_getExternalStorageDir = openfl.utils.JNI.createStaticMethod(
+				_getExternalStorageDir = lime.system.JNI.createStaticMethod(
 					"android/os/Environment", "getExternalStorageDirectory", "()Ljava/io/File;"
 				);
 
 			if (_getDataDir == null)
-				_getDataDir = openfl.utils.JNI.createStaticMethod(
+				_getDataDir = lime.system.JNI.createStaticMethod(
 					"android/os/Environment", "getDataDirectory", "()Ljava/io/File;"
 				);
 
 			if (_fileGetFreeSpace == null)
-				_fileGetFreeSpace = openfl.utils.JNI.createInstanceMethod(
-					"java/io/File", "getFreeSpace", "()J"
+				// lime'da sadece createStaticMethod var; 4. parametre isStatic=false
+				// olursa INSTANCE method döner ve çağrı (obj, args...) alır.
+				_fileGetFreeSpace = lime.system.JNI.createStaticMethod(
+					"java/io/File", "getFreeSpace", "()J", false
 				);
 		} catch (e:Dynamic) {
 			trace('[StorageGuard] JNI init hatası: ${Std.string(e)}');

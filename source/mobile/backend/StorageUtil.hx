@@ -131,7 +131,7 @@ class StorageUtil
 			}
 			catch (e:Dynamic)
 			{
-				trace('Directory create failed: $dir (${errorToString(e)})');
+				trace('Dizin oluşturma hatası: $dir (${errorToString(e)})');
 			}
 		}
 	}

@@ -20,8 +20,6 @@ typedef CheckResult = {
     var hasUpdates:Bool;
 }
 
-
-
 typedef RemoteModpackInfo = {
 	var id:String;
 	var displayName:String;
@@ -40,23 +38,14 @@ typedef RemoteModpackInfo = {
 	@:optional var fileSizeBytes:Float;
 	@:optional var modCount:Int;
 
-	// ── Further Engine tier sistemi ──
-	/** Tier kimliği: "lite", "medium", "further" (ModpackTier ile normalleştirilir). */
 	@:optional var tier:String;
 	@:optional var tierLabel:String;
 
-	// ── Mağaza kartı/detay alanları ──
-	/** Kart görseli URL'si (uzaktan indirilir, cache'lenir). */
 	@:optional var thumbnail:String;
-	/** Paketteki mod adları (INCLUDES listesi). */
 	@:optional var includes:Array<String>;
-	/** Son güncelleme zamanı (gösterim amaçlı, ör: "2026-08-07 22:39"). */
 	@:optional var updatedAt:String;
-	/** Katalog fallback indirme sayısı (MediaFire'dan çekilemezse gösterilir). */
 	@:optional var downloads:Int;
-	/** MediaFire indirme linki (dosya sayfası). */
 	@:optional var mediafireUrl:String;
-	/** GitHub release/direct indirme linki. */
 	@:optional var githubUrl:String;
 }
 
@@ -66,9 +55,6 @@ class UpdateChecker {
     public var lastResult:Null<CheckResult> = null;
     public var cachedModpacks:Null<Array<RemoteModpackInfo>> = null;
 
-    // ── Further Engine: kalıcı "güncelleme var" bayrağı ──
-    // TitleState'teki kontrol sonucunu saklar; MainMenuState rozeti bunu okur.
-    // Kullanıcı mağazadan tüm güncellemeleri yapınca clearModpackUpdates() çağrılır.
     public var hasPendingModpackUpdates:Bool = false;
 
     /** Mağaza güncellemeleri yapılınca rozetin bir daha çıkmaması için temizlenir. */
@@ -87,10 +73,6 @@ class UpdateChecker {
 
     public function new() {}
 
-    /**
-     * GitHub'dan modpack listesini çek.
-     * Hem mağaza hem güncelleme için kullanılır.
-     */
     public function fetchModpackList(?callback:CheckResult->Void):Void {
         if (isChecking) return;
         isChecking = true;
@@ -117,8 +99,6 @@ class UpdateChecker {
 
                 cachedModpacks = parsed.modpacks;
 
-                // Tier normalleştirme: katalogda tier yoksa id'den çöz,
-                // eski id'ler (minimal/high/full) otomatik eşlenir.
                 for (mp in parsed.modpacks) {
                     var tier:Null<ModpackTier> = ModpackTier.fromString(mp.tier != null ? mp.tier : mp.id);
                     if (tier != null) {
@@ -162,9 +142,6 @@ class UpdateChecker {
         http.request(false);
     }
 
-    /**
-     * Kurulu modpackleri kontrol et, güncelleme var mı bak.
-     */
 	function findUpdates(remoteList:Array<RemoteModpackInfo>):Array<ModpackUpdateInfo> {
 		var updates:Array<ModpackUpdateInfo> = [];
 
@@ -197,14 +174,6 @@ class UpdateChecker {
 		return updates;
 	}
 
-    /**
-     * Kurulu modpack'in versiyonunu oku.
-     * Kurulu değilse null döner.
-     *
-     * Eski sistem id'leriyle (minimal, high, full) yapılmış kurulumlar
-     * da yeni tier id'leriyle bulunur — ör: "lite" aranırken "minimal"
-     * kurulumu da algılanır. (Geçiş dönemi uyumluluğu.)
-     */
     function getInstalledVersion(packId:String):Null<String> {
         var v = getInstalledVersionExact(packId);
         if (v != null) return v;
@@ -243,8 +212,6 @@ class UpdateChecker {
             hasUpdates: false
         };
     }
-
-    // ─── Versiyon karşılaştırma ───
 
     public static function isRemoteNewer(current:String, remote:String):Bool {
         var c = parseVersion(current);

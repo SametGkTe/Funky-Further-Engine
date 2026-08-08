@@ -2,7 +2,7 @@
 <project>
 	<!-- _________________________ Application Settings _________________________ -->
 
-	<app title="Friday Night Funkin': Psych Engine" file="PsychEngine" packageName="com.shadowmario.psychengine" package="com.shadowmario.psychengine" main="Main" version="0.2.8" company="ShadowMario" />
+	<app title="Further Engine" file="FurtherEngine" packageName="com.sametgkte.furtherengine" package="com.sametgkte.furtherengine" main="Main" version="0.2.8" company="SametGkTe" />
 
 	<!--Switch Export with Unique ApplicationID and Icon-->
 	<set name="APP_ID" value="0x0100f6c013bbc000" />
@@ -92,7 +92,7 @@
 		<haxelib name="funkin.vis" if="BASE_GAME_FILES"/>
 	</section>
 
-	<define name="CHECK_FOR_UPDATES" if="officialBuild"/>
+	<define name="CHECK_FOR_UPDATES"/>
 
 	<section if="MODS_ALLOWED">
 		<assets path='example_mods' rename='mods' embed='false' />
@@ -101,7 +101,7 @@
 	
 	<assets path='art/readme.txt' rename='do NOT readme.txt' unless="mobile" />
 
-	<!-- Mobile Assets (Dokunmatik Kontroller) -->
+	<!-- Mobile Assets -->
 	<section if="TOUCH_CONTROLS_ALLOWED">
 		<assets path="mobile/assets"            rename="assets/mobile"/>
 		<assets path="mobile/DPadModes"         rename="assets/mobile/DPadModes"/>
@@ -124,7 +124,7 @@
 	
 	<haxelib name="HtmlParser" />
 	
-	<!-- Legacy SScript 0.7.3 Desteği (Snirozu fork) -->
+	<!-- Legacy SScript -->
 	<haxelib name="SScript" if="LEGACY_SSCRIPT"/>
 
 	<!--Psych stuff needed-->

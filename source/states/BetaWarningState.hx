@@ -13,10 +13,6 @@ import shaders.WarpEffect;
 
 class BetaWarningState extends MusicBeatState
 {
-	// =========================================================================
-	// CONFIGURATION
-	// =========================================================================
-
 	static inline final FONT_PATH:String = "Avgardd.ttf";
 	static inline final FONT_SIZE_TITLE:Int = 48;
 	static inline final FONT_SIZE_BODY:Int = 22;
@@ -62,19 +58,15 @@ class BetaWarningState extends MusicBeatState
 	static inline final CENTER_IMAGE_SIZE:Int = 160;
 	static inline final CENTER_IMAGE_Y_RATIO:Float = 0.5;
 
-	static inline final WARNING_TITLE:String = "BETA VERSİYON 2";
+	static inline final WARNING_TITLE:String = "RELEASE ALPHA 2";
 	static inline final WARNING_BODY:String =
-		"DİKKAT: Bu proje yapılma aşamasındadır.\n" +
+		"DİKKAT: Bu proje hala yapılma aşamasındadır.\n" +
 		"bitirilmemiş sistemler ve bug'lar vs. bulunmaktadır,\n" +
 		"eğer çökme hataları vs. alırsanız lütfen Kurucuya bildirin.\n\n" +
-		"Further Engine YEAHHHH";
-	static inline final VERSION_TEXT:String = "Yayınlanmış Beta Versionu";
+		"Further Engine FUH YEAHH";
+	static inline final VERSION_TEXT:String = "Yayınlanmış Alpha 2 Sürümü";
 	static inline final HINT_DESKTOP:String = "[ENTER] Devam Et    [ESC] Atla";
 	static inline final HINT_MOBILE:String = "[A] Devam Et    [B] Atla";
-
-	// =========================================================================
-	// STATE VARS
-	// =========================================================================
 
 	var leftState:Bool = false;
 	var allowInput:Bool = false;
@@ -101,10 +93,6 @@ class BetaWarningState extends MusicBeatState
 	var versionText:FlxText;
 
 	var ambiencePlaying:Bool = false;
-
-	// =========================================================================
-	// CREATE
-	// =========================================================================
 
 	override function create()
 	{

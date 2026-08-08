@@ -16,7 +16,7 @@ enum MainMenuColumn {
 
 class MainMenuState extends MusicBeatState
 {
-	public static var psychEngineVersion:String = '1.0.4'; // This is also used for Discord RPC
+	public static var psychEngineVersion:String = UpdateConfig.CURRENT_ENGINE_VERSION; // This is also used for Discord RPC
 	public static var furtherVersion:String = 'Beta';
 	public static var curSelected:Int = 0;
 	public static var curColumn:MainMenuColumn = CENTER;
@@ -41,6 +41,37 @@ class MainMenuState extends MusicBeatState
 	var magenta:FlxSprite;
 	var camFollow:FlxObject;
 	var bottomBarHeight:Int = 56;
+
+	// ── Further Engine: güncelleme uyarısı tek sefer gösterilir (zamanlama güvenceli) ──
+	var updateWarningHandled:Bool = false;
+
+	function tryShowUpdateWarning():Void
+	{
+		if (updateWarningHandled) return;
+		if (!backend.update.ReleaseChecker.checked)
+		{
+			trace('[MainMenu] Release kontrolü henüz bitmedi, tekrar denenecek...');
+			return;
+		}
+
+		updateWarningHandled = true;
+
+		trace('[MainMenu] checked=' + backend.update.ReleaseChecker.checked
+			+ ' showOutdatedWarning=' + showOutdatedWarning
+			+ ' checkForUpdates=' + ClientPrefs.data.checkForUpdates
+			+ ' hasUpdate=' + backend.update.ReleaseChecker.hasUpdate);
+
+		if (showOutdatedWarning && ClientPrefs.data.checkForUpdates && backend.update.ReleaseChecker.hasUpdate) {
+			trace('[MainMenu] UYARI GÖSTERİLİYOR → OutdatedSubState');
+			persistentUpdate = false;
+			showOutdatedWarning = false;
+			openSubState(new substates.OutdatedSubState());
+		}
+		else
+		{
+			trace('[MainMenu] Uyarı gösterilmedi (koşullardan biri false)');
+		}
+	}
 
 	// ── Further Engine: MODPACK GÜNCELLEMESİ rozeti ──
 	var modpackBadge:FlxSprite;
@@ -109,7 +140,7 @@ class MainMenuState extends MusicBeatState
 			rightItem.x -= rightItem.width;
 		}
 
-		var psychVer:FlxText = new FlxText(12, FlxG.height - 44, 0, "Psych Engine Türkiye v" + psychEngineVersion, 12);
+		var psychVer:FlxText = new FlxText(12, FlxG.height - 44, 0, "Further Engine v" + psychEngineVersion, 12);
 		psychVer.scrollFactor.set();
 		psychVer.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		add(psychVer);
@@ -133,13 +164,11 @@ class MainMenuState extends MusicBeatState
 		#end
 		#end
 
-		#if CHECK_FOR_UPDATES
-		if (showOutdatedWarning && ClientPrefs.data.checkForUpdates && substates.OutdatedSubState.updateVersion != psychEngineVersion) {
-			persistentUpdate = false;
-			showOutdatedWarning = false;
-			openSubState(new substates.OutdatedSubState());
-		}
-		#end
+		// Further Engine: GitHub Releases kontrolü (ReleaseChecker) — gerçek release var mı?
+		// Not: orijinal #if CHECK_FOR_UPDATES define'i projede tanımlı değildi → bu blok hiç
+		// derlenmiyordu. Artık her zaman aktif; "Check for Updates" ayarıyla kapatılabilir.
+		// Zamanlama: check henüz bitmediyse update()'te tekrar denenir (tryShowUpdateWarning).
+		tryShowUpdateWarning();
 
 		FlxG.camera.follow(camFollow, null, 0.15);
 
@@ -273,6 +302,10 @@ class MainMenuState extends MusicBeatState
 	var timeNotMoving:Float = 0;
 	override function update(elapsed:Float)
 	{
+		// Further Engine: release kontrolü henüz bitmediyse bitince uyarıyı göster
+		if (!updateWarningHandled)
+			tryShowUpdateWarning();
+
 		// ── Modpack güncelleme rozeti: giriş animasyonu → ünlem sürekli zıplar, 5sn sonra İKİSİ BİRDEN söner ──
 		if (modpackBadge != null && !modpackBadgeDone)
 		{
