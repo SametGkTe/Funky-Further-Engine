@@ -35,8 +35,6 @@ class UPPopup
 	static inline var BREAK_SHAKE_TIME:Float = 0.32;
 	static inline var FLAME_SCALE:Float = 1.1;
 
-	// DEBUG: bunu true yap, accuracy ne olursa olsun streak gelir
-	// puan/UP verilmez, sadece gorunumu test edersin
 	public static var streakDebug:Bool = false;
 
 	static var _targetUP:Int = 0;
@@ -63,17 +61,17 @@ class UPPopup
 			name = "Oyuncu";
 
 		return [
-			"AYNEN BOYLE DEVAM ET, " + name + "!",
-			"HARIKASIN " + name + "!",
-			"DAHA IYISINI YAPABILIRSIN, " + name + "!",
-			"DURDURULAMAZ " + name + "!",
-			"MUKEMMELIMSI, " + name + "!",
-			"KOMBO CANAVARI " + name + "!",
+			"AYNEN BÖYLE DEVAM ET, " + name + "!",
+			"HARİKASIN " + name + "!",
+			"DAHA İYİSİNİ YAPABİLİRSİN, " + name + "!",
+			"DURDURULAMAZSIN " + name + "!",
+			"MÜKEMMELİMSİ, " + name + "!",
+			"KOMBO CANAVARISIN " + name + "!",
 			"WOHOOO " + name + "!",
-			"AYNI YAGMUR GIBI, " + name + "!",
+			"AYNI YAĞMUR GİBİ, " + name + "!",
 			name + ", SEN BIR EFSANESIN!",
 			name + ", YANIYORSUN!",
-			"BU SKOR SANA YAKISTI, " + name + "!",
+			"MÜQ, " + name + "!",
 			name + ", KIMSE SENI DURDURAMAZ!",
 			"HARIKA OYNUYORSUN, " + name + "!",
 			name + " SAHNEYE CIKIYOR!",
@@ -99,7 +97,6 @@ class UPPopup
 		if (earnedUP <= 0 && !streakDebug)
 			return;
 
-		// DEBUG MODE
 		if (streakDebug)
 		{
 			trace('[UPPopup] DEBUG MODE ACTIVE - forcing streak visuals');

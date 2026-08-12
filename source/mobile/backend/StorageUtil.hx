@@ -16,12 +16,6 @@ import sys.io.File;
 import sys.io.Process;
 #end
 
-/**
- * Merged StorageUtil
- * - Keeps modpack functions from old StorageUtil
- * - Adds custom storage features from new StorageUtil
- * - Avoids direct crash if ClientPrefs.data.storageType does not exist
- */
 class StorageUtil
 {
 	#if sys
@@ -131,7 +125,7 @@ class StorageUtil
 			}
 			catch (e:Dynamic)
 			{
-				trace('Dizin oluşturma hatası: $dir (${errorToString(e)})');
+				trace('Directory create failed: $dir (${errorToString(e)})');
 			}
 		}
 	}
@@ -190,7 +184,7 @@ class StorageUtil
 
 	private static function getDefaultStorageType():String
 	{
-		var storageType:String = 'EXTERNAL_DATA';
+		var storageType:String = 'EXTERNAL_PE';
 
 		try
 		{
@@ -259,8 +253,23 @@ class StorageUtil
 
 		switch (curStorageType)
 		{
-			case 'EXTERNAL':
-				daPath = AndroidEnvironment.getExternalStorageDirectory() + '/.' + getMetaValue('file', 'PsychEngine');
+			case 'EXTERNAL_PE':
+				daPath = AndroidEnvironment.getExternalStorageDirectory() + '/.PsychEngine';
+
+			case 'EXTERNAL_PE073':
+				daPath = AndroidEnvironment.getExternalStorageDirectory() + '/.PsychEngine073';
+
+			case 'EXTERNAL_PEO':
+				daPath = AndroidEnvironment.getExternalStorageDirectory() + '/.PsychOnline';
+
+			case 'EXTERNAL_PEXO':
+				daPath = AndroidEnvironment.getExternalStorageDirectory() + '/.PsychExtentedOnline';
+
+			case 'EXTERNAL_PEU':
+				daPath = AndroidEnvironment.getExternalStorageDirectory() + '/.PsychEngineUltra';
+
+			case 'EXTERNAL_FE':
+				daPath = AndroidEnvironment.getExternalStorageDirectory() + '/.FurtherEngine';
 
 			case 'EXTERNAL_OBB':
 				daPath = AndroidContext.getObbDir();
@@ -297,8 +306,8 @@ class StorageUtil
 		catch (e:Dynamic)
 		{
 			CoolUtil.showPopUp(
-				Language.getPhrase('create_directory_error', 'Please create directory to\n{1}\nPress OK to close the game', [getStorageDirectory()]),
-				Language.getPhrase('mobile_error', "Error!")
+				Language.getPhrase('create_directory_error', 'Lütfen Şuraya Dizin Oluşturun:\n{1}\nYapımcıya Başvurabilirsiniz', [getStorageDirectory()]),
+				Language.getPhrase('mobile_error', "Hata!")
 			);
 			lime.system.System.exit(1);
 		}
@@ -312,8 +321,8 @@ class StorageUtil
 		catch (e:Dynamic)
 		{
 			CoolUtil.showPopUp(
-				Language.getPhrase('create_directory_error', 'Please create directory to\n{1}\nPress OK to close the game', [getExternalStorageDirectory()]),
-				Language.getPhrase('mobile_error', "Error!")
+				Language.getPhrase('create_directory_error', 'Lütfen Şuraya Dizin Oluşturun:\n{1}\nYapımcıya Başvurabilirsiniz', [getExternalStorageDirectory()]),
+				Language.getPhrase('mobile_error', "Hata!")
 			);
 			lime.system.System.exit(1);
 		}
