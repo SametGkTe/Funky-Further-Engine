@@ -90,13 +90,14 @@ class MobileOptionsSubState extends BaseOptionsMenu {
 		addOption(option);
 		
 		var option:Option = new Option('V-Slice Kontrol Aralığı',
-			'V-Slice butonlarinin birbirinden ne kadar uzak olacagini ayarlar.\n%0 orjinal, %100 tam ekran yayilimi.',
+			'V-Slice açıkken okların (strum) birbirinden ne kadar uzak olacağını ayarlar.\n%0 orijinal FNF Mobile, %100 tam ekran yayılımı.\nŞarkıyı yeniden başlatınca uygulanır.',
 			'vSliceSpacing',
 			PERCENT);
 		option.scrollSpeed = 1.6;
 		option.minValue = 0;
 		option.maxValue = 1;
 		option.changeValue = 0.01;
+		option.decimals = 2;
 		option.displayFormat = '%v%';
 		addOption(option);
 		
@@ -122,11 +123,22 @@ class MobileOptionsSubState extends BaseOptionsMenu {
 
 		#if android
 		option = new Option('Depolama Türü',
-			'Further Engine hangi klasörü kullanmalı?',
+			'Further Engine hangi klasörü kullanmalı?\nEXTERNAL_DATA izin gerektirmez (önerilir).\nEXTERNAL_PE / FE gibi gizli klasörler için "Tüm dosyalara erişim" gerekir.',
 			'storageType',
 			STRING,
 			storageTypes
 		);
+		addOption(option);
+
+		option = new Option('Veri Klasörünü Aç',
+			'Android 13+ için sistem Dosyalar uygulamasında Further Engine Data Folder kökünü açar.\nEXTERNAL_DATA seçiliyse mods/ buradadır: Android/data/com.sametgkte.furtherengine/files/mods/',
+			'openDataFolder',
+			BOOL
+		);
+		option.onChange = () -> {
+			StorageUtil.openDataFolder();
+			ClientPrefs.data.openDataFolder = false;
+		};
 		addOption(option);
 		#end
 

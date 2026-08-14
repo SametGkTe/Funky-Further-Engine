@@ -40,7 +40,6 @@ class BetaWarningState extends MusicBeatState
 	static inline final PORTAL_PULSE_AMOUNT:Float = 0.015;
 	static inline final PORTAL_PULSE_SPEED:Float = 1.5;
 
-	// -- Exit --
 	static inline final EXIT_ZOOM_TIME:Float = 1.4;
 	static inline final EXIT_ZOOM_TARGET_SCALE:Float = 2.5;
 	static inline final EXIT_FADE_DELAY_RATIO:Float = 0.45;
@@ -58,13 +57,13 @@ class BetaWarningState extends MusicBeatState
 	static inline final CENTER_IMAGE_SIZE:Int = 160;
 	static inline final CENTER_IMAGE_Y_RATIO:Float = 0.5;
 
-	static inline final WARNING_TITLE:String = "RELEASE ALPHA 2";
+	static inline final WARNING_TITLE:String = "RELEASE ALPHA 2 BUGFIX";
 	static inline final WARNING_BODY:String =
 		"DİKKAT: Bu proje hala yapılma aşamasındadır.\n" +
 		"bitirilmemiş sistemler ve bug'lar vs. bulunmaktadır,\n" +
 		"eğer çökme hataları vs. alırsanız lütfen Kurucuya bildirin.\n\n" +
-		"Further Engine FUH YEAHH";
-	static inline final VERSION_TEXT:String = "Yayınlanmış Alpha 2 Sürümü";
+		"Further Engine OWW YEAHH";
+	static inline final VERSION_TEXT:String = "Yayınlanmış Alpha 2 BUGFIX Sürümü";
 	static inline final HINT_DESKTOP:String = "[ENTER] Devam Et    [ESC] Atla";
 	static inline final HINT_MOBILE:String = "[A] Devam Et    [B] Atla";
 

@@ -207,7 +207,7 @@ class DropShadowShader extends FlxShader
       altMaskImage = bmp;
     });
     #else
-    altMaskImage = mikolka.funkin.custom.NativeFileSystem.getBitmap(path);
+    altMaskImage = vslice.funkin.custom.NativeFileSystem.getBitmap(path);
     #end
   }
 
@@ -319,16 +319,12 @@ class DropShadowShader extends FlxShader
 
       vec3 applyHSBCEffect(vec3 color){
 
-			  //Brightness
 			  color = color + ((brightness) / 255.0);
 
-			  //Hue
 			  color = applyHueRotate(color, hue);
 
-			  //Contrast
 			  color = applyContrast(color, contrast);
 
-			  //Saturation
         color = applySaturation(color, saturation);
 
         return color;

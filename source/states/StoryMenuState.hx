@@ -3,8 +3,8 @@ package states;
 import backend.WeekData;
 import backend.Highscore;
 import backend.Song;
-import mikolka.vslice.StickerSubState;
-import mikolka.compatibility.ModsHelper;
+import vslice.menus.StickerSubState;
+import vslice.compatibility.ModsHelper;
 
 import flixel.group.FlxGroup;
 import flixel.graphics.FlxGraphic;
@@ -78,7 +78,6 @@ class StoryMenuState extends MusicBeatState
 		WeekData.reloadWeekFiles(true);
 
 		#if DISCORD_ALLOWED
-		// Updating Discord Rich Presence
 		DiscordClient.changePresence("In the Menus", null);
 		#end
 
@@ -139,7 +138,6 @@ class StoryMenuState extends MusicBeatState
 				weekThing.screenCenter(X);
 				// weekThing.updateHitbox();
 
-				// Needs an offset thingie
 				if (isLocked)
 				{
 					var lock:FlxSprite = new FlxSprite(weekThing.width + 10 + weekThing.x);
@@ -341,7 +339,6 @@ class StoryMenuState extends MusicBeatState
 				songArray.push(leWeek[i][0]);
 			}
 
-			// Nevermind that's stupid lmao
 			try
 			{
 				PlayState.storyPlaylist = songArray;

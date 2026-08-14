@@ -163,6 +163,7 @@ class Main extends Sprite
 		});
 		#end
 		addChild(new FlxGame(game.width, game.height, #if COPYSTATE_ALLOWED !CopyState.checkExistingFiles() ? CopyState : #end game.initialState, game.framerate, game.framerate, game.skipSplash, game.startFullscreen));
+		backend.modpack.ModImportQueue.hook();
 		fpsVar = new FPSCounter(10, 3, 0xFFFFFF);
 		addChild(fpsVar);
 		Lib.current.stage.align = "tl";
@@ -205,7 +206,6 @@ class Main extends Sprite
 
 		Application.current.window.vsync = ClientPrefs.data.vsync;
 		FlxG.signals.preStateCreate.add(function(_) FlxG.mouse.visible = false); // Fak yu Cursor
-		// shader coords fix
 		FlxG.signals.gameResized.add(function (w, h) {
 			if(fpsVar != null)
 				fpsVar.positionFPS(10, 3, Math.min(w / FlxG.width, h / FlxG.height));

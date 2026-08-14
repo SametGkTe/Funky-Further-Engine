@@ -15,12 +15,34 @@ class UpdateConfig {
 	public static var MODPACK_JSON_URL(get, never):String;
 
 	static function get_MODPACK_JSON_URL():String {
-		return 'https://raw.githubusercontent.com/$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME/$GITHUB_BRANCH/$CATALOG_RELATIVE_PATH';
+		return modpackJsonUrls()[0];
 	}
 
 	public static var STORE_JSON_URL(get, never):String;
 
 	static function get_STORE_JSON_URL():String {
 		return MODPACK_JSON_URL;
+	}
+
+	/** raw.githubusercontent TR'de sık düşer; jsDelivr yedek. */
+	public static function modpackJsonUrls():Array<String>
+	{
+		var owner = GITHUB_REPO_OWNER;
+		var repo = GITHUB_REPO_NAME;
+		var branch = GITHUB_BRANCH;
+		var path = CATALOG_RELATIVE_PATH;
+		return [
+			'https://raw.githubusercontent.com/$owner/$repo/$branch/$path',
+			'https://cdn.jsdelivr.net/gh/$owner/$repo@$branch/$path'
+		];
+	}
+
+	public static function latestReleaseUrls():Array<String>
+	{
+		var owner = GITHUB_REPO_OWNER;
+		var repo = GITHUB_REPO_NAME;
+		return [
+			'https://api.github.com/repos/$owner/$repo/releases/latest'
+		];
 	}
 }

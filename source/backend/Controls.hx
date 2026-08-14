@@ -17,7 +17,6 @@ class Controls
 	//Dumb but easily usable code, or Smart but complicated? Your choice.
 	//Also idk how to use macros they're weird as fuck lol
 
-	// Pressed buttons (directions)
 	public var UI_UP_P(get, never):Bool;
 	public var UI_DOWN_P(get, never):Bool;
 	public var UI_LEFT_P(get, never):Bool;
@@ -35,7 +34,6 @@ class Controls
 	private function get_NOTE_LEFT_P() return justPressed('note_left');
 	private function get_NOTE_RIGHT_P() return justPressed('note_right');
 
-	// Held buttons (directions)
 	public var UI_UP(get, never):Bool;
 	public var UI_DOWN(get, never):Bool;
 	public var UI_LEFT(get, never):Bool;
@@ -53,7 +51,6 @@ class Controls
 	private function get_NOTE_LEFT() return pressed('note_left');
 	private function get_NOTE_RIGHT() return pressed('note_right');
 
-	// Released buttons (directions)
 	public var UI_UP_R(get, never):Bool;
 	public var UI_DOWN_R(get, never):Bool;
 	public var UI_LEFT_R(get, never):Bool;
@@ -71,8 +68,6 @@ class Controls
 	private function get_NOTE_LEFT_R() return justReleased('note_left');
 	private function get_NOTE_RIGHT_R() return justReleased('note_right');
 
-
-	// Pressed buttons (others)
 	public var ACCEPT(get, never):Bool;
 	public var BACK(get, never):Bool;
 	public var PAUSE(get, never):Bool;
@@ -82,7 +77,6 @@ class Controls
 	private function get_PAUSE() return justPressed('pause');
 	private function get_RESET() return justPressed('reset');
 
-	//Gamepad, Keyboard & Mobile stuff
 	public var keyboardBinds:Map<String, Array<FlxKey>>;
 	public var gamepadBinds:Map<String, Array<FlxGamepadInputID>>;
 	public var mobileBinds:Map<String, Array<MobileInputID>>;
@@ -94,7 +88,8 @@ class Controls
 		return result
 			|| _myGamepadJustPressed(gamepadBinds[key]) == true
 			|| mobileCJustPressed(mobileBinds[key]) == true
-			|| touchPadJustPressed(mobileBinds[key]) == true;
+			|| touchPadJustPressed(mobileBinds[key]) == true
+			|| newMobileJustPressed(mobileBinds[key]) == true;
 	}
 
 	public function pressed(key:String)
@@ -123,7 +118,8 @@ class Controls
 		return result
 			|| _myGamepadJustReleased(gamepadBinds[key]) == true
 			|| mobileCJustReleased(mobileBinds[key]) == true
-			|| touchPadJustReleased(mobileBinds[key]) == true;
+			|| touchPadJustReleased(mobileBinds[key]) == true
+			|| newMobileJustReleased(mobileBinds[key]) == true;
 	}
 
 	public var controllerMode:Bool = false;
@@ -208,19 +204,53 @@ class Controls
 		return false;
 	}
 
+	private function newMobileJustPressed(keys:Array<MobileInputID>):Bool
+	{
+		if (keys == null) return false;
+
+		var st:Dynamic = requestedInstance;
+		if (st == null) return false;
+
+		var mgr:MobileControlManager = cast st.mobileManager;
+		if (mgr == null) return false;
+
+		for (k in keys)
+		{
+			var idStr:String = mobileIdToString(k);
+			if (idStr == null) continue;
+
+			if (mgr.hitbox != null && mgr.hitbox.buttonJustPressed(idStr)) return true;
+			if (mgr.mobilePad != null && mgr.mobilePad.buttonJustPressed(idStr)) return true;
+		}
+		return false;
+	}
+
+	private function newMobileJustReleased(keys:Array<MobileInputID>):Bool
+	{
+		if (keys == null) return false;
+
+		var st:Dynamic = requestedInstance;
+		if (st == null) return false;
+
+		var mgr:MobileControlManager = cast st.mobileManager;
+		if (mgr == null) return false;
+
+		for (k in keys)
+		{
+			var idStr:String = mobileIdToString(k);
+			if (idStr == null) continue;
+
+			if (mgr.hitbox != null && mgr.hitbox.buttonJustReleased(idStr)) return true;
+			if (mgr.mobilePad != null && mgr.mobilePad.buttonJustReleased(idStr)) return true;
+		}
+		return false;
+	}
+
 	static function mobileIdToString(id:MobileInputID):String
 	{
-		var v:Int = id;
-		if (v == MobileInputID.NOTE_LEFT) return "NOTE_LEFT";
-		if (v == MobileInputID.NOTE_DOWN) return "NOTE_DOWN";
-		if (v == MobileInputID.NOTE_UP) return "NOTE_UP";
-		if (v == MobileInputID.NOTE_RIGHT) return "NOTE_RIGHT";
-		if (v >= 44 && v <= 48) return "NOTE_" + (v - 39); // NOTE_5..9
-		if (v == MobileInputID.LEFT) return "LEFT";
-		if (v == MobileInputID.DOWN) return "DOWN";
-		if (v == MobileInputID.UP) return "UP";
-		if (v == MobileInputID.RIGHT) return "RIGHT";
-		return null;
+		var s:String = MobileInputID.toStringMap.get(id);
+		if (s == null || s == "NONE" || s == "ANY") return null;
+		return s;
 	}
 
 	private function touchPadJustPressed(keys:Array<MobileInputID>):Bool
@@ -292,7 +322,6 @@ class Controls
 			return false;
 	}
 
-	// IGNORE THESE/ karim: no.
 	public static var instance:Controls;
 	public function new()
 	{

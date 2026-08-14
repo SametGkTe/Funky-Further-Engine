@@ -184,7 +184,7 @@ class StorageUtil
 
 	private static function getDefaultStorageType():String
 	{
-		var storageType:String = 'EXTERNAL_PE';
+		var storageType:String = 'EXTERNAL_DATA';
 
 		try
 		{
@@ -290,41 +290,110 @@ class StorageUtil
 		}
 
 		if (daPath == null || StringTools.trim(daPath) == '')
-			daPath = '/sdcard/.PsychEngine/';
+			daPath = AndroidContext.getExternalFilesDir();
 
 		return Path.addTrailingSlash(daPath);
 	}
 
-	public static function initExternalStorageDirectory():String
+	public static function storageTypeNeedsAllFiles(type:String):Bool
 	{
-		currentExternalStorageDirectory = resolveExternalStorageDirectory();
+		if (type == null)
+			return false;
+
+		return switch (type)
+		{
+			case 'EXTERNAL_DATA', 'EXTERNAL_OBB': false;
+			default: true;
+		}
+	}
+
+	public static function canWritePath(path:String):Bool
+	{
+		if (path == null || StringTools.trim(path) == '')
+			return false;
 
 		try
 		{
-			ensureDirectory(getStorageDirectory());
+			ensureDirectory(path);
+			return FileSystem.exists(path);
 		}
 		catch (e:Dynamic)
 		{
-			CoolUtil.showPopUp(
-				Language.getPhrase('create_directory_error', 'Lütfen Şuraya Dizin Oluşturun:\n{1}\nYapımcıya Başvurabilirsiniz', [getStorageDirectory()]),
-				Language.getPhrase('mobile_error', "Hata!")
-			);
-			lime.system.System.exit(1);
+			return false;
 		}
+	}
 
-		ensureModpackDirectories();
+	private static function persistStorageType(type:String):Void
+	{
+		try
+		{
+			ensureDirectory(rootDir);
+			File.saveContent(rootDir + 'storagetype.txt', type);
+		}
+		catch (e:Dynamic)
+		{
+			trace('Failed to persist storage type: ' + errorToString(e));
+		}
 
 		try
 		{
+			if (ClientPrefs.data != null)
+				ClientPrefs.data.storageType = type;
+		}
+		catch (e:Dynamic) {}
+	}
+
+	private static function fallbackToAppStorage(reason:String):String
+	{
+		var safePath:String = Path.addTrailingSlash(AndroidContext.getExternalFilesDir());
+		trace('Storage fallback to EXTERNAL_DATA ($safePath): $reason');
+		persistStorageType('EXTERNAL_DATA');
+		currentExternalStorageDirectory = safePath;
+		return safePath;
+	}
+
+	public static function initExternalStorageDirectory():String
+	{
+		var selectedType:String = getSavedStorageType();
+		currentExternalStorageDirectory = resolveExternalStorageDirectory();
+
+		var appFiles:String = Path.addTrailingSlash(AndroidContext.getExternalFilesDir());
+		try
+		{
+			ensureDirectory(appFiles);
+		}
+		catch (e:Dynamic)
+		{
+			trace('Could not create app files dir: ' + errorToString(e));
+		}
+
+		if (storageTypeNeedsAllFiles(selectedType)
+			&& AndroidVersion.SDK_INT >= AndroidVersionCode.R
+			&& !AndroidEnvironment.isExternalStorageManager())
+		{
+			fallbackToAppStorage('All files access not granted');
+		}
+
+		if (!canWritePath(currentExternalStorageDirectory))
+			fallbackToAppStorage('Cannot write ' + currentExternalStorageDirectory);
+
+		try
+		{
+			ensureModpackDirectories();
 			ensureDirectory(getModsDirectory());
 		}
 		catch (e:Dynamic)
 		{
-			CoolUtil.showPopUp(
-				Language.getPhrase('create_directory_error', 'Lütfen Şuraya Dizin Oluşturun:\n{1}\nYapımcıya Başvurabilirsiniz', [getExternalStorageDirectory()]),
-				Language.getPhrase('mobile_error', "Hata!")
-			);
-			lime.system.System.exit(1);
+			fallbackToAppStorage(errorToString(e));
+			try
+			{
+				ensureModpackDirectories();
+				ensureDirectory(getModsDirectory());
+			}
+			catch (e2:Dynamic)
+			{
+				trace('Even EXTERNAL_DATA failed: ' + errorToString(e2));
+			}
 		}
 
 		return currentExternalStorageDirectory;
@@ -338,39 +407,82 @@ class StorageUtil
 		return Path.addTrailingSlash(currentExternalStorageDirectory);
 	}
 
+	public static function openDataFolder():Void
+	{
+		try
+		{
+			var jni = lime.system.JNI.createStaticMethod('furtherengine/util/DataFolderUtil', 'openDataFolder', '()V');
+			if (jni != null)
+			{
+				jni();
+				return;
+			}
+		}
+		catch (e:Dynamic)
+		{
+			trace('openDataFolder failed: ' + errorToString(e));
+		}
+
+		CoolUtil.showPopUp(
+			Language.getPhrase('open_data_folder_fail',
+				'Dosya yöneticisi açılamadı.\nSistem Dosyalar uygulamasının kenar çubuğundan "Further Engine / Data Folder" seçin.'),
+			Language.getPhrase('mobile_error', 'Hata!')
+		);
+	}
+
+	public static function openAllFilesSettings():Void
+	{
+		try
+		{
+			var jni = lime.system.JNI.createStaticMethod('furtherengine/util/StoragePermissionUtil', 'openAllFilesSettings', '()V');
+			if (jni != null)
+			{
+				jni();
+				return;
+			}
+		}
+		catch (e:Dynamic)
+		{
+			trace('openAllFilesSettings JNI failed: ' + errorToString(e));
+		}
+
+		try
+		{
+			AndroidSettings.requestSetting('MANAGE_APP_ALL_FILES_ACCESS_PERMISSION');
+		}
+		catch (e:Dynamic)
+		{
+			trace('AndroidSettings.requestSetting failed: ' + errorToString(e));
+		}
+	}
+
 	public static function requestPermissions():Void
 	{
-		if (AndroidVersion.SDK_INT >= AndroidVersionCode.TIRAMISU)
+		try
 		{
-			AndroidPermissions.requestPermissions([
-				'READ_MEDIA_IMAGES',
-				'READ_MEDIA_VIDEO',
-				'READ_MEDIA_AUDIO',
-				'READ_MEDIA_VISUAL_USER_SELECTED'
-			]);
+			if (AndroidVersion.SDK_INT >= AndroidVersionCode.TIRAMISU)
+			{
+				AndroidPermissions.requestPermissions([
+					'READ_MEDIA_IMAGES',
+					'READ_MEDIA_VIDEO',
+					'READ_MEDIA_AUDIO',
+					'READ_MEDIA_VISUAL_USER_SELECTED'
+				]);
+			}
+			else
+			{
+				AndroidPermissions.requestPermissions([
+					'READ_EXTERNAL_STORAGE',
+					'WRITE_EXTERNAL_STORAGE'
+				]);
+			}
 		}
-		else
+		catch (e:Dynamic)
 		{
-			AndroidPermissions.requestPermissions([
-				'READ_EXTERNAL_STORAGE',
-				'WRITE_EXTERNAL_STORAGE'
-			]);
-		}
-
-		if (!AndroidEnvironment.isExternalStorageManager())
-			AndroidSettings.requestSetting('MANAGE_APP_ALL_FILES_ACCESS_PERMISSION');
-
-		if ((AndroidVersion.SDK_INT >= AndroidVersionCode.TIRAMISU
-			&& !AndroidPermissions.getGrantedPermissions().contains('android.permission.READ_MEDIA_IMAGES'))
-			|| (AndroidVersion.SDK_INT < AndroidVersionCode.TIRAMISU
-				&& !AndroidPermissions.getGrantedPermissions().contains('android.permission.READ_EXTERNAL_STORAGE')))
-		{
-			CoolUtil.showPopUp(
-				Language.getPhrase('permissions_message', 'İzinleri kabul ettiyseniz oyununuz sorunsuz açılacaktır, etmediyseniz izinler bölümünden tüm dosyalara erişime izin verin'),
-				Language.getPhrase('mobile_notice', "Uyarı!")
-			);
+			trace('Runtime permission request failed: ' + errorToString(e));
 		}
 
+		// Never block launch on All Files Access. Shared folders fall back to EXTERNAL_DATA.
 		initExternalStorageDirectory();
 	}
 

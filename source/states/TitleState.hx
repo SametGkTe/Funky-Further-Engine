@@ -82,7 +82,23 @@ class TitleState extends MusicBeatState
 		Paths.clearStoredMemory();
 		super.create();
 		Paths.clearUnusedMemory();
-		startUnifiedUpdateCheck();
+		try {
+			new FlxTimer().start(0.25, function(_) {
+				try {
+					startUnifiedUpdateCheck();
+				} catch (e:Dynamic) {
+					checkingUpdates = false;
+					updateCheckDone = true;
+					trace('[TitleState] Güncelleme kontrolü çökmeden atlandı: ' + e);
+				}
+				backend.modpack.ModImportQueue.poll();
+				backend.modpack.ModImportQueue.considerPresenting();
+			});
+		} catch (e:Dynamic) {
+			checkingUpdates = false;
+			updateCheckDone = true;
+			trace('[TitleState] Güncelleme zamanlayıcısı kurulamadı: ' + e);
+		}
 
 		if(!initialized)
 		{
@@ -193,7 +209,6 @@ class TitleState extends MusicBeatState
 			gfDance.animation.play('idle');
 		}
 
-
 		var animFrames:Array<FlxFrame> = [];
 		titleText = new FlxSprite(enterPosition.x, enterPosition.y);
 		titleText.frames = Paths.getSparrowAtlas('titleEnter');
@@ -246,7 +261,6 @@ class TitleState extends MusicBeatState
 		// credGroup.add(credTextShit);
 	}
 
-	// JSON data
 	var characterImage:String = 'gfDanceTitle';
 	var animationName:String = 'gfDance';
 
@@ -515,13 +529,19 @@ class TitleState extends MusicBeatState
 
 		checkingUpdates = true;
 		trace('[TitleState] Güncelleme kontrolü başlatılıyor...');
-		backend.update.ReleaseChecker.check();
+		try {
+			backend.update.ReleaseChecker.check();
+		} catch (e:Dynamic) {
+			trace('[TitleState] ReleaseChecker atlandı: ' + e);
+		}
 
 		UpdateChecker.instance.onError = function(error:String)
 		{
 			checkingUpdates = false;
 			updateCheckDone = true;
-			trace('[TitleState] Güncelleme kontrolü başarısız: $error');
+			// Ağ yoksa sessiz geç; sadece gerçek hataları yaz.
+			if (error != null && error.indexOf("resolve host") == -1 && error.indexOf("Çevrimdışı") == -1)
+				trace('[TitleState] Güncelleme kontrolü başarısız: $error');
 
 			// Eğer kullanıcı enter'a basıp bekliyorsa, artık geçebilir
 			if (waitingForUpdateCheck)
@@ -531,6 +551,7 @@ class TitleState extends MusicBeatState
 			}
 		};
 
+		try {
 		UpdateChecker.instance.fetchModpackList(function(result:backend.update.UpdateChecker.CheckResult)
 		{
 			checkingUpdates = false;
@@ -542,6 +563,11 @@ class TitleState extends MusicBeatState
 
 				// Further Engine: otomatik popup YOK — rozet için bayrağı sakla
 				UpdateChecker.instance.hasPendingModpackUpdates = true;
+			}
+			else if (!UpdateChecker.instance.lastFetchOk)
+			{
+				trace('[TitleState] Mağaza listesi alınamadı: ' + UpdateChecker.instance.lastError);
+				UpdateChecker.instance.hasPendingModpackUpdates = false;
 			}
 			else
 			{
@@ -556,6 +582,16 @@ class TitleState extends MusicBeatState
 				goToNextState();
 			}
 		});
+		} catch (e:Dynamic) {
+			checkingUpdates = false;
+			updateCheckDone = true;
+			trace('[TitleState] fetchModpackList atlandı: ' + e);
+			if (waitingForUpdateCheck)
+			{
+				waitingForUpdateCheck = false;
+				goToNextState();
+			}
+		}
 	}
 	
 	function goToNextState():Void

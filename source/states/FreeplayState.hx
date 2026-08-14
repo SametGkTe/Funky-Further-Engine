@@ -20,9 +20,9 @@ import lime.system.Clipboard;
 
 import haxe.Json;
 
-import mikolka.vslice.StickerSubState;
-import mikolka.funkin.Scoring;
-import mikolka.funkin.Scoring.ScoringRank;
+import vslice.menus.StickerSubState;
+import vslice.funkin.Scoring;
+import vslice.funkin.Scoring.ScoringRank;
 import flixel.util.FlxTimer;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;

@@ -10,7 +10,7 @@ class MenuStyleRouter
 	{
 		if (isNewStyle())
 		{
-			var state = new mikolka.vslice.states.MainMenuState();
+			var state = new vslice.menus.states.MainMenuState();
 			return cast state;
 		}
 		return new states.MainMenuState();
@@ -20,7 +20,7 @@ class MenuStyleRouter
 	{
 		if (isNewStyle())
 		{
-			return cast new mikolka.vslice.freeplay.FreeplayHostState();
+			return cast new vslice.menus.freeplay.FreeplayHostState();
 		}
 		return new states.FreeplayState();
 	}
@@ -29,7 +29,7 @@ class MenuStyleRouter
 	{
 		if (isNewStyle())
 		{
-			var state = new mikolka.vslice.states.StoryMenuState();
+			var state = new vslice.menus.states.StoryMenuState();
 			return cast state;
 		}
 		return new states.StoryMenuState();
@@ -39,7 +39,7 @@ class MenuStyleRouter
 	{
 		if (isNewStyle())
 		{
-			var state = new mikolka.vslice.states.OptionsState();
+			var state = new vslice.menus.states.OptionsState();
 			return cast state;
 		}
 		return new options.OptionsState();
@@ -49,7 +49,7 @@ class MenuStyleRouter
 	{
 		if (isNewStyle())
 		{
-			var state = new mikolka.vslice.states.CreditsState();
+			var state = new vslice.menus.states.CreditsState();
 			return cast state;
 		}
 		return new states.CreditsState();
@@ -59,16 +59,37 @@ class MenuStyleRouter
 	{
 		if (isNewStyle())
 		{
-			var state = new mikolka.vslice.states.ModsMenuState();
+			var state = new vslice.menus.states.ModsMenuState();
 			return cast state;
 		}
 		return new states.ModsMenuState();
 	}
 
-	// ===== KISAYOL FONKSİYONLARI =====
+	public static var lastMenuSwitchSeconds:Float = 0;
 
-	inline public static function goToMainMenu():Void
-		MusicBeatState.switchState(getMainMenu());
+	public static function goToMainMenu():Void
+	{
+		var useLoading:Bool = isNewStyle() && lastMenuSwitchSeconds >= 2;
+		#if sys
+		var t0:Float = Sys.time();
+		#end
+		if (useLoading)
+			states.LoadingState.loadAndSwitchState(getMainMenu(), false, true);
+		else
+			MusicBeatState.switchState(getMainMenu());
+		#if sys
+		lastMenuSwitchSeconds = Sys.time() - t0;
+		#end
+	}
+
+	public static function goToMainMenuFromResults():Void
+	{
+		// Results -> menu can hitch on V-Slice. Force loading if last switch was slow.
+		if (isNewStyle() || lastMenuSwitchSeconds >= 2)
+			states.LoadingState.loadAndSwitchState(getMainMenu(), true, true);
+		else
+			goToMainMenu();
+	}
 
 	inline public static function goToFreeplay():Void
 		MusicBeatState.switchState(getFreeplay());
@@ -84,8 +105,6 @@ class MenuStyleRouter
 
 	inline public static function goToMods():Void
 		MusicBeatState.switchState(getMods());
-
-	// ===== DURUM KONTROLLERİ =====
 
 	inline public static function isNewStyle():Bool
 		return ClientPrefs.data.menuStyle == 'Yeni';

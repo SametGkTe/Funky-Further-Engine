@@ -57,6 +57,7 @@ class OptionsState extends MusicBeatState
 
 		if (langKey != 'delay_combo') {
 			removeTouchPad();
+			if (mobileManager != null) mobileManager.removeMobilePad();
 			persistentUpdate = false;
 			controls.isInSubstate = true;
 		}
@@ -79,12 +80,17 @@ class OptionsState extends MusicBeatState
 
 			case 'delay_combo':
 				removeTouchPad();
+				if (mobileManager != null) mobileManager.removeMobilePad();
 				MusicBeatState.switchState(new options.NoteOffsetState());
 
 			case 'mobile_settings':
 				openSubState(new mobile.options.MobileOptionsSubState());
 
 			case 'mobile_extra_control':
+				removeTouchPad();
+				if (mobileManager != null) mobileManager.removeMobilePad();
+				persistentUpdate = false;
+				controls.isInSubstate = true;
 				openSubState(new mobile.substates.MobileExtraControl());
 
 			#if TRANSLATIONS_ALLOWED
@@ -151,6 +157,7 @@ class OptionsState extends MusicBeatState
 		FlxG.sound.play(Paths.sound('confirmMenu'));
 
 		removeTouchPad();
+		if (mobileManager != null) mobileManager.removeMobilePad();
 		persistentUpdate = false;
 		controls.isInSubstate = true;
 
@@ -217,7 +224,12 @@ class OptionsState extends MusicBeatState
 		changeSelection(0, false);
 
 		ClientPrefs.saveSettings();
+		#if mobile
+		mobileManager.addMobilePad('UP_DOWN', 'A_B_C');
+		mobileManager.addMobilePadCamera();
+		#else
 		addTouchPad('UP_DOWN', 'A_B_C');
+		#end
 
 		super.create();
 	}
@@ -233,7 +245,13 @@ class OptionsState extends MusicBeatState
 
 		controls.isInSubstate = false;
 		removeTouchPad();
+		if (mobileManager != null) mobileManager.removeMobilePad();
+		#if mobile
+		mobileManager.addMobilePad('UP_DOWN', 'A_B_C');
+		mobileManager.addMobilePadCamera();
+		#else
 		addTouchPad('UP_DOWN', 'A_B_C');
+		#end
 		persistentUpdate = true;
 
 		FlxG.camera.scroll.set(0, 0);
@@ -269,6 +287,8 @@ class OptionsState extends MusicBeatState
 			FlxG.camera.scroll.set(0, 0);
 			controls.isInSubstate = true;
 			persistentUpdate = false;
+			removeTouchPad();
+			if (mobileManager != null) mobileManager.removeMobilePad();
 			openSubState(new mobile.substates.MobileControlSelectSubState());
 			return;
 		}

@@ -58,22 +58,12 @@ class DownloadManager {
 		trace('[DownloadManager] İptal isteği.');
 	}
 
-	/**
-	 * Akıllı indirme:
-	 *  - MediaFire sayfa linki → gerçek indirme linki çözülür
-	 *  - Google Drive linki → doğrudan indirme linkine çevrilir
-	 *  - Diğer linkler → doğrudan indirilir
-	 *
-	 * @param expectedBytes Katalogdaki beklenen ZIP boyutu (fileSizeBytes).
-	 *   > 0 ise indirme öncesi StorageGuard ile alan kontrolü yapılır.
-	 */
 	public function smartDownload(url:String, savePath:String, callbacks:DownloadCallbacks, ?expectedBytes:Float = -1):Void {
 		if (url == null || url.length == 0) {
 			safeError(callbacks, "İndirme URL'si boş.");
 			return;
 		}
 
-		// ── Depolama alanı kontrolü (tier sisteminin koruması) ──
 		if (expectedBytes > 0) {
 			var spaceError:Null<String> = StorageGuard.checkDownloadSpace(expectedBytes);
 			if (spaceError != null) {
@@ -96,7 +86,6 @@ class DownloadManager {
 		download(url, savePath, callbacks);
 	}
 
-	/** URL bir MediaFire dosya sayfası mı? */
 	public static function isMediafirePage(url:String):Bool {
 		if (url == null) return false;
 
@@ -143,7 +132,7 @@ class DownloadManager {
 			finishError(callbacks, 'Mediafire çözümleme hatası: ${Std.string(e)}');
 		}
 	}
-	
+
 	function extractMediafireDownloadUrl(html:String):Null<String> {
 		try {
 			var doc = new htmlparser.HtmlDocument(html, true);
@@ -278,7 +267,7 @@ class DownloadManager {
 				closeSocket(socket);
 				return null;
 			}
-			
+
 			var contentLength:Int = -1;
 			if (headerResult.headers.exists("content-length")) {
 				var cl:Null<Int> = Std.parseInt(headerResult.headers.get("content-length"));
@@ -288,7 +277,7 @@ class DownloadManager {
 			var body = new StringBuf();
 			var buffer = Bytes.alloc(8192);
 			var totalRead:Int = 0;
-			var maxRead:Int = 2 * 1024 * 1024; // Max 2MB HTML
+			var maxRead:Int = 2 * 1024 * 1024;
 
 			while (true) {
 				var bytesRead:Int = 0;
@@ -318,11 +307,6 @@ class DownloadManager {
 		}
 	}
 
-	/**
-	 * URL'den sayfa/doküman metnini çeker (HTML, JSON vb.).
-	 * İndirme kuyruğunu KULLANMAZ — ayrı, hafif bir istektir.
-	 * MediaFire sayaç sorguları ve benzeri küçük fetch'ler için.
-	 */
 	public function fetchUrlText(url:String, onData:String->Void, onError:String->Void):Void {
 		#if target.threaded
 		Thread.create(() -> {
@@ -353,8 +337,6 @@ class DownloadManager {
 			return;
 		}
 
-		// Güvenlik ağı: MediaFire sayfa linki yanlışlıkla download()'a gelirse
-		// HTML indirilmesin — link çözümlemesine yönlendir.
 		if (isMediafirePage(url)) {
 			resolveMediafire(url, savePath, callbacks);
 			return;

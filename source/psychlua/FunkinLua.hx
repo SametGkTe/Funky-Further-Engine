@@ -77,7 +77,6 @@ class FunkinLua {
 			this.modFolder = myFolder[1];
 		#end
 
-		// Lua shit
 		set('Function_StopLua', LuaUtils.Function_StopLua);
 		set('Function_StopHScript', LuaUtils.Function_StopHScript);
 		set('Function_StopAll', LuaUtils.Function_StopAll);
@@ -85,23 +84,33 @@ class FunkinLua {
 		set('Function_Continue', LuaUtils.Function_Continue);
 		set('luaDebugMode', false);
 		set('luaDeprecatedWarnings', true);
-		set('version', MainMenuState.psychEngineVersion.trim());
+		var engineVer:String = MainMenuState.psychEngineVersion;
+		set('version', engineVer != null ? engineVer.trim() : '');
 		set('modFolder', this.modFolder);
 
-		// Song/Week shit
+		// PlayState.create() menü müziğini stop eder; Android/V-Slice'da music null olabilir.
+		var songLen:Float = 0;
+		try {
+			if (FlxG.sound.music != null)
+				songLen = FlxG.sound.music.length;
+		} catch (e:Dynamic) {
+			songLen = 0;
+		}
+
+		var song = PlayState.SONG;
 		set('curBpm', Conductor.bpm);
-		set('bpm', PlayState.SONG.bpm);
-		set('scrollSpeed', PlayState.SONG.speed);
+		set('bpm', song != null ? song.bpm : 0);
+		set('scrollSpeed', song != null ? song.speed : 1);
 		set('crochet', Conductor.crochet);
 		set('stepCrochet', Conductor.stepCrochet);
-		set('songLength', FlxG.sound.music.length);
-		set('songName', PlayState.SONG.song);
-		set('songPath', Paths.formatToSongPath(PlayState.SONG.song));
+		set('songLength', songLen);
+		set('songName', song != null ? song.song : '');
+		set('songPath', Paths.formatToSongPath(song != null ? song.song : ''));
 		set('loadedSongName', Song.loadedSongName);
 		set('loadedSongPath', Paths.formatToSongPath(Song.loadedSongName));
 		set('chartPath', Song.chartPath);
 		set('startedCountdown', false);
-		set('curStage', PlayState.SONG.stage);
+		set('curStage', song != null ? song.stage : '');
 
 		set('isStoryMode', PlayState.isStoryMode);
 		set('difficulty', PlayState.storyDifficulty);
@@ -110,16 +119,16 @@ class FunkinLua {
 		set('difficultyPath', Difficulty.getFilePath());
 		set('difficultyNameTranslation', Difficulty.getString(true));
 		set('weekRaw', PlayState.storyWeek);
-		set('week', WeekData.weeksList[PlayState.storyWeek]);
+		var weekName:String = '';
+		if (WeekData.weeksList != null && PlayState.storyWeek >= 0 && PlayState.storyWeek < WeekData.weeksList.length)
+			weekName = WeekData.weeksList[PlayState.storyWeek];
+		set('week', weekName);
 		set('seenCutscene', PlayState.seenCutscene);
-		set('hasVocals', PlayState.SONG.needsVoices);
+		set('hasVocals', song != null ? song.needsVoices : false);
 
-		// Screen stuff
 		set('screenWidth', FlxG.width);
 		set('screenHeight', FlxG.height);
 
-
-		// PlayState-only variables
 		if(game != null)
 		@:privateAccess
 		{
@@ -168,7 +177,6 @@ class FunkinLua {
 				set('defaultOpponentStrumY' + i, 0);
 			}
 	
-			// Default character data
 			set('defaultBoyfriendX', game.BF_X);
 			set('defaultBoyfriendY', game.BF_Y);
 			set('defaultOpponentX', game.DAD_X);
@@ -181,7 +189,6 @@ class FunkinLua {
 			set('gfName', game.gf != null ? game.gf.curCharacter : PlayState.SONG.gfVersion);
 		}
 
-		// Other settings
 		set('downscroll', ClientPrefs.data.downScroll);
 		set('middlescroll', ClientPrefs.data.middleScroll);
 		set('framerate', ClientPrefs.data.framerate);
@@ -199,7 +206,6 @@ class FunkinLua {
 		set('scriptName', scriptName);
 		set('currentModDirectory', Mods.currentModDirectory);
 
-		// Noteskin/Splash
 		set('noteSkin', ClientPrefs.data.noteSkin);
 		set('noteSkinPostfix', Note.getNoteSkinPostfix());
 		set('splashSkin', ClientPrefs.data.splashSkin);
@@ -209,7 +215,6 @@ class FunkinLua {
 		// build target (windows, mac, linux, etc.)
 		set('buildTarget', LuaUtils.getBuildTarget());
 
-		//
 		Lua_helper.add_callback(lua, "getRunningScripts", function() {
 			var runningScripts:Array<String> = [];
 			for (script in game.luaArray)
@@ -408,7 +413,9 @@ class FunkinLua {
 
 			if(spr != null && image != null && image.length > 0)
 			{
-				spr.loadGraphic(Paths.image(image), animated, gridX, gridY);
+				var graphic = Paths.image(image);
+				if (graphic != null)
+					spr.loadGraphic(graphic, animated, gridX, gridY);
 			}
 		});
 		Lua_helper.add_callback(lua, "loadFrames", function(variable:String, image:String, spriteType:String = 'auto') {
@@ -498,7 +505,6 @@ class FunkinLua {
 			luaTrace('setObjectOrder: Object $obj doesn\'t exist!', false, false, FlxColor.RED);
 		});
 
-		// gay ass tweens
 		Lua_helper.add_callback(lua, "startTween", function(tag:String, vars:String, values:Any = null, duration:Float, ?options:Any = null) {
 			var penisExam:Dynamic = LuaUtils.tweenPrepare(tag, vars);
 			if(penisExam != null)
@@ -669,7 +675,6 @@ class FunkinLua {
 		});
 		Lua_helper.add_callback(lua, "cancelTimer", function(tag:String) LuaUtils.cancelTimer(tag));
 
-		//stupid bietch ass functions
 		Lua_helper.add_callback(lua, "addScore", function(value:Int = 0) {
 			game.songScore += value;
 			game.RecalculateRating();
@@ -698,13 +703,11 @@ class FunkinLua {
 		Lua_helper.add_callback(lua, "addHealth", function(value:Float = 0) game.health += value);
 		Lua_helper.add_callback(lua, "getHealth", function() return game.health);
 
-		//Identical functions
 		Lua_helper.add_callback(lua, "FlxColor", function(color:String) return FlxColor.fromString(color));
 		Lua_helper.add_callback(lua, "getColorFromName", function(color:String) return FlxColor.fromString(color));
 		Lua_helper.add_callback(lua, "getColorFromString", function(color:String) return FlxColor.fromString(color));
 		Lua_helper.add_callback(lua, "getColorFromHex", function(color:String) return FlxColor.fromString('#$color'));
 
-		// precaching
 		Lua_helper.add_callback(lua, "addCharacterToList", function(name:String, type:String) {
 			var charType:Int = 0;
 			switch(type.toLowerCase()) {
@@ -723,7 +726,6 @@ class FunkinLua {
 			Paths.music(name);
 		});
 
-		// others
 		Lua_helper.add_callback(lua, "triggerEvent", function(name:String, ?value1:String = '', ?value2:String = '') {
 			game.triggerEvent(name, value1, value2, Conductor.songPosition);
 			//trace('Triggered event: ' + name + ', ' + value1 + ', ' + value2);
@@ -941,7 +943,11 @@ class FunkinLua {
 			var leSprite:ModchartSprite = new ModchartSprite(x, y);
 			if(image != null && image.length > 0)
 			{
-				leSprite.loadGraphic(Paths.image(image));
+				var graphic = Paths.image(image);
+				if (graphic != null)
+					leSprite.loadGraphic(graphic);
+				else
+					leSprite.makeGraphic(1, 1, 0x00000000);
 			}
 			MusicBeatState.getVariables().set(tag, leSprite);
 			leSprite.active = true;
@@ -1529,7 +1535,6 @@ class FunkinLua {
 			#end
 		});
 
-		// mod settings
 		addLocalCallback("getModSetting", function(saveTag:String, ?modName:String = null) {
 			#if MODS_ALLOWED
 			if(modName == null)
@@ -1546,7 +1551,6 @@ class FunkinLua {
 			luaTrace("getModSetting: Mods are disabled in this build!", false, false, FlxColor.RED);
 			#end
 		});
-		//
 
 		Lua_helper.add_callback(lua, "debugPrint", function(text:Dynamic = '', color:String = 'WHITE') PlayState.instance.addTextToDebug(text, CoolUtil.colorFromString(color)));
 
@@ -1605,7 +1609,6 @@ class FunkinLua {
 		call('onCreate', []);
 	}
 
-	//main
 	public var lastCalledFunction:String = '';
 	public static var lastCalledScript:FunkinLua = null;
 	public function call(func:String, args:Array<Dynamic>):Dynamic {

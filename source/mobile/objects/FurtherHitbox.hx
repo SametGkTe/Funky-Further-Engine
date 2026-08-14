@@ -40,17 +40,12 @@ class FurtherHitbox extends mobile.Hitbox {
 		if (effMode == 'V Slice')
 		{
 			var spacing:Float = ClientPrefs.data.vSliceSpacing;
+			if (spacing < 0) spacing = 0;
+			if (spacing > 1) spacing = 1;
 
-			// Genişliği ayara göre hesapla: %0 iken 140, %100 iken ekranın tam dilimi
-			var baseWidth:Int = (mania == 4) ? 140 : 110;
-			var targetWidth:Int = Std.int(FlxG.width / mania);
-			var dynamicWidth:Int = Std.int(baseWidth + (targetWidth - baseWidth) * spacing);
-
-			// Uç şeritlere ekstra dokunma alanı (özellikle sağ/sol oklar kolay bassın)
-			var edgeExtra:Int = Std.int(Math.max(40, dynamicWidth * 0.45));
-
-			// Pozisyonlar: enableVSliceControls'ün strum'lardan doldurduğu GERÇEK konumlar
-			var hitboxPositions:Array<Float> = PlayState.hitboxPositions;
+			// Pozisyonlar: enableVSliceControls strum MERKEZLERİNİ yazar
+			var centers:Array<Float> = PlayState.hitboxPositions;
+			var compactW:Float = (mania == 4) ? 140 : 110;
 			var noteIds:Array<Array<String>> = [
 				["NOTE_LEFT"], ["NOTE_DOWN"], ["NOTE_UP"], ["NOTE_RIGHT"],
 				["NOTE_5"], ["NOTE_6"], ["NOTE_7"], ["NOTE_8"], ["NOTE_9"]
@@ -58,10 +53,20 @@ class FurtherHitbox extends mobile.Hitbox {
 			var laneColors:Array<Int> = [0xFFC24B99, 0xFF00FFFF, 0xFF12FA05, 0xFFF9393F];
 			for (i in 0...mania)
 			{
-				var w:Int = dynamicWidth;
-				var xPos:Float = hitboxPositions[i];
-				if (i == 0) { xPos -= edgeExtra; w += edgeExtra; }   // sol şerit sola taşar (ekran kenarına doğru)
-				else if (i == mania - 1) { w += edgeExtra; }         // sağ şerit sağa taşar (ekran kenarına doğru)
+				var center:Float = centers[i];
+				if (center == 0 && i > 0)
+					center = (FlxG.width / mania) * (i + 0.5);
+
+				var compactLeft:Float = center - (compactW * 0.5);
+				var compactRight:Float = center + (compactW * 0.5);
+
+				var fullLeft:Float = (i == 0) ? 0 : (centers[i - 1] + center) * 0.5;
+				var fullRight:Float = (i == mania - 1) ? FlxG.width : (center + centers[i + 1]) * 0.5;
+				if (fullRight <= fullLeft) fullRight = fullLeft + compactW;
+
+				var xPos:Float = compactLeft + (fullLeft - compactLeft) * spacing;
+				var right:Float = compactRight + (fullRight - compactRight) * spacing;
+				var w:Int = Std.int(Math.max(40, right - xPos));
 				addHint('buttonNote${i+1}', noteIds[i], i, xPos, 0, w, Std.int(FlxG.height), laneColors[i % 4]);
 			}
 

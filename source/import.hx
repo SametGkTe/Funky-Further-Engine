@@ -1,10 +1,8 @@
 #if !macro
-//Discord API
 #if DISCORD_ALLOWED
 import backend.Discord;
 #end
 
-//Psych
 #if LUA_ALLOWED
 import llua.*;
 import llua.Lua;
@@ -14,36 +12,31 @@ import llua.Lua;
 import backend.Achievements;
 #end
 
-//P-Slice
-import mikolka.funkin.custom.NativeFileSystem as NativeFileSystem;
-import mikolka.funkin.*;
-import mikolka.funkin.utils.*;
-import mikolka.funkin.custom.*;
-import mikolka.funkin.players.*;
+import vslice.funkin.custom.NativeFileSystem as NativeFileSystem;
+import vslice.funkin.*;
+import vslice.funkin.utils.*;
+import vslice.funkin.custom.*;
+import vslice.funkin.players.*;
 import states.FreeplayState as C_;
 
-//P-Slice Dialouges
-import mikolka.stages.cutscenes.dialogueBox.*;
-import mikolka.stages.cutscenes.dialogueBox.DialogueBoxPsych.DialogueFile;
-import mikolka.stages.cutscenes.dialogueBox.styles.*;
+import vslice.stages.cutscenes.dialogueBox.*;
+import vslice.stages.cutscenes.dialogueBox.DialogueBoxPsych.DialogueFile;
+import vslice.stages.cutscenes.dialogueBox.styles.*;
 
-//utils
 using StringTools;
-using mikolka.funkin.utils.ArrayTools;
-using mikolka.funkin.utils.custom.FunkinTools;
-import mikolka.funkin.utils.custom.FunkinTools;
-using mikolka.funkin.utils.ArrayTools;
-using mikolka.funkin.utils.SpriteTools;
-using mikolka.funkin.utils.custom.PsychUITools;
-using mikolka.funkin.utils.StringTools;
+using vslice.funkin.utils.ArrayTools;
+using vslice.funkin.utils.custom.FunkinTools;
+import vslice.funkin.utils.custom.FunkinTools;
+using vslice.funkin.utils.ArrayTools;
+using vslice.funkin.utils.SpriteTools;
+using vslice.funkin.utils.custom.PsychUITools;
+using vslice.funkin.utils.StringTools;
 import backend.ui.*; //Psych-UI
 import flixel.ui.FlxBar;
 import backend.CacheSystem;
 
-// Fucking Update Shit
 import backend.update.UpdateConfig;
 
-// Mobile Controls
 import mobile.objects.MobileControls;
 import mobile.objects.Hitbox;
 import mobile.objects.TouchPad;
@@ -52,7 +45,6 @@ import mobile.input.MobileInputID;
 import mobile.backend.MobileData;
 import mobile.input.MobileInputManager;
 import mobile.backend.TouchUtil;
-// Mobile Controls New
 import mobile.MobileConfig;
 import mobile.MobileControlManager;
 import mobile.MobileButton;
@@ -63,7 +55,6 @@ import mobile.objects.FurtherPad;
 import mobile.objects.FurtherHitbox;
 import mobile.objects.UltraJoyStick;
 import mobile.substates.MobileExtraControl;
-// Alert
 import objects.AlertMgr;
 // Android
 #if android
@@ -113,7 +104,6 @@ import flxanimate.*;
 import flxanimate.PsychFlxAnimate as FlxAnimate;
 #end
 
-//Flixel
 import flixel.sound.FlxSound;
 import flixel.FlxG;
 import flixel.FlxSprite;

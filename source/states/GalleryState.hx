@@ -5,7 +5,7 @@ import backend.ClientPrefs;
 import backend.Conductor;
 import backend.Language;
 import backend.MusicBeatState;
-import substates.KlavyeSubState; // F
+// import substates.KlavyeSubState; // F — easter egg kapalı
 
 import flixel.FlxG;
 import flixel.FlxSprite;
@@ -27,6 +27,11 @@ import objects.VideoSprite;
 import mobile.objects.TouchPad;
 import mobile.objects.TouchButton;
 import mobile.input.MobileInputID;
+import mobile.MobileConfig;
+import openfl.utils.Assets;
+import flixel.graphics.FlxGraphic;
+import flixel.graphics.frames.FlxTileFrames;
+import flixel.math.FlxPoint;
 #end
 
 #if sys
@@ -218,10 +223,11 @@ class GalleryState extends MusicBeatState {
 	var gridPage:Int = 0;
 	var gridThumbnails:FlxTypedGroup<FlxSprite>;
 
-	var secretRCount:Int = 0;
-	var secretRTimer:Float = 0;
-	static inline var SECRET_R_TIMEOUT:Float = 2.0;
-	static inline var SECRET_R_NEEDED:Int = 4;
+	// KlavyeSubState easter egg (4x R) — kapalı
+	// var secretRCount:Int = 0;
+	// var secretRTimer:Float = 0;
+	// static inline var SECRET_R_TIMEOUT:Float = 2.0;
+	// static inline var SECRET_R_NEEDED:Int = 4;
 	
 	var gridIntroTweens:Array<FlxTween> = [];
 	var imageIntroTween:FlxTween;
@@ -636,141 +642,82 @@ class GalleryState extends MusicBeatState {
 		var rightBaseY:Float = FlxG.height - 137;
 		var btnSpacing:Float = 132;
 
-		galleryPad.buttonA = createGalleryButton(rightBaseX, rightBaseY, 'a', 0xFF00FF00, [MobileInputID.A]);
+		// Yeni MobilePad dokuları: Q→Y yakın, E→Z uzak, R→D döndür, P→V bilgi
+		galleryPad.buttonA = createGalleryButton(rightBaseX, rightBaseY, 'a', 0xFF00FF00, [MobileInputID.A], 'A');
 		galleryPad.add(galleryPad.buttonA);
 
-		galleryPad.buttonB = createGalleryButton(rightBaseX - btnSpacing, rightBaseY, 'b', 0xFFFF0000, [MobileInputID.B]);
+		galleryPad.buttonB = createGalleryButton(rightBaseX - btnSpacing, rightBaseY, 'b', 0xFFFF0000, [MobileInputID.B], 'B');
 		galleryPad.add(galleryPad.buttonB);
 
-		galleryPad.buttonC = createGalleryButton(rightBaseX, rightBaseY - btnSpacing, 'c', 0xFFFFCC00, [MobileInputID.C]);
+		galleryPad.buttonC = createGalleryButton(rightBaseX, rightBaseY - btnSpacing, 'c', 0xFFFFCC00, [MobileInputID.C], 'C');
 		galleryPad.add(galleryPad.buttonC);
 
-		galleryPad.buttonX = createGalleryButton(rightBaseX - btnSpacing, rightBaseY - btnSpacing, 'x', 0xFFA020F0, [MobileInputID.X]);
+		galleryPad.buttonX = createGalleryButton(rightBaseX - btnSpacing, rightBaseY - btnSpacing, 'x', 0xFFA020F0, [MobileInputID.X], 'X');
 		galleryPad.add(galleryPad.buttonX);
 
-		galleryPad.buttonP = createGalleryButton(rightBaseX, rightBaseY - btnSpacing * 2, 'p', 0xFF0088FF, [MobileInputID.P]);
+		galleryPad.buttonP = createGalleryButton(rightBaseX, rightBaseY - btnSpacing * 2, 'v', 0xFF0088FF, [MobileInputID.P], 'P');
 		galleryPad.add(galleryPad.buttonP);
 
-		galleryPad.buttonE = createGalleryButton(rightBaseX - btnSpacing, rightBaseY - btnSpacing * 2, 'e', 0xFFFF4444, [MobileInputID.E]);
+		galleryPad.buttonE = createGalleryButton(rightBaseX - btnSpacing, rightBaseY - btnSpacing * 2, 'z', 0xFFFF4444, [MobileInputID.E], 'E');
 		galleryPad.add(galleryPad.buttonE);
 
-		galleryPad.buttonQ = createGalleryButton(rightBaseX - btnSpacing * 2, rightBaseY - btnSpacing * 2, 'q', 0xFF44FF44, [MobileInputID.Q]);
+		galleryPad.buttonQ = createGalleryButton(rightBaseX - btnSpacing * 2, rightBaseY - btnSpacing * 2, 'y', 0xFF44FF44, [MobileInputID.Q], 'Q');
 		galleryPad.add(galleryPad.buttonQ);
 
-		galleryPad.buttonR = createGalleryButton(rightBaseX - btnSpacing * 2, rightBaseY - btnSpacing, 'r', 0xFFFFAA00, [MobileInputID.R]);
+		galleryPad.buttonR = createGalleryButton(rightBaseX - btnSpacing * 2, rightBaseY - btnSpacing, 'd', 0xFFFFAA00, [MobileInputID.R], 'R');
 		galleryPad.add(galleryPad.buttonR);
 
 		galleryPad.alpha = ClientPrefs.data.controlsAlpha;
 		galleryPad.updateTrackedButtons();
 		add(galleryPad);
 
-		galleryPad.onButtonDown.add(function(btn:TouchButton) {
-			if (btn == null || btn.tag == null) return;
-
-			switch (btn.tag) {
-				case 'A': onMobileButtonA();
-				case 'B': onMobileButtonB();
-				case 'C': onMobileButtonC();
-				case 'X': onMobileButtonX();
-				case 'P': onMobileButtonP();
-				case 'Q': onMobileButtonQ();
-				case 'E': onMobileButtonE();
-				case 'R': onMobileButtonR();
-			}
-		});
+		// Input yalnız handleMobileInput'tan gider.
+		// onButtonDown + justPressed birlikte bilgi/favori/A'yı aynı karede iki kez toggle eder.
 
 		updateMobileButtonVisibility();
 	}
 
-	#if mobile
-	function createGalleryButton(x:Float, y:Float, graphicName:String, color:FlxColor, ids:Array<MobileInputID>):TouchButton {
+	function createGalleryButton(x:Float, y:Float, graphicName:String, color:FlxColor, ids:Array<MobileInputID>, ?logicTag:String):TouchButton {
 		var button = new TouchButton(x, y, ids);
-		button.label = new FlxSprite();
+		var idStrs:Array<String> = [];
+		if (ids != null) {
+			for (id in ids) idStrs.push(id.toString());
+		}
+		button.IDs = idStrs;
 
-		button.loadGraphic(Paths.image('touchpad/bg', "mobile"));
-		button.label.loadGraphic(Paths.image('touchpad/' + graphicName.toUpperCase(), "mobile"));
+		var frames:FlxGraphic;
+		var path:String = MobileConfig.mobileFolderPath + 'MobilePad/Textures/$graphicName.png';
+		var fallback:String = MobileConfig.mobileFolderPath + 'MobilePad/Textures/default.png';
+		if (Assets.exists(path))
+			frames = FlxGraphic.fromBitmapData(Assets.getBitmapData(path));
+		else
+			frames = FlxGraphic.fromBitmapData(Assets.getBitmapData(fallback));
 
-		button.scale.set(0.243, 0.243);
+		button.scale.set(0.9, 0.9);
+		button.frames = FlxTileFrames.fromGraphic(frames, FlxPoint.get(Std.int(frames.width / 2), frames.height));
 		button.updateHitbox();
-
-		button.label.scale.set(0.243, 0.243);
-		button.label.updateHitbox();
-
-		button.label.x = button.x + (button.width - button.label.width) / 2;
-		button.label.y = button.y + (button.height - button.label.height) / 2;
+		button.updateLabelPosition();
 
 		button.statusBrightness = [1, 0.8, 0.4];
 		button.statusIndicatorType = BRIGHTNESS;
-
 		button.status = TouchButton.NORMAL;
 
-		button.bounds.makeGraphic(Std.int(button.width - 50), Std.int(button.height - 50), FlxColor.TRANSPARENT);
+		button.bounds.makeGraphic(Std.int(Math.max(8, button.width - 50)), Std.int(Math.max(8, button.height - 50)), FlxColor.TRANSPARENT);
 		button.centerBounds();
 
 		button.immovable = true;
 		button.solid = false;
 		button.moves = false;
-		button.label.antialiasing = ClientPrefs.data.antialiasing;
 		button.antialiasing = ClientPrefs.data.antialiasing;
-		button.tag = graphicName.toUpperCase();
-		button.color = color;
+		button.tag = (logicTag != null && logicTag.length > 0) ? logicTag : graphicName.toUpperCase();
+		if (color != -1) button.color = color;
 		button.parentAlpha = button.alpha;
-
-		button.onDown.callback = function() {
-			if (galleryPad != null) galleryPad.onButtonDown.dispatch(button);
-		};
-		button.onOut.callback = function() {
-			if (galleryPad != null) galleryPad.onButtonUp.dispatch(button);
-		};
-		button.onUp.callback = function() {
-			if (galleryPad != null) galleryPad.onButtonUp.dispatch(button);
-		};
 
 		return button;
 	}
-	#end
 
 	function createTouchButton(x:Float, y:Float, graphicName:String, color:FlxColor, ids:Array<MobileInputID>):TouchButton {
-		var button = new TouchButton(x, y, ids);
-		button.label = new FlxSprite();
-
-		button.loadGraphic(Paths.image('touchpad/bg', "mobile"));
-		button.label.loadGraphic(Paths.image('touchpad/' + graphicName.toUpperCase(), "mobile"));
-
-		button.scale.set(0.243, 0.243);
-		button.updateHitbox();
-
-		button.label.x = button.x + (button.width - button.label.width) / 2;
-		button.label.y = button.y + (button.height - button.label.height) / 2;
-
-		button.statusBrightness = [1, 0.8, 0.4];
-		button.statusIndicatorType = StatusIndicators.BRIGHTNESS;
-
-		button.status = TouchButton.NORMAL;
-
-		button.bounds.makeGraphic(Std.int(button.width - 50), Std.int(button.height - 50), FlxColor.TRANSPARENT);
-		button.centerBounds();
-
-		button.immovable = true;
-		button.solid = false;
-		button.moves = false;
-		button.label.antialiasing = ClientPrefs.data.antialiasing;
-		button.antialiasing = ClientPrefs.data.antialiasing;
-		button.tag = graphicName.toUpperCase();
-		button.color = color;
-		button.parentAlpha = button.alpha;
-
-		button.onDown.callback = function() {
-			if (galleryPad != null) galleryPad.onButtonDown.dispatch(button);
-		};
-		button.onOut.callback = function() {
-			if (galleryPad != null) galleryPad.onButtonUp.dispatch(button);
-		};
-		button.onUp.callback = function() {
-			if (galleryPad != null) galleryPad.onButtonUp.dispatch(button);
-		};
-
-		return button;
+		return createGalleryButton(x, y, graphicName, color, ids);
 	}
 
 	function updateMobileButtonVisibility() {
@@ -1207,6 +1154,7 @@ class GalleryState extends MusicBeatState {
 		});
 	}
 	
+	/* KlavyeSubState yönlendirmesi kapalı
 	function openKlavyeSubState() {
 		#if ACHIEVEMENTS_ALLOWED
 		Achievements.load();
@@ -1219,16 +1167,10 @@ class GalleryState extends MusicBeatState {
 		persistentDraw = true;
 		openSubState(new KlavyeSubState());
 	}
+	*/
 
 	function handleSingleViewInput(elapsed:Float) {
-
-		if (secretRCount > 0) {
-			secretRTimer += elapsed;
-			if (secretRTimer >= SECRET_R_TIMEOUT) {
-				secretRCount = 0;
-				secretRTimer = 0;
-			}
-		}
+		// 4x R → KlavyeSubState sayacı kapalı
 		if (filteredItems.length == 0) return;
 		var item = filteredItems[curSelected];
 
@@ -1266,20 +1208,7 @@ class GalleryState extends MusicBeatState {
 
 			if (FlxG.keys.justPressed.R) {
 				imgRotation += 90;
-
-				if (filteredItems.length > 0) {
-					var item = filteredItems[curSelected];
-					if (item.artist != null && item.artist.toLowerCase() == "s1r3nmoney0 / klavye") {
-						secretRCount++;
-						secretRTimer = 0;
-						if (secretRCount >= SECRET_R_NEEDED) {
-							secretRCount = 0;
-							secretRTimer = 0;
-							openKlavyeSubState();
-							return;
-						}
-					}
-				}
+				// 4x R + s1r3nmoney0 / klavye → KlavyeSubState kapalı
 			}
 			if (FlxG.keys.justPressed.T) imgRotation -= 90;
 			if (FlxG.keys.justPressed.C) resetImageView();
@@ -1748,22 +1677,22 @@ class GalleryState extends MusicBeatState {
 		switch (viewMode) {
 			case GALLERY_GRID:
 				instDisplay.text = phrase("gallery_inst_grid_mobile",
-					"D-Pad · Gezin\nA · Aç\nB · Geri\nC · Favori\nX · Kategori\nP · Bilgi");
+					"D-Pad · Gezin\nA · Aç\nB · Geri\nC · Favori\nX · Kategori\nV · Bilgi");
 			case SINGLE_VIEW:
 				var item = filteredItems.length > 0 ? filteredItems[curSelected] : null;
 				if (item != null && (item.type == IMAGE || item.type == ANIMATED)) {
 					instDisplay.text = phrase("gallery_inst_single_image_mobile",
-						"←/→ · Gezin\nQ/E · Yakınlaştır\nR · Döndür\nA · Tam Ekran\nP · Slayt\nC · Favori\nB · Geri");
+						"←/→ · Gezin\nY/Z · Yakınlaştır\nD · Döndür\nA · Tam Ekran\nV · Slayt\nC · Favori\nB · Geri");
 				} else {
 					instDisplay.text = phrase("gallery_inst_single_audio_mobile",
-						"←/→ · Gezin\nA · Oynat\nP · Duraklat\nC · Favori\nB · Geri");
+						"←/→ · Gezin\nA · Oynat\nV · Duraklat\nC · Favori\nB · Geri");
 				}
 			case FULLSCREEN:
 				instDisplay.text = phrase("gallery_inst_fullscreen_mobile",
-					"Q/E · Yakınlaştır\nD-Pad · Kaydır\nR · Döndür\nA/B · Çık");
+					"Y/Z · Yakınlaştır\nD-Pad · Kaydır\nD · Döndür\nA/B · Çık");
 			case SLIDESHOW:
 				instDisplay.text = phrase("gallery_inst_slideshow_mobile",
-					"Slayt Gösterisi\n←/→ · Manuel\nP/B · Durdur");
+					"Slayt Gösterisi\n←/→ · Manuel\nV/B · Durdur");
 			case VIDEO_PLAYING:
 				instDisplay.text = phrase("gallery_inst_video_mobile",
 					"B · Durdur");

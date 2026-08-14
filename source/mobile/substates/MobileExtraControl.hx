@@ -43,7 +43,18 @@ class MobileExtraControl extends MusicBeatSubstate
 
 	override function create()
 	{
-		cameras = [FlxG.cameras.list[FlxG.cameras.list.length - 1]];
+		#if mobile
+		// Parent pad kamerasını önce kaldır — yoksa UI yok edilmiş kameraya bağlanır
+		if (FlxG.state != null && Std.isOfType(FlxG.state, MusicBeatState))
+		{
+			var parent:MusicBeatState = cast FlxG.state;
+			parent.removeTouchPad();
+			if (parent.mobileManager != null)
+				parent.mobileManager.removeMobilePad();
+		}
+		#end
+
+		cameras = [FlxG.camera];
 
 		var bg:FlxSprite = new FlxSprite(0, 0).makeGraphic(FlxG.width, FlxG.height, FlxColor.WHITE);
 		bg.scrollFactor.set();
@@ -80,8 +91,10 @@ class MobileExtraControl extends MusicBeatSubstate
 
 		updateTitle(titleNum + 1, true, 0);
 
-		mobileManager.addMobilePad("UP_DOWN", "OptionsC");
+		#if mobile
+		mobileManager.addMobilePad("LEFT_FULL", "OptionsC");
 		mobileManager.addMobilePadCamera();
+		#end
 
 		super.create();
 	}
@@ -91,13 +104,13 @@ class MobileExtraControl extends MusicBeatSubstate
 	{
 		super.update(elapsed);
 
-		var accept = controls.ACCEPT;
-		var right = controls.UI_RIGHT_P;
-		var left = controls.UI_LEFT_P;
-		var up = controls.UI_UP_P;
-		var down = controls.UI_DOWN_P;
-		var back = controls.BACK;
-		var reset = controls.RESET || (mobileManager.mobilePad != null && mobileButtonJustPressed('C'));
+		var accept = controls.ACCEPT || mobileButtonJustPressed('A');
+		var right = controls.UI_RIGHT_P || mobileButtonJustPressed('RIGHT');
+		var left = controls.UI_LEFT_P || mobileButtonJustPressed('LEFT');
+		var up = controls.UI_UP_P || mobileButtonJustPressed('UP');
+		var down = controls.UI_DOWN_P || mobileButtonJustPressed('DOWN');
+		var back = controls.BACK || mobileButtonJustPressed('B');
+		var reset = controls.RESET || mobileButtonJustPressed('C');
 
 		if (left || right){
 			if (isMain){

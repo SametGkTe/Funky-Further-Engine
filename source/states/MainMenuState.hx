@@ -26,7 +26,6 @@ class MainMenuState extends MusicBeatState
 	var leftItem:FlxSprite;
 	var rightItem:FlxSprite;
 
-	//Centered/Text options
 	var optionShit:Array<String> = [
 		'story_mode',
 		'freeplay',
@@ -50,26 +49,15 @@ class MainMenuState extends MusicBeatState
 		if (updateWarningHandled) return;
 		if (!backend.update.ReleaseChecker.checked)
 		{
-			trace('[MainMenu] Release kontrolü henüz bitmedi, tekrar denenecek...');
 			return;
 		}
 
 		updateWarningHandled = true;
 
-		trace('[MainMenu] checked=' + backend.update.ReleaseChecker.checked
-			+ ' showOutdatedWarning=' + showOutdatedWarning
-			+ ' checkForUpdates=' + ClientPrefs.data.checkForUpdates
-			+ ' hasUpdate=' + backend.update.ReleaseChecker.hasUpdate);
-
 		if (showOutdatedWarning && ClientPrefs.data.checkForUpdates && backend.update.ReleaseChecker.hasUpdate) {
-			trace('[MainMenu] UYARI GÖSTERİLİYOR → OutdatedSubState');
 			persistentUpdate = false;
 			showOutdatedWarning = false;
 			openSubState(new substates.OutdatedSubState());
-		}
-		else
-		{
-			trace('[MainMenu] Uyarı gösterilmedi (koşullardan biri false)');
 		}
 	}
 
@@ -94,7 +82,6 @@ class MainMenuState extends MusicBeatState
 		Mods.loadTopMod();
 
 		#if DISCORD_ALLOWED
-		// Updating Discord Rich Presence
 		DiscordClient.changePresence("In the Menus", null);
 		#end
 
@@ -191,10 +178,6 @@ class MainMenuState extends MusicBeatState
 		if (UpdateChecker.instance.hasPendingModpackUpdates)
 			setupModpackBadge();
 	}
-
-	// ─────────────────────────────────────────────
-	//  MODPACK GÜNCELLEMESİ rozeti
-	// ─────────────────────────────────────────────
 
 	function setupModpackBadge():Void
 	{

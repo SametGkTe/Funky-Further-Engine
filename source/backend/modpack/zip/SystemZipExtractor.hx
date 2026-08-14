@@ -40,10 +40,6 @@ class SystemZipExtractor implements IZipExtractor {
 		}
 	}
 
-	// ─────────────────────────────────────────────
-	//  listEntries
-	// ─────────────────────────────────────────────
-
 	public function listEntries(zipPath:String):ExtractResult<Array<ZipEntryInfo>> {
 		if (!FileSystem.exists(zipPath))
 			return Failure(FileNotFound(zipPath));
@@ -73,10 +69,6 @@ class SystemZipExtractor implements IZipExtractor {
 		}
 	}
 
-	// ─────────────────────────────────────────────
-	//  extract
-	// ─────────────────────────────────────────────
-
 	public function extract(zipPath:String, destinationPath:String, callbacks:ExtractCallbacks):Void {
 		var skippedEntries:Int = 0;
 		if (_extracting) {
@@ -87,13 +79,11 @@ class SystemZipExtractor implements IZipExtractor {
 		_extracting = true;
 		_cancelled = false;
 
-		// 1. ZIP var mı?
 		if (!FileSystem.exists(zipPath)) {
 			finishWithError(callbacks, FileNotFound(zipPath));
 			return;
 		}
 
-		// 2. Hedef klasör
 		try {
 			ensureDirectory(destinationPath);
 		} catch (e:Dynamic) {
@@ -103,7 +93,6 @@ class SystemZipExtractor implements IZipExtractor {
 
 		var normalizedDest = normalizeDirPath(destinationPath);
 
-		// 3. ZIP aç
 		var input:FileInput = null;
 		var entries:List<Entry>;
 
@@ -121,13 +110,11 @@ class SystemZipExtractor implements IZipExtractor {
 			return;
 		}
 
-		// 4. Entry bilgilerini topla
 		var entryInfos:Array<ZipEntryInfo> = [];
 		for (entry in entries) {
 			entryInfos.push(entryToInfo(entry));
 		}
 
-		// 5. Güvenlik taraması
 		var scanResult = ZipSecurity.scanEntries(entryInfos, normalizedDest);
 		switch (scanResult) {
 			case Dangerous(reasons):
@@ -139,26 +126,23 @@ class SystemZipExtractor implements IZipExtractor {
 			case Clean:
 		}
 
-		// 6. Fazladan üst klasör var mı algıla
 		var stripPrefix = detectWrapperFolder(entryInfos);
 		if (stripPrefix.length > 0) {
 			trace('[SystemZipExtractor] Fazladan üst klasör algılandı: "$stripPrefix" — otomatik kaldırılacak.');
 		}
 
-		// 7. Toplam boyut
 		var totalEntries = entryInfos.length;
 		var totalBytes:Float = 0;
 		for (info in entryInfos)
 			totalBytes += info.uncompressedSize;
 
-		// 8. Extract loop
 		var extractedEntries = 0;
 		var extractedBytes:Float = 0;
 		var loopIndex = 0;
 		var errorOccured:Null<ExtractError> = null;
 
 		for (entry in entries) {
-			// İptal?
+
 			if (_cancelled) {
 				try {
 					input.close();
@@ -169,16 +153,13 @@ class SystemZipExtractor implements IZipExtractor {
 
 			var rawName = entry.fileName;
 
-			// Strip prefix uygula
 			var adjustedName = applyStripPrefix(rawName, stripPrefix);
 
-			// Boş isim olduysa (üst klasörün kendisi) atla
 			if (adjustedName.length == 0) {
 				loopIndex++;
 				continue;
 			}
 
-			// Güvenli path kontrolü
 			var safePath:String;
 			switch (ZipSecurity.checkEntryPath(adjustedName, normalizedDest)) {
 				case Safe(normalized):
@@ -192,7 +173,6 @@ class SystemZipExtractor implements IZipExtractor {
 			var fullDestPath = Path.join([normalizedDest, safePath]);
 			fullDestPath = StringTools.replace(fullDestPath, "\\", "/");
 
-			// Dizin mi?
 			if (isDirectoryEntry(entry)) {
 				try {
 					ensureDirectory(fullDestPath);
@@ -204,7 +184,6 @@ class SystemZipExtractor implements IZipExtractor {
 				continue;
 			}
 
-			// Üst dizin oluştur
 			var parentDir = Path.directory(fullDestPath);
 			if (parentDir != null && parentDir.length > 0) {
 				try {
@@ -233,7 +212,6 @@ class SystemZipExtractor implements IZipExtractor {
 			extractedEntries++;
 			loopIndex++;
 
-			// Progress
 			if (callbacks != null && callbacks.onProgress != null) {
 				if (loopIndex % PROGRESS_EVERY == 0 || loopIndex == totalEntries) {
 					callbacks.onProgress({
@@ -247,7 +225,6 @@ class SystemZipExtractor implements IZipExtractor {
 			}
 		}
 
-		// 9. Kapat
 		try {
 			input.close();
 		} catch (_) {}
@@ -257,7 +234,6 @@ class SystemZipExtractor implements IZipExtractor {
 			return;
 		}
 
-		// 10. Tamamlandı
 		_extracting = false;
 
 		if (callbacks != null && callbacks.onComplete != null) {
@@ -269,28 +245,10 @@ class SystemZipExtractor implements IZipExtractor {
 		}
 	}
 
-	// ─────────────────────────────────────────────
-	//  Fazladan üst klasör algılama
-	// ─────────────────────────────────────────────
-
-	/**
-	 * ZIP içindeki tüm entry'ler tek bir üst klasörün
-	 * altındaysa o klasörün adını döndürür.
-	 *
-	 * Örnek:
-	 *   TestModpack/_modpack.json
-	 *   TestModpack/My-Mod/pack.json
-	 *   → "TestModpack/" döner
-	 *
-	 *   _modpack.json
-	 *   My-Mod/pack.json
-	 *   → "" döner (strip gerekmez)
-	 */
 	function detectWrapperFolder(entries:Array<ZipEntryInfo>):String {
 		if (entries.length == 0)
 			return "";
 
-		// İlk gerçek dosya/klasörün üst klasörünü bul
 		var firstPrefix:String = null;
 
 		for (entry in entries) {
@@ -301,7 +259,7 @@ class SystemZipExtractor implements IZipExtractor {
 			var slashIdx = name.indexOf("/");
 
 			if (slashIdx == -1) {
-				// Kökte dosya var → strip gerekmiyor
+
 				return "";
 			}
 
@@ -310,7 +268,7 @@ class SystemZipExtractor implements IZipExtractor {
 			if (firstPrefix == null) {
 				firstPrefix = topFolder;
 			} else if (firstPrefix != topFolder) {
-				// Farklı üst klasörler var → strip gerekmiyor
+
 				return "";
 			}
 		}
@@ -318,9 +276,6 @@ class SystemZipExtractor implements IZipExtractor {
 		if (firstPrefix == null)
 			return "";
 
-		// Tüm entry'ler aynı üst klasörde
-		// Ama bu gerçekten wrapper mı yoksa tek mod mu?
-		// _modpack.json wrapper içinde mi kontrol et
 		var hasManifestInWrapper = false;
 		var hasManifestAtRoot = false;
 
@@ -332,21 +287,15 @@ class SystemZipExtractor implements IZipExtractor {
 				hasManifestInWrapper = true;
 		}
 
-		// Manifest wrapper içindeyse kesinlikle strip lazım
 		if (hasManifestInWrapper && !hasManifestAtRoot)
 			return firstPrefix;
 
-		// Manifest hiç yoksa ve tek üst klasör varsa yine strip yap
-		// Çünkü büyük ihtimal yanlış paketlenmiş
 		if (!hasManifestAtRoot && !hasManifestInWrapper)
 			return firstPrefix;
 
 		return "";
 	}
 
-	/**
-	 * Entry adından strip prefix'i kaldır
-	 */
 	function applyStripPrefix(entryName:String, prefix:String):String {
 		if (prefix.length == 0)
 			return entryName;
@@ -384,7 +333,7 @@ class SystemZipExtractor implements IZipExtractor {
 					entry.compressed = false;
 				} catch (e2:Dynamic) {
 					trace('[SystemZipExtractor] ✗ Dosya açılamadı: ${entry.fileName} — ${Std.string(e2)}');
-					return null; // Bozuk veri yazmak yerine null dön
+					return null;
 				}
 			}
 		}
@@ -392,12 +341,8 @@ class SystemZipExtractor implements IZipExtractor {
 		return entry.data;
 	}
 
-	/**
-	 * Raw inflate denemesi.
-	 * Bazı ZIP'lerde header farklı olabiliyor.
-	 */
 	function rawInflate(data:Bytes, expectedSize:Int):Bytes {
-		// windowBits = -15 → raw deflate (no zlib/gzip header)
+
 		var u = new haxe.zip.Uncompress(-15);
 		var buf = Bytes.alloc(expectedSize);
 		var result = u.execute(data, 0, buf, 0);
@@ -407,13 +352,8 @@ class SystemZipExtractor implements IZipExtractor {
 			return buf;
 		}
 
-		// Partial decode
 		return buf.sub(0, result.write);
 	}
-
-	// ─────────────────────────────────────────────
-	//  Yardımcılar
-	// ─────────────────────────────────────────────
 
 	function entryToInfo(entry:Entry):ZipEntryInfo {
 		return {
@@ -438,7 +378,6 @@ class SystemZipExtractor implements IZipExtractor {
 		if (path == null || path.length == 0)
 			return;
 
-		// Recursive mkdir
 		var normalized = StringTools.replace(path, "\\", "/");
 		if (StringTools.endsWith(normalized, "/"))
 			normalized = normalized.substr(0, normalized.length - 1);

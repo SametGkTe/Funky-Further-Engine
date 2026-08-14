@@ -8,37 +8,15 @@ import sys.io.File;
 import backend.modpack.DownloadManager;
 #end
 
-/**
- * Further Engine — MediaFire İndirme Sayacı
- *
- * "TOPLAM İNDİRMELER" sayısını MediaFire'dan çekmeye çalışır:
- *
- *   1. MediaFire API 1.5  →  file/get_info.php (quick_key ile)
- *   2. MediaFire sayfası  →  HTML kalıpları (regex)
- *   3. Katalog fallback    →  modpacks.json içindeki "downloads" alanı
- *
- * Not: MediaFire (2026 itibarıyla) sayfasında ve API yanıtında indirme sayısını
- * artık döndürmüyor. Bu yüzden 1-2 çoğunlukla sonuç vermez ve 3. adıma düşülür.
- * MediaFire sayacı ileride geri eklerse bu sınıf otomatik olarak çalışmaya başlar.
- *
- * Cache: modpack-cache/downloads/<packId>.json — 6 saat boyunca aynı değer
- * kullanılır (her mağaza açılışında ağ isteği atılmaz).
- */
 class MediafireStats {
 	#if sys
-	/** Cache'in taze sayılma süresi: 6 saat. */
+
 	static final CACHE_TTL:Float = 6 * 60 * 60;
 
-	/** Sonuç kaynağı: hangi adımdan geldi. */
 	public static final SRC_API = "api";
 	public static final SRC_HTML = "html";
 	public static final SRC_CATALOG = "katalog";
 
-	/**
-	 * Bir MediaFire linkinden quick_key (dosya kimliği) çıkarır.
-	 * Örnek: https://www.mediafire.com/file/abc123/deneme.zip/file → "abc123"
-	 * Geçerli değilse null.
-	 */
 	public static function extractQuickKey(mediafireUrl:String):Null<String> {
 		if (mediafireUrl == null) return null;
 
@@ -52,18 +30,11 @@ class MediafireStats {
 		var key:String = StringTools.trim(rest.substr(0, keyEnd));
 		if (key.length < 3 || key.length > 40) return null;
 
-		// Sadece alfanümerik ve tire/alt çizgi olmalı
 		if (!~/^[A-Za-z0-9_-]+$/.match(key)) return null;
 
 		return key;
 	}
 
-	/**
-	 * MediaFire API yanıtından indirme sayısını okumaya çalışır.
-	 * API'nin yanıtındaki alan adları sürüme göre değişebilir:
-	 * "downloads", "download_count", "dl_count" — hepsini dener.
-	 * Bulunamazsa -1 döner.
-	 */
 	public static function parseApiCount(jsonText:String):Float {
 		if (jsonText == null || jsonText.length == 0) return -1;
 
@@ -86,25 +57,19 @@ class MediafireStats {
 		return -1;
 	}
 
-	/**
-	 * MediaFire sayfa HTML'inden indirme sayısını okumaya çalışır.
-	 * Birkaç bilinen kalıbı arar; bulamazsa -1.
-	 */
 	public static function parseHtmlCount(html:String):Float {
 		if (html == null || html.length == 0) return -1;
 
-		// Not: Haxe/neko regex motoru \d/\s gibi Perl sınıflarını kabul etmez,
-		// bu yüzden [0-9] ve [ \\t\\r\\n] kullanılıyor.
 		var patterns:Array<EReg> = [
-			// JSON: "downloads":12345
+
 			~/["']downloads["'][ \t]*:[ \t]*([0-9]+)/i,
-			// id/class: id="downloadCount">12345</span>
+
 			~/(?:id|class)="[^"]*(?:download|dl)[^"]*(?:count|cnt)[^"]*"[^>]*>[ \t]*([0-9.,]+)[ \t]*</i,
-			// data attribute: data-downloads="12345"
+
 			~/data-(?:downloads|dl-count|cnt)="([0-9]+)"/i,
-			// Metin: Downloads: 12,345
+
 			~/Downloads?[ \t]*[:][ \t]*([0-9.,]+)/i,
-			// Metin: 12,345 Downloads
+
 			~/([0-9.,]+)[ \t]+Downloads/i
 		];
 
@@ -124,17 +89,6 @@ class MediafireStats {
 		return -1;
 	}
 
-	/**
-	 * Bir paketin indirme sayısını alır.
-	 *
-	 * @param packId       Paket kimliği (cache dosya adı)
-	 * @param mediafireUrl MediaFire sayfa linki (null olabilir)
-	 * @param catalogCount Katalogdaki "downloads" fallback değeri (0 olabilir)
-	 * @param onResult     (count, source) — source: SRC_* sabitlerinden biri
-	 *
-	 * Akış: cache taze mi → kullan. Değilse: MediaFire API → sayfa → katalog
-	 * fallback. Bulunan değer cache'e yazılır.
-	 */
 	public static function getDownloadCount(
 		packId:String,
 		mediafireUrl:String,
@@ -143,14 +97,12 @@ class MediafireStats {
 	):Void {
 		if (onResult == null) return;
 
-		// 1) Cache kontrolü
 		var cached:Null<{count:Int, source:String}> = readCache(packId);
 		if (cached != null) {
 			onResult(cached.count, cached.source);
 			return;
 		}
 
-		// 2) MediaFire'dan çekmeyi dene (thread'de)
 		var quickKey:Null<String> = extractQuickKey(mediafireUrl);
 
 		var finish = function(count:Int, source:String):Void {
@@ -166,7 +118,7 @@ class MediafireStats {
 		};
 
 		if (quickKey == null) {
-			// API için kimlik yok — sayfa scrape'i dene
+
 			if (mediafireUrl != null && mediafireUrl.length > 0) {
 				scrapePage(mediafireUrl, finish, tryCatalog);
 			} else {
@@ -209,10 +161,6 @@ class MediafireStats {
 		});
 	}
 
-	// ─────────────────────────────────────────────
-	//  Cache
-	// ─────────────────────────────────────────────
-
 	static function getCachePath(packId:String):String {
 		return ModpackPaths.getDownloadDirectory() + "download-count-" + packId + ".json";
 	}
@@ -228,7 +176,6 @@ class MediafireStats {
 			var fetchedAt:Float = Std.parseFloat(Std.string(parsed.fetchedAt));
 			if (Math.isNaN(fetchedAt)) return null;
 
-			// Taze mi?
 			if (Sys.time() - fetchedAt > CACHE_TTL) return null;
 
 			return {

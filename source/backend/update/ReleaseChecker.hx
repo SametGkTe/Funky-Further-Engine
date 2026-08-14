@@ -1,6 +1,5 @@
 package backend.update;
 
-import haxe.Http;
 import haxe.Json;
 
 class ReleaseChecker {
@@ -16,13 +15,12 @@ class ReleaseChecker {
 		if (isChecking) return;
 		isChecking = true;
 
-		var apiUrl:String = 'https://api.github.com/repos/${UpdateConfig.GITHUB_REPO_OWNER}/${UpdateConfig.GITHUB_REPO_NAME}/releases/latest';
+		var headers = [
+			"User-Agent" => "Further-Engine/" + UpdateConfig.CURRENT_ENGINE_VERSION,
+			"Accept" => "application/vnd.github+json"
+		];
 
-		var http = new Http(apiUrl);
-		http.addHeader("User-Agent", "Further-Engine/" + UpdateConfig.CURRENT_ENGINE_VERSION);
-		http.addHeader("Accept", "application/vnd.github+json");
-
-		http.onData = function(data:String) {
+		SafeHttp.getFirst(UpdateConfig.latestReleaseUrls(), headers, function(data:String) {
 			isChecking = false;
 			checked = true;
 
@@ -48,16 +46,16 @@ class ReleaseChecker {
 				trace('[ReleaseChecker] JSON parse hatası: $lastError');
 				if (onDone != null) onDone();
 			}
-		};
-
-		http.onError = function(error:String) {
+		}, function(error:String) {
 			isChecking = false;
 			checked = true;
 			lastError = error;
-			trace('[ReleaseChecker] Kontrol başarısız: $error');
+			var msg:String = error != null ? error : "";
+			if (msg.indexOf("resolve host") != -1 || msg.indexOf("Couldn't resolve") != -1)
+				trace('[ReleaseChecker] Çevrimdışı, sürüm kontrolü atlandı.');
+			else
+				trace('[ReleaseChecker] Kontrol başarısız: $error');
 			if (onDone != null) onDone();
-		};
-
-		http.request(false);
+		});
 	}
 }

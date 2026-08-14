@@ -1,40 +1,15 @@
 package backend.modpack;
 
-/**
- * Further Engine — Depolama Alanı Koruyucusu (StorageGuard)
- *
- * Lite / Medium / Further tier ayrımının en kritik parçası:
- * indirme başlamadan ÖNCE ve ZIP'ten çıkarma başlamadan ÖNCE
- * cihazda yeterli alan olup olmadığını kontrol eder.
- *
- * Boş alan yalnızca Android'de okunabilir (JNI → java.io.File.getFreeSpace()).
- * Diğer platformlarda veya JNI hatasında -1 döner ve kontrol sessizce atlanır
- * (yanlış pozitif engelleme yapılmaz).
- */
 class StorageGuard {
-	/** ZIP indirme için: beklenen zip boyutunun bu katı kadar alan istenir (çıkarma payı ile). */
+
 	public static final DOWNLOAD_MARGIN_FACTOR:Float = 2.2;
 
-	/** Çıkarma için: zip + açılmış hali + bu kadar ekstra güvenlik payı. */
 	public static final EXTRACT_EXTRA_BUFFER:Float = 64 * 1024 * 1024;
 
-	/** Tier boyut uyarısı toleransı: hedef boyutun %25 üzerine çıkınca uyar. */
 	public static final TIER_SIZE_TOLERANCE:Float = 1.25;
 
-	/**
-	 * Debug/test için boş alanı elle ver.
-	 * null ise gerçek cihaz değeri okunur. (Masaüstünde test için.)
-	 */
 	public static var DEBUG_OVERRIDE_FREE_SPACE:Null<Float> = null;
 
-	// ─────────────────────────────────────────────
-	//  Boş alan sorgulama
-	// ─────────────────────────────────────────────
-
-	/**
-	 * Cihazda kullanılabilir depolama alanı (bayt).
-	 * Okunamıyorsa (masaüstü, JNI hatası vb.) -1 döner.
-	 */
 	public static function getFreeSpaceBytes():Float {
 		if (DEBUG_OVERRIDE_FREE_SPACE != null)
 			return DEBUG_OVERRIDE_FREE_SPACE;
@@ -46,17 +21,6 @@ class StorageGuard {
 		#end
 	}
 
-	// ─────────────────────────────────────────────
-	//  Kontroller
-	// ─────────────────────────────────────────────
-
-	/**
-	 * İndirme öncesi alan kontrolü.
-	 * Yeterli alan yoksa hata mesajı, sorun yoksa (veya alan
-	 * bilinmiyorsa) null döner.
-	 *
-	 * @param expectedZipBytes Katalogdaki fileSizeBytes (beklenen ZIP boyutu)
-	 */
 	public static function checkDownloadSpace(expectedZipBytes:Float):Null<String> {
 		if (expectedZipBytes <= 0) return null;
 
@@ -74,10 +38,6 @@ class StorageGuard {
 		return null;
 	}
 
-	/**
-	 * Çıkarma öncesi alan kontrolü (ZIP zaten inmiş durumda).
-	 * ZIP boyutu + tahmini açılmış boyut + güvenlik payı kadar alan arar.
-	 */
 	public static function checkExtractionSpace(estimatedUnpackedBytes:Float, zipBytes:Float):Null<String> {
 		if (estimatedUnpackedBytes <= 0 && zipBytes <= 0) return null;
 
@@ -95,16 +55,11 @@ class StorageGuard {
 		return null;
 	}
 
-	/**
-	 * Tier boyut tutarlılığı uyarısı.
-	 * Ör: Lite tier'ındaki bir kayıt 500 MB görünüyorsa katalog hatasıdır.
-	 * Bu bir UYARI'dır, engel değildir.
-	 */
 	public static function checkTierSize(tier:ModpackTier, fileSizeBytes:Float):Null<String> {
 		if (tier == null || fileSizeBytes <= 0) return null;
 
 		var hint:Float = tier.getSizeHintBytes();
-		if (hint <= 0) return null; // further = sınırsız
+		if (hint <= 0) return null;
 
 		if (fileSizeBytes > hint * TIER_SIZE_TOLERANCE) {
 			return '${tier.getLabel()} tierı için beklenen boyut ${tier.getSizeLabel()} iken '
@@ -113,10 +68,6 @@ class StorageGuard {
 
 		return null;
 	}
-
-	// ─────────────────────────────────────────────
-	//  Yardımcılar
-	// ─────────────────────────────────────────────
 
 	public static function requiredDownloadBytes(expectedZipBytes:Float):Float {
 		return expectedZipBytes * DOWNLOAD_MARGIN_FACTOR + EXTRACT_EXTRA_BUFFER;
@@ -134,10 +85,6 @@ class StorageGuard {
 		var gb:Float = mb / 1024;
 		return Math.round(gb * 100) / 100 + " GB";
 	}
-
-	// ─────────────────────────────────────────────
-	//  Android (JNI)
-	// ─────────────────────────────────────────────
 
 	#if android
 	static var _jniReady:Bool = false;
@@ -184,8 +131,7 @@ class StorageGuard {
 				);
 
 			if (_fileGetFreeSpace == null)
-				// lime'da sadece createStaticMethod var; 4. parametre isStatic=false
-				// olursa INSTANCE method döner ve çağrı (obj, args...) alır.
+
 				_fileGetFreeSpace = lime.system.JNI.createStaticMethod(
 					"java/io/File", "getFreeSpace", "()J", false
 				);

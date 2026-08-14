@@ -9,7 +9,6 @@ import states.TitleState;
 // Add a variable here and it will get automatically saved
 @:structInit class SaveVariables {
 
-	// PET AYARLARI
 	public var petwatermark:Bool = true;
 	public var petloadingscreen:Bool = true;
 	public var petwatermarklogo:String = 'Varsayılan';
@@ -22,7 +21,6 @@ import states.TitleState;
 	public var hideServerConnectionWarning:Bool = false;
 
 	
-	// FOR FREEPLAY
 	public var vsliceFreeplayColors:Bool = true;
 	public var vsliceResults:Bool = true;
 	public var vsliceSpecialCards:Bool = true;
@@ -44,7 +42,6 @@ import states.TitleState;
 	public var wideScreen:Bool = false;
 	public var hitboxType:String = "Gradient";
 
-	// Mobile
 	public var mobilePadAlpha:Float = #if mobile 0.6 #else 0 #end;
 	public var hitboxAlpha:Float = #if mobile 0.7 #else 0 #end;
 	public var hitboxMode:String = 'Normal (New)';
@@ -55,7 +52,9 @@ import states.TitleState;
 	public var vSliceSpacing:Float = 0.1;
 	public var mobileExtraKeyReturns:Array<String> = ['SHIFT', 'SPACE', 'Q', 'E'];
 	#if android
-	public var storageType:String = "EXTERNAL_PE";
+	// App-specific storage: no "All files access" needed on Android 13+.
+	public var storageType:String = "EXTERNAL_DATA";
+	public var openDataFolder:Bool = false;
 	#end
 	public var popUpRating:Bool = true;
 	public var vsync:Bool = false;
@@ -114,7 +113,6 @@ import states.TitleState;
 		// oh yeah and you'd have to actually convert the difference to seconds which I already do, because this is based on beats and stuff. but it should work
 		// just fine. but I wont implement it because I don't know how you handle sustains and other stuff like that.
 		// oh yeah when you calculate the bps divide it by the songSpeed or rate because it wont scroll correctly when speeds exist.
-		// -kade
 		'songspeed' => 1.0,
 		'healthgain' => 1.0,
 		'healthloss' => 1.0,

@@ -11,8 +11,8 @@ import states.StoryMenuState;
 import states.FreeplayState;
 import options.OptionsState;
 
-import mikolka.vslice.StickerSubState;
-import mikolka.vslice.freeplay.FreeplayHostState;
+import vslice.menus.StickerSubState;
+import vslice.menus.freeplay.FreeplayHostState;
 
 class PauseSubState extends MusicBeatSubstate
 {
@@ -379,7 +379,7 @@ class PauseSubState extends MusicBeatSubstate
 							FlxG.sound.playMusic(Paths.music('freakyMenu'));
 
 							if (PlayState.isStoryMode)
-								return cast new mikolka.vslice.states.StoryMenuState(sticker);
+								return cast new vslice.menus.states.StoryMenuState(sticker);
 
 							return cast new FreeplayHostState(null, sticker);
 						}));

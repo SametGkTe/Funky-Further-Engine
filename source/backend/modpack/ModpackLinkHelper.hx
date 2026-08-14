@@ -1,11 +1,7 @@
 package backend.modpack;
 
 class ModpackLinkHelper {
-	/**
-	 * Paketin MediaFire linkini döner.
-	 * Öncelik: mediafireUrl → externalPageUrl (eski alan uyumluluğu).
-	 * Yoksa null.
-	 */
+
 	public static function getMediafireUrl(mp:Dynamic):Null<String> {
 		if (mp == null) return null;
 		var url:String = mp.mediafireUrl != null ? Std.string(mp.mediafireUrl) : "";
@@ -14,11 +10,6 @@ class ModpackLinkHelper {
 		return url.length > 0 ? url : null;
 	}
 
-	/**
-	 * Paketin GitHub/direct linkini döner.
-	 * Öncelik: githubUrl → directDownloadUrl (eski alan uyumluluğu).
-	 * Yoksa null.
-	 */
 	public static function getGithubUrl(mp:Dynamic):Null<String> {
 		if (mp == null) return null;
 		var url:String = mp.githubUrl != null ? Std.string(mp.githubUrl) : "";
@@ -27,10 +18,6 @@ class ModpackLinkHelper {
 		return url.length > 0 ? url : null;
 	}
 
-	/**
-	 * Katalogdaki "includes" listesini alır; yoksa boş dizi.
-	 * String array değilse güvenli boş dizi döner.
-	 */
 	public static function getIncludes(mp:Dynamic):Array<String> {
 		if (mp == null || mp.includes == null) return [];
 		var out:Array<String> = [];
@@ -42,14 +29,12 @@ class ModpackLinkHelper {
 		return out;
 	}
 
-	/** Katalog fallback indirme sayısı (yoksa 0). */
 	public static function getCatalogDownloads(mp:Dynamic):Int {
 		if (mp == null || mp.downloads == null) return 0;
 		var n:Null<Int> = Std.parseInt(Std.string(mp.downloads));
 		return n != null && n > 0 ? n : 0;
 	}
 
-	/** Linki kısaltılmış gösterim için düzenler (host + kısa yol). */
 	public static function shortUrl(url:String):String {
 		if (url == null || url.length == 0) return "";
 		var cleaned = StringTools.replace(url, "https://", "");

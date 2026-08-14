@@ -10,21 +10,8 @@ import flixel.math.FlxMath;
 import openfl.display.BitmapData;
 import backend.modpack.ModpackTier;
 
-/**
- * Further Engine — Modpack kartı (GameBanana DownloaderState esinli modern tasarım)
- *
- *  ┌──────────────────────┐
- *  │ [LITE]        100 MB  │  ← tier + boyut etiketleri
- *  │     ┌────────────┐   │
- *  │     │  GÖRSEL    │   │  ← thumbnail (clipRect'li)
- *  │     └────────────┘   │
- *  │   Modpack Adı         │
- *  │        ⬇ 1.523  [DL][LINK] │  ← indirme rozeti + butonlar (seçiliyken)
- *  └──────────────────────┘
- */
 class ModpackCard extends FlxSpriteGroup
 {
-	// Kart verisi
 	public var packId:String;
 	public var packName:String;
 	public var tierColor:Int = 0xFF888888;
@@ -32,7 +19,6 @@ class ModpackCard extends FlxSpriteGroup
 	public var sizeLabel:String = "";
 	public var downloadCountText:String = "";
 
-	// Kart bileşenleri
 	public var bg:FlxSprite;
 	public var thumb:FlxSprite;
 	public var thumbFallback:FlxText;
@@ -44,18 +30,15 @@ class ModpackCard extends FlxSpriteGroup
 	public var linkBg:FlxSprite;
 	public var linkText:FlxText;
 
-	// Durum
 	public var selected:Bool = false;
 	public var cardIndex:Int = 0;
 
-	// İndirme sayısı rozeti metni
 	var dlCountText:FlxText;
 
 	// Callback'ler (store tarafından set edilir)
 	public var onDownloadPress:Void->Void = null;
 	public var onLinkPress:Void->Void = null;
 
-	// İç ölçüler
 	var _cardW:Int;
 	var _cardH:Int;
 	var _thumbH:Int;
@@ -70,7 +53,6 @@ class ModpackCard extends FlxSpriteGroup
 		_cardH = cardH;
 		_thumbH = Std.int(cardH - 52);
 
-		// ── Veri ──
 		packId = mp.id != null ? Std.string(mp.id) : "?";
 		packName = mp.displayName != null ? Std.string(mp.displayName) : packId;
 		cardIndex = index;
@@ -80,15 +62,13 @@ class ModpackCard extends FlxSpriteGroup
 		tierLabel = ModpackTier.labelFor(tierId);
 		sizeLabel = mp.fileSize != null ? Std.string(mp.fileSize) : "";
 
-		// ── Arka plan kutusu ──
 		bg = new FlxSprite();
 		bg.makeGraphic(cardW, cardH, FlxColor.BLACK);
-		bg.alpha = 0.45;
+		bg.alpha = 0.7;
 		add(bg);
 
-		// ── Thumbnail alanı (üstte) ──
 		thumb = new FlxSprite(6, 6);
-		thumb.makeGraphic(cardW - 12, _thumbH - 6, 0xFF1A1A2E);
+		thumb.makeGraphic(cardW - 12, _thumbH - 6, 0xFF111111);
 		add(thumb);
 
 		thumbFallback = new FlxText(6, 6, cardW - 12, "", 11);
@@ -97,17 +77,16 @@ class ModpackCard extends FlxSpriteGroup
 		thumbFallback.visible = false;
 		add(thumbFallback);
 
-		// ── Tier etiketi (üst sol, görselin üstünde) ──
-		tierText = new FlxText(10, 10, Std.int(cardW * 0.5), tierLabel, 10);
-		tierText.setFormat("VCR OSD Mono", 10, tierColor, LEFT);
+		tierText = new FlxText(10, 10, Std.int(cardW * 0.5), tierLabel, 13);
+		tierText.setFormat("VCR OSD Mono", 13, FlxColor.WHITE, LEFT);
 		tierText.borderStyle = OUTLINE;
 		tierText.borderColor = 0xFF000000;
 		tierText.borderSize = 1.2;
 		add(tierText);
 
 		// ── Boyut etiketi (üst sağ) ──
-		sizeText = new FlxText(0, 10, Std.int(cardW * 0.48), sizeLabel, 10);
-		sizeText.setFormat("VCR OSD Mono", 10, 0xFFCBD5E1, RIGHT);
+		sizeText = new FlxText(0, 10, Std.int(cardW * 0.48), sizeLabel, 13);
+		sizeText.setFormat("VCR OSD Mono", 13, 0xFFDDDDDD, RIGHT);
 		sizeText.borderStyle = OUTLINE;
 		sizeText.borderColor = 0xFF000000;
 		sizeText.borderSize = 1.2;
@@ -115,8 +94,8 @@ class ModpackCard extends FlxSpriteGroup
 		add(sizeText);
 
 		// ── İsim (alt, ortalanmış) ──
-		nameText = new FlxText(4, _thumbH + 2, cardW - 8, packName, 14);
-		nameText.setFormat("VCR OSD Mono", 14, FlxColor.WHITE, CENTER);
+		nameText = new FlxText(4, _thumbH + 2, cardW - 8, packName, 18);
+		nameText.setFormat("VCR OSD Mono", 18, FlxColor.WHITE, CENTER);
 		nameText.borderStyle = OUTLINE;
 		nameText.borderColor = 0xFF000000;
 		nameText.borderSize = 1.2;
@@ -137,29 +116,29 @@ class ModpackCard extends FlxSpriteGroup
 	}
 
 		// ── Butonlar (alt sağ; seçiliyken görünür) ──
-		var btnW:Int = 34;
-		var btnH:Int = 26;
+		var btnW:Int = 52;
+		var btnH:Int = 32;
 		var btnY:Float = _thumbH + 18;
 
 		linkBg = new FlxSprite(cardW - btnW - 6, btnY);
-		linkBg.makeGraphic(btnW, btnH, 0xFF0F172A);
-		linkBg.alpha = 0.85;
+		linkBg.makeGraphic(btnW, btnH, FlxColor.BLACK);
+		linkBg.alpha = 0.7;
 		linkBg.visible = false;
 		add(linkBg);
 
-		linkText = new FlxText(linkBg.x, btnY + 5, btnW, "LINK", 9);
-		linkText.setFormat("VCR OSD Mono", 9, 0xFF94A3B8, CENTER);
+		linkText = new FlxText(linkBg.x, btnY + 6, btnW, "LINK", 12);
+		linkText.setFormat("VCR OSD Mono", 12, FlxColor.WHITE, CENTER);
 		linkText.visible = false;
 		add(linkText);
 
 		dlBg = new FlxSprite(cardW - btnW * 2 - 10, btnY);
-		dlBg.makeGraphic(btnW, btnH, 0xFF0D9488);
-		dlBg.alpha = 0.9;
+		dlBg.makeGraphic(btnW, btnH, FlxColor.BLACK);
+		dlBg.alpha = 0.7;
 		dlBg.visible = false;
 		add(dlBg);
 
-		dlText = new FlxText(dlBg.x, btnY + 5, btnW, "İNDİR", 8);
-		dlText.setFormat("VCR OSD Mono", 8, FlxColor.WHITE, CENTER);
+		dlText = new FlxText(dlBg.x, btnY + 6, btnW, "İNDİR", 12);
+		dlText.setFormat("VCR OSD Mono", 12, FlxColor.WHITE, CENTER);
 		dlText.visible = false;
 		add(dlText);
 
@@ -248,9 +227,8 @@ class ModpackCard extends FlxSpriteGroup
 
 		// Hover: fare kartın üzerindeyse hafif aydınlat
 		var hovered:Bool = FlxG.mouse.overlaps(bg);
-		bg.alpha = hovered ? 0.65 : (selected ? 0.7 : 0.45);
+		bg.alpha = hovered ? 0.85 : (selected ? 0.85 : 0.7);
 
-		// Seçiliyken butonları göster
 		if (_prevSelected != selected)
 		{
 			_prevSelected = selected;
@@ -263,7 +241,6 @@ class ModpackCard extends FlxSpriteGroup
 
 		if (_btnVisible)
 		{
-			// DL butonu hover
 			if (FlxG.mouse.overlaps(dlBg))
 			{
 				dlBg.scale.set(FlxMath.lerp(dlBg.scale.x, 1.18, elapsed * 12), FlxMath.lerp(dlBg.scale.y, 1.18, elapsed * 12));
@@ -275,7 +252,6 @@ class ModpackCard extends FlxSpriteGroup
 				dlBg.scale.set(FlxMath.lerp(dlBg.scale.x, 1, elapsed * 12), FlxMath.lerp(dlBg.scale.y, 1, elapsed * 12));
 			}
 
-			// LINK butonu hover
 			if (FlxG.mouse.overlaps(linkBg))
 			{
 				linkBg.scale.set(FlxMath.lerp(linkBg.scale.x, 1.18, elapsed * 12), FlxMath.lerp(linkBg.scale.y, 1.18, elapsed * 12));

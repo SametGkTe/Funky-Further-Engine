@@ -31,18 +31,7 @@ enum StoreScreenState {
 	Error;
 }
 
-/**
- * Further Engine — Modpack Mağazası (GameBanana tarzı modern tasarım)
- *
- * Browse:
- *  - Üstte arama çubuğu (işlevsel: paket adına göre filtreler)
- *  - 4 sütunlu kart grid (ModpackCard): thumbnail, tier+boyut etiketi,
- *    isim, indirme sayısı; seçiliyken İNDİR + LINK butonları
- *  - Sayfalama: Q/E veya mouse wheel (12 kart / sayfa)
- *  - [ENTER] → detay ekranı (görsel + İÇERİK + linkler + OTOMATİK/MANUEL)
- */
 class ModpackStoreState extends MusicBeatState {
-	// ─── Veri ───
 	var allPacks:Array<Dynamic> = [];
 	var displayList:Array<Dynamic> = []; // arama filtresi uygulanmış liste
 	var cards:FlxTypedSpriteGroup<ModpackCard> = new FlxTypedSpriteGroup<ModpackCard>();
@@ -51,7 +40,6 @@ class ModpackStoreState extends MusicBeatState {
 	var totalPages:Int = 1;
 	var currentPack:Dynamic = null;
 
-	// ─── Arama ───
 	var searchString:String = "";
 	var searchFocused:Bool = false;
 	var searchBg:FlxSprite;
@@ -60,18 +48,15 @@ class ModpackStoreState extends MusicBeatState {
 	var searchCursor:FlxText;
 	var cursorTimer:Float = 0;
 
-	// ─── Sistemler ───
 	var downloader:DownloadManager;
 	var installer:ModpackInstaller;
 
-	// ─── Durum ───
 	var screenState:StoreScreenState = Loading;
 	var currentProgress:Float = 0.0;
 	var targetProgress:Float = 0.0;
 	var loadingTimer:Float = 0.0;
 	var loadingDots:Int = 0;
 
-	// ─── Genel UI ───
 	var bg:FlxSprite;
 	var titleText:FlxText;
 	var pageInfo:FlxText;
@@ -81,7 +66,6 @@ class ModpackStoreState extends MusicBeatState {
 	var loadingText:FlxText;
 	var errorText:FlxText;
 
-	// ─── Detay UI (korunan) ───
 	var detailBg:FlxSprite;
 	var detailImage:FlxSprite;
 	var detailImageText:FlxText;
@@ -105,7 +89,6 @@ class ModpackStoreState extends MusicBeatState {
 	var dragList:Bool = false;
 	var dragStartY:Float = 0.0;
 
-	// ─── Progress ───
 	var barBorder:FlxSprite;
 	var barBg:FlxSprite;
 	var barFill:FlxSprite;
@@ -114,20 +97,15 @@ class ModpackStoreState extends MusicBeatState {
 	var speedText:FlxText;
 	var phaseText:FlxText;
 
-	// ─── Grid sabitleri ───
-	static final GRID_COLS:Int = 4;
-	static final CARDS_PER_PAGE:Int = 12; // 4 x 3
-	static final CARD_W:Int = 220;
-	static final CARD_H:Int = 170;
-	static final CARD_GAP:Int = 16;
+	static final GRID_COLS:Int = 3;
+	static final CARDS_PER_PAGE:Int = 6; // 3 x 2
+	static final CARD_W:Int = 300;
+	static final CARD_H:Int = 220;
+	static final CARD_GAP:Int = 22;
 	static final GRID_TOP:Int = 150;
 	static final GRID_BOTTOM_MARGIN:Int = 60;
 
-	static final ACCENT:Int = 0xFF0D9488;
-
-	// ═════════════════════════════════════════════
-	//  CREATE
-	// ═════════════════════════════════════════════
+	static final ACCENT:Int = 0xFFFFFFFF;
 
 	override function create():Void {
 		super.create();
@@ -137,7 +115,7 @@ class ModpackStoreState extends MusicBeatState {
 
 		// ── Arka plan (GameBanana: menuDesat renkli + coolLines) ──
 		bg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
-		bg.color = 0xFF3A3A40;
+		bg.color = 0xFF1A1A1A;
 		bg.screenCenter();
 		bg.antialiasing = ClientPrefs.data.antialiasing;
 		bg.scrollFactor.set(0, 0);
@@ -150,18 +128,15 @@ class ModpackStoreState extends MusicBeatState {
 		lines.alpha = 0.25;
 		add(lines);
 
-		// ── Başlık ──
-		titleText = new FlxText(0, 24, FlxG.width, "MODPACK MAĞAZASI", 30);
-		titleText.setFormat("VCR OSD Mono", 30, FlxColor.WHITE, CENTER);
+		titleText = new FlxText(0, 18, FlxG.width, "MODPACK MAĞAZASI", 36);
+		titleText.setFormat("VCR OSD Mono", 36, FlxColor.WHITE, CENTER);
 		titleText.borderStyle = OUTLINE;
 		titleText.borderColor = 0xFF000000;
 		titleText.borderSize = 2;
 		add(titleText);
 
-		// ── Arama çubuğu ──
 		createSearchBar();
 
-		// ── Kart grid ──
 		add(cards);
 
 		// ── Sayfa bilgisi + ipuçları (GameBanana tarzı) ──
@@ -207,27 +182,32 @@ class ModpackStoreState extends MusicBeatState {
 		errorText.visible = false;
 		add(errorText);
 
-		// ── Progress bar ──
 		createProgressUI();
 		createDetailUI();
 
-		// Klavye girişi (arama)
 		FlxG.stage.addEventListener(KeyboardEvent.KEY_DOWN, onSearchKeyDown);
 
 		FlxG.camera.fade(FlxColor.BLACK, 0.3, true);
 		fetchStore();
+
+		#if mobile
+		pageTip1.text = "Y - Önceki sayfa";
+		pageTip2.text = "Z - Sonraki sayfa";
+		mobileManager.addMobilePad("LEFT_FULL", "A_B_C_X_Y_Z");
+		mobileManager.addMobilePadCamera();
+		#end
 	}
 
 	function createSearchBar():Void {
 		var barW:Int = Std.int(Math.min(700, FlxG.width - 60));
-		var barH:Int = 46;
+		var barH:Int = 56;
 		var barY:Int = 78;
 
 		searchBg = new FlxSprite();
 		searchBg.makeGraphic(barW, barH, FlxColor.BLACK);
 		searchBg.screenCenter(X);
 		searchBg.y = barY;
-		searchBg.alpha = 0.55;
+		searchBg.alpha = 0.7;
 		add(searchBg);
 
 		searchPlaceholder = new FlxText();
@@ -285,10 +265,6 @@ class ModpackStoreState extends MusicBeatState {
 		add(phaseText);
 	}
 
-	// ═════════════════════════════════════════════
-	//  VERİ ÇEKME
-	// ═════════════════════════════════════════════
-
 	function fetchStore():Void {
 		screenState = Loading;
 		loadingText.visible = true;
@@ -311,9 +287,7 @@ class ModpackStoreState extends MusicBeatState {
 		});
 	}
 
-	// ═════════════════════════════════════════════
 	//  BROWSE (kart grid + arama)
-	// ═════════════════════════════════════════════
 
 	function showBrowse():Void {
 		screenState = Browse;
@@ -351,7 +325,6 @@ class ModpackStoreState extends MusicBeatState {
 	}
 
 	function refreshCards():Void {
-		// Eski kartları temizle
 		for (card in cards.members)
 		{
 			if (card != null)
@@ -384,7 +357,6 @@ class ModpackStoreState extends MusicBeatState {
 			card.ID = packIdx;
 			card.selected = (packIdx == selectedIndex);
 
-			// Buton callback'leri
 			card.onDownloadPress = function() {
 				if (currentPack == null) currentPack = mp;
 				startCardDownload(mp);
@@ -415,7 +387,11 @@ class ModpackStoreState extends MusicBeatState {
 		if (displayList.length == 0)
 			pageInfo.text = "Paket Bulunamadı!";
 
+		#if mobile
+		controlsText.text = "[D-Pad] Kart Seç  |  [A] Detay  |  [Y/Z] Sayfa  |  [B] Geri";
+		#else
 		controlsText.text = "[↑/↓/←/→] Kart Seç  |  [ENTER] Detay  |  [Q/E] Sayfa  |  [ESC] Geri";
+		#end
 	}
 
 	function thumbCachePath(packId:String):String {
@@ -431,7 +407,6 @@ class ModpackStoreState extends MusicBeatState {
 			return;
 		}
 
-		// Cache yok → indir
 		downloader.download(url, cachePath, {
 			onComplete: function(path:String) {
 				if (card.exists)
@@ -502,16 +477,15 @@ class ModpackStoreState extends MusicBeatState {
 		FlxG.sound.play(Paths.sound('confirmMenu'));
 	}
 
-	// ═════════════════════════════════════════════
 	//  DETAY EKRANI (korunan)
-	// ═════════════════════════════════════════════
 
 	function createDetailUI():Void {
 		var padX:Int = 30;
 		var topY:Int = 96;
 		var bottomY:Int = FlxG.height - 56;
 
-		detailBg = new FlxSprite(0, topY - 10).makeGraphic(FlxG.width, bottomY - topY + 10, 0xFF0D1117);
+		detailBg = new FlxSprite(0, topY - 10).makeGraphic(FlxG.width, bottomY - topY + 10, FlxColor.BLACK);
+		detailBg.alpha = 0.7;
 		detailBg.visible = false;
 		add(detailBg);
 
@@ -554,7 +528,7 @@ class ModpackStoreState extends MusicBeatState {
 		var linksReserve:Int = 150;
 		var listH:Int = (bottomY - listTop) - linksReserve;
 
-		scrollTrack = new FlxSprite(rightX + rightW - 8, listTop).makeGraphic(4, listH, 0xFF1F2937);
+		scrollTrack = new FlxSprite(rightX + rightW - 8, listTop).makeGraphic(4, listH, 0xFF222222);
 		scrollTrack.visible = false;
 		add(scrollTrack);
 
@@ -569,7 +543,8 @@ class ModpackStoreState extends MusicBeatState {
 
 		for (i in 0...2) {
 			var y:Int = bottomY - 96 + i * 40;
-			var row = new FlxSprite(rightX, y).makeGraphic(rightW, 34, 0xFF111827);
+			var row = new FlxSprite(rightX, y).makeGraphic(rightW, 40, FlxColor.BLACK);
+			row.alpha = 0.7;
 			row.visible = false;
 			add(row);
 			linkRow.push(row);
@@ -667,7 +642,11 @@ class ModpackStoreState extends MusicBeatState {
 		setLinkRow(0, mfUrl, "MediaFire");
 		setLinkRow(1, ghUrl, "GitHub");
 
+		#if mobile
+		controlsText.text = "[A] Seçili link  |  [X] Kaldır  |  [B] Geri";
+		#else
 		controlsText.text = "[1] MediaFire  [2] GitHub  |  [ENTER] Seçili  |  [X] Kaldır  |  [ESC] Geri";
+		#end
 	}
 
 	function loadDetailThumbnail(packId:String, url:String, fitW:Int, fitH:Int):Void {
@@ -798,9 +777,7 @@ class ModpackStoreState extends MusicBeatState {
 		}
 	}
 
-	// ═════════════════════════════════════════════
 	//  İNDİRME YÖNTEMİ / KURULUM (korunan)
-	// ═════════════════════════════════════════════
 
 	function openMethodPicker(link:String):Void {
 		if (link == null || link.length == 0) {
@@ -976,10 +953,6 @@ class ModpackStoreState extends MusicBeatState {
 		controlsText.text = "[ENTER] Listeye Dön  |  [ESC] Ana Menü";
 	}
 
-	// ═════════════════════════════════════════════
-	//  PROGRESS / HATA
-	// ═════════════════════════════════════════════
-
 	function showProgress():Void {
 		barBorder.visible = true;
 		barBg.visible = true;
@@ -1023,9 +996,7 @@ class ModpackStoreState extends MusicBeatState {
 		controlsText.text = "[ENTER] Tekrar Dene  |  [ESC] Ana Menü";
 	}
 
-	// ═════════════════════════════════════════════
 	//  Arama (klavye)
-	// ═════════════════════════════════════════════
 
 	function onSearchKeyDown(e:KeyboardEvent):Void {
 		if (!searchFocused || screenState != Browse) return;
@@ -1098,10 +1069,6 @@ class ModpackStoreState extends MusicBeatState {
 		searchCursor.visible = searchFocused;
 	}
 
-	// ═════════════════════════════════════════════
-	//  UPDATE
-	// ═════════════════════════════════════════════
-
 	override function update(elapsed:Float):Void {
 		super.update(elapsed);
 
@@ -1116,7 +1083,6 @@ class ModpackStoreState extends MusicBeatState {
 			}
 		}
 
-		// Progress bar animasyonu
 		if (barFill.visible) {
 			currentProgress += (targetProgress - currentProgress) * elapsed * 8;
 			if (Math.abs(currentProgress - targetProgress) < 0.001)
@@ -1129,7 +1095,6 @@ class ModpackStoreState extends MusicBeatState {
 			percentText.text = '${Math.round(currentProgress * 100)}%';
 		}
 
-		// Arama imleci yanıp sönme
 		if (searchFocused) {
 			cursorTimer += elapsed;
 			if (cursorTimer >= 0.5) {
@@ -1205,9 +1170,9 @@ class ModpackStoreState extends MusicBeatState {
 
 		if (displayList.length == 0) return;
 
-		// Sayfalama: Q/E + wheel
-		if (FlxG.keys.justPressed.Q || FlxG.mouse.wheel > 0) changePage(-1);
-		if (FlxG.keys.justPressed.E || FlxG.mouse.wheel < 0) changePage(1);
+		// Sayfalama: Q/E + Y/Z (mobil) + wheel
+		if (FlxG.keys.justPressed.Q || FlxG.mouse.wheel > 0 #if mobile || mobileButtonJustPressed('Y') #end) changePage(-1);
+		if (FlxG.keys.justPressed.E || FlxG.mouse.wheel < 0 #if mobile || mobileButtonJustPressed('Z') #end) changePage(1);
 
 		// Grid navigasyonu (4 sütun)
 		var prevIndex:Int = selectedIndex;
@@ -1245,7 +1210,6 @@ class ModpackStoreState extends MusicBeatState {
 			}
 		}
 
-		// ENTER → detay
 		if (controls.ACCEPT) {
 			openDetail(selectedIndex);
 		}
@@ -1309,10 +1273,6 @@ class ModpackStoreState extends MusicBeatState {
 				startUninstall();
 		}
 	}
-
-	// ═════════════════════════════════════════════
-	//  YARDIMCILAR
-	// ═════════════════════════════════════════════
 
 	function goToMainMenu():Void {
 		FlxG.stage.removeEventListener(KeyboardEvent.KEY_DOWN, onSearchKeyDown);

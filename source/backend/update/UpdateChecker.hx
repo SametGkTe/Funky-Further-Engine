@@ -1,5 +1,4 @@
 package backend.update;
-import haxe.Http;
 import haxe.Json;
 import backend.modpack.ModpackTier;
 
@@ -54,6 +53,8 @@ class UpdateChecker {
     public var isChecking:Bool = false;
     public var lastResult:Null<CheckResult> = null;
     public var cachedModpacks:Null<Array<RemoteModpackInfo>> = null;
+    public var lastError:String = "";
+    public var lastFetchOk:Bool = false;
 
     public var hasPendingModpackUpdates:Bool = false;
 
@@ -77,14 +78,13 @@ class UpdateChecker {
         if (isChecking) return;
         isChecking = true;
 
-        var url = UpdateConfig.MODPACK_JSON_URL;
-        trace('[UpdateChecker] Modpack listesi çekiliyor: $url');
+        var urls = UpdateConfig.modpackJsonUrls();
+        trace('[UpdateChecker] Modpack listesi çekiliyor: ' + urls.join(" | "));
 
-        var http = new Http(url);
-        http.addHeader("User-Agent", "PsychEngineTR-Updater");
-
-        http.onData = function(data:String) {
+        SafeHttp.getFirst(urls, ["User-Agent" => "Further-Engine-Updater"], function(data:String) {
             isChecking = false;
+            lastFetchOk = true;
+            lastError = "";
 
             try {
                 var parsed:ModpackListData = cast Json.parse(data);
@@ -128,18 +128,18 @@ class UpdateChecker {
                 if (callback != null)
                     callback(emptyResult());
             }
-        };
-
-        http.onError = function(error:String) {
+        }, function(error:String) {
             isChecking = false;
+            lastFetchOk = false;
+            lastError = error != null ? error : "";
 
+            trace('[UpdateChecker] Liste alınamadı: $error');
             if (onError != null)
                 onError('Bağlantı hatası: $error');
+
             if (callback != null)
                 callback(emptyResult());
-        };
-
-        http.request(false);
+        });
     }
 
 	function findUpdates(remoteList:Array<RemoteModpackInfo>):Array<ModpackUpdateInfo> {
