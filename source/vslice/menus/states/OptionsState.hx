@@ -261,7 +261,12 @@ class OptionsState extends MusicBeatState
 			mobileControlPressed = true;
 		}
 
-		if (controls.mobileC && (FlxG.keys.justPressed.CONTROL || FlxG.keys.justPressed.C)) {
+		// Fiziksel C/CTRL, mobil kontrol opaklığından bağımsız çalışmalıdır.
+		if (FlxG.keys.justPressed.CONTROL || FlxG.keys.justPressed.C) {
+			mobileControlPressed = true;
+		}
+
+		if (mobileManager != null && mobileManager.mobilePad != null && mobileManager.mobilePad.buttonJustPressed('C')) {
 			mobileControlPressed = true;
 		}
 
