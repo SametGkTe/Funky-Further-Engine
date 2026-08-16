@@ -141,37 +141,42 @@ class LoadingState extends MusicBeatState
 		if(ClientPrefs.data.petloadingscreen)
 		{
 			// P.E.T özel yükleme ekranı
-			var style:String = ClientPrefs.data.petloadingscreenimage;
-			var randomIndex:Int = FlxG.random.int(1, 5);
-			var bgPath:String = 'pet/petscreens/$style/loadingscreen$randomIndex';
-			
-			var bg:FlxSprite = new FlxSprite();
-			if(Paths.image(bgPath) != null)
-			{
-				bg.loadGraphic(Paths.image(bgPath));
-			}
-			else
-			{
-				// Yedek: düz arka plan
-				bg.loadGraphic(Paths.image('menuDesat'));
-				bg.color = 0xFFD16FFF;
-			}
+				var style:String = ClientPrefs.data.petloadingscreenimage;
+				// Android dosya sistemi büyük/küçük harfe duyarlıdır. Klasörün gerçek
+				// adı "online" olduğu için kayıtlı "ONLINE" değerini normalize et.
+				switch (style.toUpperCase())
+				{
+					case 'ONLINE': style = 'online';
+					case 'V1': style = 'V1';
+					case 'V2': style = 'V2';
+					case 'V2U': style = 'V2U';
+					default: style = 'online';
+				}
+				var randomIndex:Int = FlxG.random.int(1, 5);
+				var bgPath:String = 'pet/petscreens/$style/loadingscreen$randomIndex';
+
+				var bg:FlxSprite = new FlxSprite();
+				var bgGraphic = Paths.image(bgPath);
+				if(bgGraphic != null)
+					bg.loadGraphic(bgGraphic);
+				else
+				{
+					// Yedek: düz arka plan
+					bg.loadGraphic(Paths.image('menuDesat'));
+					bg.color = 0xFFD16FFF;
+				}
 			bg.antialiasing = ClientPrefs.data.antialiasing;
 			bg.setGraphicSize(FlxG.width, FlxG.height);
 			bg.updateHitbox();
 			bg.screenCenter();
 			addBehindBar(bg);
 
-			// P.E.T logosu
-			logo = new FlxSprite(0, 0);
-			if(Paths.image('pet/fe') != null)
-			{
-				logo.loadGraphic(Paths.image('pet/fe'));
-			}
-			else
-			{
-				logo.loadGraphic(Paths.image('loading_screen/icon'));
-			}
+				// P.E.T logosu. Eski "pet/fe.png" depoda bulunmadığı için mevcut
+				// PET logosunu kullan; böylece her yüklemede iki gereksiz hata oluşmaz.
+				logo = new FlxSprite(0, 0);
+				var logoGraphic = Paths.image('pet/petlogos/logo');
+				if (logoGraphic == null) logoGraphic = Paths.image('loading_screen/icon');
+				logo.loadGraphic(logoGraphic);
 			logo.antialiasing = ClientPrefs.data.antialiasing;
 			logo.scale.set(0.75, 0.75);
 			logo.updateHitbox();
