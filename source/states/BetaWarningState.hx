@@ -57,13 +57,13 @@ class BetaWarningState extends MusicBeatState
 	static inline final CENTER_IMAGE_SIZE:Int = 160;
 	static inline final CENTER_IMAGE_Y_RATIO:Float = 0.5;
 
-	static inline final WARNING_TITLE:String = "RELEASE ALPHA 2 BUGFIX";
+	static inline final WARNING_TITLE:String = "RELEASE BETA 2";
 	static inline final WARNING_BODY:String =
 		"DİKKAT: Bu proje hala yapılma aşamasındadır.\n" +
 		"bitirilmemiş sistemler ve bug'lar vs. bulunmaktadır,\n" +
 		"eğer çökme hataları vs. alırsanız lütfen Kurucuya bildirin.\n\n" +
 		"Further Engine OWW YEAHH";
-	static inline final VERSION_TEXT:String = "Yayınlanmış Alpha 2 BUGFIX Sürümü";
+	static inline final VERSION_TEXT:String = "Yayınlanmış Beta 2 Sürümü";
 	static inline final HINT_DESKTOP:String = "[ENTER] Devam Et    [ESC] Atla";
 	static inline final HINT_MOBILE:String = "[A] Devam Et    [B] Atla";
 
