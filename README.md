@@ -36,7 +36,8 @@ Klasik Psych Engine görünümü ile yeni V-Slice  menü stili arasında geçiş
 
 ### Modpackler
 **YAKINDA**
-![Yeni Ana Menü](docs/img/modpacks.png)
+
+![Mod Paketleri](docs/img/modpack.png)
 
 Further için onaylanmış Modpackleri oyun içinden indir, içe aktar, güncelle veya kaldır. GitHub ve MediaFire kaynakları (Beta)
 
