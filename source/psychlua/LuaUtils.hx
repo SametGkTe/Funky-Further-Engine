@@ -159,8 +159,8 @@ class LuaUtils
 				}
 				catch(e:Dynamic)
 				{
-					var errorTitle = 'Mod name: ' + Mods.currentModDirectory;
-					var errorMsg = 'An error occurred: $e';
+					var errorTitle = 'Mod Adı: ' + Mods.currentModDirectory;
+					var errorMsg = 'Bir hata oluştu: $e';
 					CoolUtil.showPopUp(errorMsg, errorTitle);
 				}
 			}

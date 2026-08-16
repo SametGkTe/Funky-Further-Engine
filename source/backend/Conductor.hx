@@ -99,14 +99,21 @@ class Conductor
 	{
 		bpmChangeMap = [];
 
+		// Null-guard: bozuk/null chart'larda çökme
+		if (song == null || song.notes == null) return;
+
 		var curBPM:Float = song.bpm;
 		var totalSteps:Int = 0;
 		var totalPos:Float = 0;
 		for (i in 0...song.notes.length)
 		{
-			if(song.notes[i].changeBPM && song.notes[i].bpm != curBPM)
+			// Section null olabilir (bozuk/convert edilmiş chart) -> atla, crash olmasın.
+			var sec:SwagSection = song.notes[i];
+			if (sec == null) continue;
+
+			if(sec.changeBPM && sec.bpm != curBPM)
 			{
-				curBPM = song.notes[i].bpm;
+				curBPM = sec.bpm;
 				var event:BPMChangeEvent = {
 					stepTime: totalSteps,
 					songTime: totalPos,

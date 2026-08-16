@@ -66,7 +66,7 @@ class CopyState extends MusicBeatState
 			return;
 		}
 
-		CoolUtil.showPopUp("Seems like you have some missing files that are necessary to run the game\nPress OK to begin the copy process", Language.getPhrase('mobile_notice', 'Notice!'));
+		CoolUtil.showPopUp("Sanırım oyun için gerekli olan bazı dosyalar bulunamadı\nDevam etmek için OK basın", Language.getPhrase('mobile_notice', 'Dikkat!'));
 
 		shouldCopy = true;
 
@@ -111,7 +111,7 @@ class CopyState extends MusicBeatState
 			{
 				if (failedFiles.length > 0)
 				{
-					CoolUtil.showPopUp(failedFiles.join('\n'), 'Failed To Copy ${failedFiles.length} File.');
+					CoolUtil.showPopUp(failedFiles.join('\n'), 'Kopyalama Hatası ${failedFiles.length} Dosya.');
 					final folder:String = #if android StorageUtil.getExternalStorageDirectory() + #else Sys.getCwd() + #end 'logs/';
 					if (!FileSystem.exists(folder))
 						FileSystem.createDirectory(folder);

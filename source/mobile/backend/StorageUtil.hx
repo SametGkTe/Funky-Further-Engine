@@ -48,7 +48,7 @@ class StorageUtil
 			if (alert)
 			{
 				CoolUtil.showPopUp(
-					Language.getPhrase('file_save_success', '{1} has been saved.', [fileName]),
+					Language.getPhrase('file_save_success', '{1} Kaydedildi (saves/).', [fileName]),
 					Language.getPhrase('mobile_success', "Success!")
 				);
 			}
@@ -60,13 +60,13 @@ class StorageUtil
 			if (alert)
 			{
 				CoolUtil.showPopUp(
-					Language.getPhrase('file_save_fail', '{1} couldn\'t be saved.\n({2})', [fileName, err]),
+					Language.getPhrase('file_save_fail', '{1} Kaydedilemedi.\n({2})', [fileName, err]),
 					Language.getPhrase('mobile_error', "Error!")
 				);
 			}
 			else
 			{
-				trace('$fileName couldn\'t be saved. ($err)');
+				trace('$fileName Kaydedilemedi. ($err)');
 			}
 		}
 	}
@@ -425,7 +425,7 @@ class StorageUtil
 
 		CoolUtil.showPopUp(
 			Language.getPhrase('open_data_folder_fail',
-				'Dosya yöneticisi açılamadı.\nSistem Dosyalar uygulamasının kenar çubuğundan "Further Engine / Data Folder" seçin.'),
+				'Dosya yöneticisi açılamadı.\n Dosyalar uygulamasının kenar çubuğundan "Further Engine Data Folder" seçin.'),
 			Language.getPhrase('mobile_error', 'Hata!')
 		);
 	}

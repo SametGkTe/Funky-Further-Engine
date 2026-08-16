@@ -247,8 +247,8 @@ class Achievements {
 						var achieve:Dynamic = retVal[i];
 						if(achieve == null)
 						{
-							var errorTitle = 'Mod name: ' + Mods.currentModDirectory != null ? Mods.currentModDirectory : "None";
-							var errorMsg = 'Achievement #${i+1} is invalid.';
+							var errorTitle = 'Mod Adı: ' + Mods.currentModDirectory != null ? Mods.currentModDirectory : "None";
+							var errorMsg = 'Başarı: #${i+1} geçersiz.';
 							CoolUtil.showPopUp(errorMsg, errorTitle);
 							continue;
 						}
@@ -256,8 +256,8 @@ class Achievements {
 						var key:String = achieve.save;
 						if(key == null || key.trim().length < 1)
 						{
-							var errorTitle = 'Error on Achievement: ' + (achieve.name != null ? achieve.name : achieve.save);
-							var errorMsg = 'Missing valid "save" value.';
+							var errorTitle = 'Başarım Hatası: ' + (achieve.name != null ? achieve.name : achieve.save);
+							var errorMsg = '"save" değeri kullanılmamış durumda.';
 							CoolUtil.showPopUp(errorMsg, errorTitle);
 							continue;
 						}
@@ -269,7 +269,7 @@ class Achievements {
 				}
 			} catch(e:Dynamic) {
 				var errorTitle = 'Mod name: ' + Mods.currentModDirectory != null ? Mods.currentModDirectory : "None";
-				var errorMsg = 'Error loading achievements.json: $e';
+				var errorMsg = 'achievements.json yüklemesinde hata oluştu: $e';
 				CoolUtil.showPopUp(errorMsg, errorTitle);
 			}
 		}

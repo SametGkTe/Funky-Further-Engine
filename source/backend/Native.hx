@@ -22,9 +22,10 @@ import flixel.util.FlxColor;
 #define attributeDarkMode 20
 #define attributeDarkModeFallback 19
 
-#define attributeCaptionColor 34
-#define attributeTextColor 35
-#define attributeBorderColor 36
+// Windows 11 DWM attributes (older Windows versions simply return an error).
+#define attributeBorderColor 34
+#define attributeCaptionColor 35
+#define attributeTextColor 36
 
 struct HandleData {
 	DWORD pid = 0;
@@ -79,6 +80,36 @@ class Native
 				#endif
 			);
 			#endif
+		');
+		#end
+	}
+	
+	public static function setDarkTitleBar():Void
+	{
+		#if (cpp && windows)
+		untyped __cpp__('
+			getHandle();
+			if (curHandle != (HWND)0) {
+				BOOL darkMode = TRUE;
+				HRESULT darkResult = DwmSetWindowAttribute(
+					curHandle, attributeDarkMode, &darkMode, sizeof(darkMode));
+
+				if (FAILED(darkResult)) {
+					DwmSetWindowAttribute(
+						curHandle, attributeDarkModeFallback, &darkMode, sizeof(darkMode));
+				}
+
+				COLORREF borderColor = RGB(0, 0, 0);
+				COLORREF captionColor = RGB(0, 0, 0);
+				COLORREF textColor = RGB(255, 255, 255);
+				DwmSetWindowAttribute(curHandle, attributeBorderColor, &borderColor, sizeof(borderColor));
+				DwmSetWindowAttribute(curHandle, attributeCaptionColor, &captionColor, sizeof(captionColor));
+				DwmSetWindowAttribute(curHandle, attributeTextColor, &textColor, sizeof(textColor));
+
+				ShowWindow(curHandle, 0);
+				ShowWindow(curHandle, 1);
+				SetFocus(curHandle);
+			}
 		');
 		#end
 	}

@@ -48,6 +48,7 @@ import states.TitleState;
 	public var extraKeys:Int = 0;
 	public var hitboxLocation:String = 'Bottom';
 	public var hitboxHint:Bool = false;
+	public var showTouches:Bool = false;
 	public var ogGameControls:Bool = false;
 	public var vSliceSpacing:Float = 0.1;
 	public var mobileExtraKeyReturns:Array<String> = ['SHIFT', 'SPACE', 'Q', 'E'];

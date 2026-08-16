@@ -4,7 +4,8 @@ import flixel.input.keyboard.FlxKey;
 import options.BaseOptionsMenu;
 import options.Option;
 
-class MobileOptionsSubState extends BaseOptionsMenu {
+class MobileOptionsSubState extends BaseOptionsMenu
+{
 	#if android
 	var storageTypes:Array<String> = ["EXTERNAL_PE", "EXTERNAL_PEO", "EXTERNAL_PEU", "EXTERNAL_FE", "EXTERNAL_DATA", "EXTERNAL_OBB", "EXTERNAL_MEDIA"];
 	var externalPaths:Array<String> = StorageUtil.checkExternalPaths(true);
@@ -14,85 +15,137 @@ class MobileOptionsSubState extends BaseOptionsMenu {
 
 	var option:Option;
 	var HitboxTypes:Array<String>;
-	public function new() {
-		title = 'Mobil Ayarlar';
-		rpcTitle = 'Mobile Options Menu'; // for Discord Rich Presence, fuck it
+
+	inline function phrase(key:String, fallback:String):String
+	{
+		return Language.getPhrase(key, fallback);
+	}
+
+
+	public function new()
+	{
+		title = phrase('mobile_options_title', 'Mobil Ayarlar');
+		rpcTitle = phrase('rpc_mobile_options_menu', 'Mobil Ayarlar Menüsü');
+
 		#if android
-		storageTypes = storageTypes.concat(customPaths); //Get Custom Paths From File
-		storageTypes = storageTypes.concat(externalPaths); //Get SD Card Path
+		storageTypes = storageTypes.concat(customPaths); // Get Custom Paths From File
+		storageTypes = storageTypes.concat(externalPaths); // Get SD Card Path
 		#end
 
 		HitboxTypes = Mods.mergeAllTextsNamed('mobile/Hitbox/HitboxModes/hitboxModeList.txt');
 
-		option = new Option('Mobil Kontrol Opaklığı',
-			'Mobil tuşların saydamlığını ayarlar (0 yapıp tuşları kaybetmemeye dikkat edin).', 'mobilePadAlpha', PERCENT);
+		option = new Option(
+			'Mobil Kontrol Opaklığı',
+			'Mobil tuşların saydamlığını ayarlar. Değeri 0 yapıp tuşları kaybetmemeye dikkat edin.',
+			'mobilePadAlpha',
+			PERCENT,
+			null,
+			'mobile_controls_opacity'
+		);
 		option.scrollSpeed = 1;
 		option.minValue = 0.001;
 		option.maxValue = 1;
 		option.changeValue = 0.1;
 		option.decimals = 1;
-		option.onChange = () -> {
+		option.onChange = () ->
+		{
 			var st:MusicBeatState = MusicBeatState.getState();
 			if (st.touchPad != null) st.touchPad.alpha = curOption.getValue();
-			if (st.mobileControls != null && st.mobileControls.instance != null) st.mobileControls.instance.alpha = curOption.getValue();
+			if (st.mobileControls != null && st.mobileControls.instance != null)
+				st.mobileControls.instance.alpha = curOption.getValue();
 			var mgr = st.mobileManager;
 			if (mgr != null && mgr.mobilePad != null) mgr.mobilePad.alpha = curOption.getValue();
 			ClientPrefs.toggleVolumeKeys();
 		};
 		addOption(option);
 
-		var option:Option = new Option('Ekstra Kontroller',
-			'Mobil Ekstra Kontrolleri etkinleştirir, mekanikli modlar için kullanılabilir.',
+		option = new Option(
+			'Ekstra Kontroller',
+			'Kaç adet ekstra mobil kontrol istediğinizi seçin. Özel mekaniklere sahip modlarda kullanılabilirler.',
 			'extraKeys',
-			'INT');
+			INT,
+			null,
+			'extra_controls'
+		);
 		option.scrollSpeed = 1;
 		option.minValue = 0;
 		option.maxValue = 4;
 		option.changeValue = 1;
 		option.decimals = 0;
 		addOption(option);
-
-			option = new Option('Ekstra Kontrol Konumu',
-				'Ekstra Kontrol Konumunu Seçin',
-				'hitboxLocation',
-				STRING,
-				['Bottom', 'Top', 'Middle']
-			);
-		addOption(option);
 		
-		//HitboxTypes.insert(0, "Classic");
-		option = new Option('Hitbox Stili',
-			'Hitbox Stilinizi Seçin!',
+		option = new Option(
+			'Dokunmaları Göster',
+			'Ekrana dokunduğunuz yerde kısa süreli, beyaz bir nokta gösterir.',
+			'showTouches',
+			BOOL,
+			null,
+			'show_touches'
+		);
+		addOption(option);
+
+		var goption:Option = new Option(
+			'Ekstra Kontrol Konumu',
+			'Ekstra kontrollerin konumunu seçin.',
+			'hitboxLocation',
+			STRING,
+			['Bottom', 'Top', 'Middle'],
+			'extra_control_position'
+		);
+		goption.displayOptions = ['Alt', 'Üst', 'Orta'];
+		addOption(goption);
+
+		// HitboxTypes.insert(0, "Classic");
+		goption = new Option(
+			'Hitbox Stili',
+			'Tercih ettiğiniz Hitbox stilini seçin.',
 			'hitboxMode',
 			STRING,
-			HitboxTypes
+			HitboxTypes,
+			'hitbox_design'
 		);
-		addOption(option);
-		
-		option = new Option('Hitbox Görünümü',
-			'Hitbox kontrolünün nasıl gözükeceğini ayarlar.',
+		goption.displayOptions = [for (value in HitboxTypes) value == 'Classic' ? 'Klasik' : value];
+		addOption(goption);
+
+		goption = new Option(
+			'Hitbox Görünümü',
+			'Hitbox kontrollerinin nasıl görüneceğini seçin.',
 			'hitboxType',
 			STRING,
-			['Gradient', 'No Gradient', 'No Gradient (Old)', 'Hidden']
+			['Gradient', 'No Gradient', 'No Gradient (Old)', 'Hidden'],
+			'hitbox_type'
+		);
+		goption.displayOptions = ['Gradyanlı', 'Gradyansız', 'Gradyansız (Eski)', 'Gizli'];
+		addOption(goption);
+
+		option = new Option(
+			'Hitbox İpuçları',
+			'Hitbox ipuçlarının görünümünü açar veya kapatır.',
+			'hitboxHint',
+			BOOL,
+			null,
+			'hitbox_hint'
 		);
 		addOption(option);
 
-		option = new Option('Hitbox ipucusu',
-			'Hitbox İpucu Kontrolü',
-			'hitboxHint',
-			'BOOL');
+		option = new Option(
+			'V-Slice Kontrolleri',
+			'Etkinleştirildiğinde kontroller orijinal FNF gibi çalışır.\n(UYARI: Bu seçenek nota hareketleri gibi bazı mekanikleri bozabilir. Lütfen yalnızca temel modlarda kullanın.)',
+			'ogGameControls',
+			BOOL,
+			null,
+			'v_slice_controls'
+		);
 		addOption(option);
 
-		option = new Option('V-Slice Kontrolü',
-			'Aktif Edildiğinde, kontrol orijinal FNF gibi olacaktır.\n(UYARI: Bu seçenek bazı mekanikleri bozabilir, Nota Hareketleri vb. lütfen temel modlar için kullanın.)',
-			'ogGameControls',
-			'BOOL');
-		addOption(option);
-		
-		var option:Option = new Option('V-Slice Kontrol Aralığı',
-			'V-Slice açıkken okların (strum) birbirinden ne kadar uzak olacağını ayarlar.\n%0 orijinal FNF Mobile, %100 tam ekran yayılımı.\nŞarkıyı yeniden başlatınca uygulanır.',
+		option = new Option(
+			'V-Slice Kontrol Aralığı',
+			'V-Slice kontrolleri açıkken okların birbirinden ne kadar uzakta olacağını ayarlar.',
 			'vSliceSpacing',
-			PERCENT);
+			PERCENT,
+			null,
+			'v_slice_spacing'
+		);
 		option.scrollSpeed = 1.6;
 		option.minValue = 0;
 		option.maxValue = 1;
@@ -100,11 +153,14 @@ class MobileOptionsSubState extends BaseOptionsMenu {
 		option.decimals = 2;
 		option.displayFormat = '%v%';
 		addOption(option);
-		
-		option = new Option('Hitbox Saydamligi',
-			'Hitbox düğmelerinin saydamlığını seçer.',
+
+		option = new Option(
+			'Hitbox Saydamlığı',
+			'Hitbox saydamlığını ayarlar. Sanırım',
 			'hitboxAlpha',
-			PERCENT
+			PERCENT,
+			null,
+			'hitbox_opacity'
 		);
 		option.scrollSpeed = 1;
 		option.minValue = 0.001;
@@ -114,28 +170,40 @@ class MobileOptionsSubState extends BaseOptionsMenu {
 		addOption(option);
 
 		#if mobile
-		option = new Option('Tam Ekran Modu',
-			'Aktif Edildiğinde, oyun tüm ekranınızı kaplayacak şekilde genişler. (UYARI: Görüntü bozulmalarına neden olabilir ve oyunu/kameraları yeniden boyutlandıran bazı modları bozabilir)',
-			'wideScreen', 'BOOL');
+		option = new Option(
+			'Tam Ekran Modu',
+			'Etkinleştirildiğinde oyun ekranı dolduracak şekilde genişler. (UYARI: Görüntü bozulmalarına neden olabilir ve oyunu veya kameraları yeniden boyutlandıran bazı modları bozabilir.)',
+			'wideScreen',
+			BOOL,
+			null,
+			'wide_screen_mode'
+		);
 		option.onChange = () -> ScreenUtil.wideScreen.enabled = ClientPrefs.data.wideScreen;
 		addOption(option);
 		#end
 
 		#if android
-		option = new Option('Depolama Türü',
-			'Further Engine hangi klasörü kullanmalı?\nEXTERNAL_DATA izin gerektirmez (önerilir).\nEXTERNAL_PE / FE gibi gizli klasörler için "Tüm dosyalara erişim" gerekir.',
+		goption = new Option(
+			'Depolama Türü',
+			'Further Engine tarafından kullanılacak klasörü seçin.',
 			'storageType',
 			STRING,
-			storageTypes
+			storageTypes,
+			'storage_type'
 		);
-		addOption(option);
+		goption.displayOptions = storageTypes.copy();
+		addOption(goption);
 
-		option = new Option('Veri Klasörünü Aç',
-			'Android 13+ için sistem Dosyalar uygulamasında Further Engine Data Folder kökünü açar.\nEXTERNAL_DATA seçiliyse mods/ buradadır: Android/data/com.sametgkte.furtherengine/files/mods/',
+		option = new Option(
+			'Data Klasörünü Aç',
+			'Android 13 ve üzerindeki Dosyalar uygulamasında Further Engine Data klasörünün kökünü açar. (Android/data/com.sametgkte.furtherengine)',
 			'openDataFolder',
-			BOOL
+			BOOL,
+			null,
+			'open_data_folder'
 		);
-		option.onChange = () -> {
+		option.onChange = () ->
+		{
 			StorageUtil.openDataFolder();
 			ClientPrefs.data.openDataFolder = false;
 		};
@@ -145,11 +213,13 @@ class MobileOptionsSubState extends BaseOptionsMenu {
 		super();
 	}
 
-	override public function destroy() {
+	override public function destroy()
+	{
 		super.destroy();
 
 		#if android
-		if (ClientPrefs.data.storageType != lastStorageType) {
+		if (ClientPrefs.data.storageType != lastStorageType)
+		{
 			File.saveContent(lime.system.System.applicationStorageDirectory + 'storagetype.txt', ClientPrefs.data.storageType);
 			ClientPrefs.saveSettings();
 			StorageUtil.initExternalStorageDirectory();

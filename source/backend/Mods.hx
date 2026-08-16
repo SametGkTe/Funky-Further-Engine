@@ -149,6 +149,10 @@ class Mods
 				trace(e);
 			}
 		}
+
+		// V-SLICE KÖPRÜSÜ: pack.json yoksa _polymod_meta.json'u oku (V-Slice/FPS Plus modları).
+		var vslicePack:Dynamic = backend.VSliceMeta.read(folder);
+		if(vslicePack != null) return vslicePack;
 		#end
 		return null;
 	}

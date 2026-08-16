@@ -20,7 +20,7 @@ class MobileFunctions
 	{
 		var lua:State = funk.lua;
 
-		// ---------------- ESKİ API ----------------
+		// Old Api
 		Lua_helper.add_callback(lua, 'mobileC', Controls.instance.mobileC);
 
 		Lua_helper.add_callback(lua, 'mobileControlsMode', getMobileControlsAsString());
@@ -298,7 +298,7 @@ class MobileFunctions
 			return TouchUtil.overlapsComplex(obj, cam);
 		});
 
-		// ---------------- YENİ API (Psych Engine Online Mobile) ----------------
+		// New Api
 
 		Lua_helper.add_callback(lua, 'createNewMobileManager', function(name:String, ?keyDetectionAllowed:Bool):Void
 		{

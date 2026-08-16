@@ -4,6 +4,7 @@ import haxe.Json;
 import lime.utils.Assets;
 
 import objects.Note;
+import vslice.compatibility.VSliceSongConverter;
 
 typedef SwagSong =
 {
@@ -150,9 +151,137 @@ class Song
 			rawData = File.getContent(_lastPath);
 		else
 		#end
-			rawData = Assets.getText(_lastPath);
+		{
+			// Assets.getText dosya yoksa exception fırlatabilir; null döndür.
+			try rawData = Assets.getText(_lastPath) catch(e:Dynamic) rawData = null;
+		}
 
-		return rawData != null ? parseJSON(rawData, jsonInput) : null;
+		// ---------- V-SLICE KÖPRÜSÜ ----------
+		// Psych chart yoksa, V-Slice mod path'ini dene (mods/<mod>/data/songs/<song>/<song>-chart.json)
+		if (rawData == null)
+		{
+			var vsliceSong:String = tryVSlicelside(folder, jsonInput);
+			if (vsliceSong != null)
+			{
+				rawData = vsliceSong;
+				_lastPath = Paths.formatToSongPath(folder) + '/' + Paths.formatToSongPath(jsonInput);
+			}
+		}
+
+		if (rawData != null)
+		{
+			var parsed:SwagSong = try parseJSON(rawData, jsonInput) catch(e:Dynamic) null;
+			if (parsed != null) return parsed;
+		}
+		// Boş ama geçerli bir chart döndür (çökme yerine boş şarkı).
+		return emptySong(formattedSong);
+	}
+
+	/** Boş ama geçerli bir chart üretir (bozuk/null chart'larda crash önler). */
+	static function emptySong(name:String):SwagSong
+	{
+		return {
+			song: name,
+			notes: [],
+			events: [],
+			bpm: 120,
+			needsVoices: false,
+			speed: 1,
+			offset: 0,
+			player1: 'bf',
+			player2: 'dad',
+			gfVersion: 'gf',
+			stage: 'stage',
+			format: 'psych_v1'
+		};
+	}
+
+	/** Boş ama geçerli bir section üretir (null section'ları değiştirmek için). */
+	static function emptySection():Dynamic
+	{
+		return {
+			sectionNotes: [],
+			sectionBeats: 4,
+			mustHitSection: true,
+			altAnim: false,
+			bpm: 120,
+			changeBPM: false
+		};
+	}
+
+	/** V-Slice şarkı dosyasını arar ve JSON string olarak döndürür (bulunamazsa null). */
+	static function tryVSlicelside(folder:String, song:String):String
+	{
+		#if (MODS_ALLOWED && sys)
+
+		// Gerçek V-Slice şarkı adı: `folder` parametresi (ChartingState cur) ya da
+		// `song`'dan diff suffixi atılmış hali. Örn. folder='foolhardy-2023',
+		// song='foolhardy-2023-hard' -> doğru ad folder'dır.
+		var songPath:String = Paths.formatToSongPath(folder != null && folder.length > 0 ? folder : stripDifficulty(song));
+
+		// Aranacak modlar: aktif mod + global modlar (+ aktif yoksa tüm modlar)
+		var searchDirs:Array<String> = [];
+		if (Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0)
+			searchDirs.push(Mods.currentModDirectory);
+		for (g in Mods.getGlobalMods())
+			if (!searchDirs.contains(g)) searchDirs.push(g);
+		if (searchDirs.length == 0)
+			searchDirs = Mods.getModDirectories();
+
+		for (m in searchDirs)
+		{
+			// Paths.mods() Android'de dış depolama kökünü verir (relative 'mods/' değil!)
+			var base:String = Paths.mods(m + '/data/songs/$songPath/');
+			var chart:String = base + songPath + '-chart.json';
+			if (FileSystem.exists(chart))
+			{
+				var meta:String = base + songPath + '-metadata.json';
+				var metaContent:String = FileSystem.exists(meta) ? File.getContent(meta) : null;
+				var chartContent:String = File.getContent(chart);
+				var metaJson:Dynamic = (metaContent != null && metaContent.length > 0) ? try Json.parse(metaContent) catch(e:Dynamic) null : null;
+
+				// V-Slice chart'ı Psych formatına çevir
+				var chartJson:Dynamic = try Json.parse(chartContent) catch(e:Dynamic) null;
+				if (chartJson != null && VSliceSongConverter.isVSliceChart(chartJson))
+				{
+					var converted:backend.Song.SwagSong = VSliceSongConverter.convert(chartJson, metaJson, getDifficulty(), songPath);
+					return Json.stringify(converted);
+				}
+				else if (chartJson != null)
+				{
+					// Zaten Psych formatında bir chart (Psych Engine Port modu).
+					// 'format' alanı yoksa 'unknown' olur ve parseJSON onu convert edip bozar.
+					// Bu yüzden 'psych_v1' olarak işaretle ki convert uygulanmasın.
+					if (!Reflect.hasField(chartJson, 'format') || chartJson.format == null)
+						chartJson.format = 'psych_v1';
+					// Section null'ları temizle (bozuk chart'larda crash önler)
+					var notesArr:Array<Dynamic> = cast chartJson.notes;
+					if (notesArr != null)
+						for (i in 0...notesArr.length)
+							if (notesArr[i] == null) notesArr[i] = emptySection();
+					return Json.stringify(chartJson);
+				}
+			}
+		}
+		#end
+		return null;
+	}
+
+	/** Şarkı adından bilinen Psych difficulty suffixini atar. */
+	static function stripDifficulty(name:String):String
+	{
+		var suffixes:Array<String> = ['-easy', '-normal', '-hard', '-erect'];
+		for (s in suffixes)
+			if (name.endsWith(s)) return name.substr(0, name.length - s.length);
+		return name;
+	}
+
+	/** Aktif zorluğu döndürür (PlayState kurulmadan önce Difficulty sabitinden). */
+	static function getDifficulty():String
+	{
+		// Difficulty.getString() 'Normal' gibi büyük harfle başlayabilir;
+		// V-Slice notes map anahtarları küçük harf (easy/normal/hard) bekler.
+		return backend.Difficulty.getString().toLowerCase();
 	}
 
 	public static function parseJSON(rawData:String, ?nameForError:String = null, ?convertTo:String = 'psych_v1'):SwagSong
@@ -173,6 +302,11 @@ class Song
 			switch(convertTo)
 			{
 				case 'psych_v1':
+					// V-SLICE KÖPRÜSÜ: zaten V-Slice'ten Psych'e çevrilmiş chart'ı
+					// tekrar Psych dönüşümüne sokma (bozulur).
+					if (fmt == vslice.compatibility.VSliceSongConverter.FORMAT)
+						return songJson;
+
 					if(!fmt.startsWith('psych_v1')) //Convert to Psych 1.0 format
 					{
 						trace('converting chart $nameForError with format $fmt to psych_v1 format...');

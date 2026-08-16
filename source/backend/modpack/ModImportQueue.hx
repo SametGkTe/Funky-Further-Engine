@@ -104,8 +104,8 @@ class ModImportQueue
 			{
 				deferredNoticeShown = true;
 				CoolUtil.showPopUp(
-					Language.getPhrase('mod_import_deferred', 'Mod zip alındı.\nŞarkı bittikten sonra kurulacak.'),
-					Language.getPhrase('mobile_notice', 'Uyarı!')
+					Language.getPhrase('mod_import_deferred', 'Mod zip alındı.\nKurulurken bekleyin.'),
+					Language.getPhrase('mobile_notice', 'Bilgi')
 				);
 			}
 			return;

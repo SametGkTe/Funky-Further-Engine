@@ -312,3 +312,13 @@ setting_hitbox_position: "Posição Da Hitbox"
 description_hitbox_position: "Se marcado, a hitbox será colocada no inferior da tela, se não ficará no superior da tela"
 setting_dynamic_controls_color: "Cor Dos Controles Dinâmicos"
 description_dynamic_controls_color: "Se marcado, a cor dos controles mobile ficarão da cor das notas que estão nas suas configurações.\n(Tem Efeito Somente Na Jogatina)"
+
+// Popup Messages
+mod_import_deferred: "ZIP do mod recebido.\nEle será instalado após o fim da música."
+open_data_folder_fail: "Não foi possível abrir o gerenciador de arquivos.\nSelecione \"Further Engine / Data Folder\" na barra lateral do aplicativo Arquivos do sistema."
+mod_error_title: "Nome do mod: "
+mod_error_msg: "Ocorreu um erro: "
+
+// Touch Visualizer
+setting_show_touches: "Mostrar Toques"
+description_show_touches: "Mostra um pequeno ponto branco onde você toca na tela. O ponto desaparece imediatamente."

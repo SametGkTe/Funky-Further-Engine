@@ -17,6 +17,10 @@ import mobile.backend.MobileScaleMode;
 import openfl.events.KeyboardEvent;
 import lime.system.System as LimeSystem;
 
+#if mobile
+import mobile.TouchVisualizer;
+#end
+
 #if (linux || mac)
 import lime.graphics.Image;
 #end
@@ -24,15 +28,13 @@ import lime.graphics.Image;
 import states.CopyState;
 #end
 import backend.Highscore;
-import objects.PopupThing.PopupMgr; // <<< BU SATIRR EKLENDİ
+import objects.PopupThing.PopupMgr;
 
-// NATIVE API STUFF, YOU CAN IGNORE THIS AND SCROLL //
 #if (linux && !debug)
 @:cppInclude('./external/gamemode_client.h')
 @:cppFileCode('#define GAMEMODE_AUTO')
 #end
 
-// // // // // // // // //
 class Main extends Sprite
 {
 	public static final game = {
@@ -77,7 +79,7 @@ class Main extends Sprite
 		#end
 
 		#if (cpp && windows)
-		backend.Native.fixScaling();
+		FlxG.signals.postGameStart.addOnce(() -> backend.Native.setDarkTitleBar());
 		#end
 
 		#if VIDEOS_ALLOWED
@@ -92,6 +94,8 @@ class Main extends Sprite
 		Mods.pushGlobalMods();
 		#end
 		Mods.loadTopMod();
+		
+		backend.PolymodHandler.init();
 
 		FlxG.save.bind('funkin', CoolUtil.getSavePath());
 		Highscore.load();
@@ -172,8 +176,11 @@ class Main extends Sprite
 			fpsVar.visible = ClientPrefs.data.showFPS;
 		}
 
-		// <<< POPUP MANAGER - FlxGame'den SONRA eklenmeli ki en üstte olsun >>>
 		addChild(new PopupMgr());
+		
+		#if mobile
+		addChild(new TouchVisualizer());
+		#end
 
 		#if (linux || mac) // fix the app icon not showing up on the Linux Panel / Mac Dock
 		var icon = Image.fromFile("icon.png");

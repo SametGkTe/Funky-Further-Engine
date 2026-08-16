@@ -75,7 +75,7 @@ class CrashHandler
 		saveErrorMessage('$m\n$stackLabel');
 		#end
 
-		CoolUtil.showPopUp('$m\n$stackLabel', "Error!");
+		CoolUtil.showPopUp('$m\n$stackLabel', "Hata!");
 		#if DISCORD_ALLOWED DiscordClient.shutdown(); #end
 		lime.system.System.exit(1);
 	}
@@ -94,7 +94,7 @@ class CrashHandler
 		saveErrorMessage(log.join('\n'));
 		#end
 
-		CoolUtil.showPopUp(log.join('\n'), "Critical Error!");
+		CoolUtil.showPopUp(log.join('\n'), "Kritik Hata!");
 		#if DISCORD_ALLOWED DiscordClient.shutdown(); #end
 		lime.system.System.exit(1);
 	}

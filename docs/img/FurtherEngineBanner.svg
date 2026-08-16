@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-labelledby="title desc">
+<title id="title">Further Engine</title><desc id="desc">Further Engine için modern neon banner.</desc>
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0a0920"/><stop offset=".52" stop-color="#18103b"/><stop offset="1" stop-color="#071b2b"/></linearGradient>
+<linearGradient id="neon"><stop stop-color="#ff4fc8"/><stop offset=".5" stop-color="#9a6bff"/><stop offset="1" stop-color="#35e7ff"/></linearGradient>
+<radialGradient id="pink"><stop stop-color="#ff4fc8" stop-opacity=".34"/><stop offset="1" stop-color="#ff4fc8" stop-opacity="0"/></radialGradient>
+<radialGradient id="blue"><stop stop-color="#35e7ff" stop-opacity=".28"/><stop offset="1" stop-color="#35e7ff" stop-opacity="0"/></radialGradient>
+<filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<pattern id="grid" width="42" height="42" patternUnits="userSpaceOnUse"><path d="M42 0H0V42" fill="none" stroke="#b8b3ff" stroke-opacity=".065"/></pattern>
+</defs>
+<rect width="1280" height="360" rx="28" fill="url(#bg)"/><rect width="1280" height="360" rx="28" fill="url(#grid)"/>
+<ellipse cx="170" cy="165" rx="330" ry="270" fill="url(#pink)"/><ellipse cx="1120" cy="160" rx="350" ry="290" fill="url(#blue)"/>
+<g opacity=".8" fill="none" stroke="url(#neon)" stroke-width="2"><path d="M0 292L164 197 317 286 469 191 636 291 801 196 968 289 1128 195 1280 283" stroke-opacity=".22"/><path d="M0 315L164 220 317 309 469 214 636 314 801 219 968 312 1128 218 1280 306" stroke-opacity=".12"/></g>
+<g transform="translate(94 83)" filter="url(#glow)"><path d="M0 51L47 4l47 47-47 47z" fill="none" stroke="#ff55ca" stroke-width="7" stroke-linejoin="round"/><path d="M47 24v54M20 51h54" stroke="#fff" stroke-width="7" stroke-linecap="round"/><path d="M105 93l34-34 34 34-34 34z" fill="#35e7ff"/></g>
+<g font-family="Inter,Segoe UI,Arial,sans-serif"><text x="304" y="159" fill="#fff" font-size="76" font-weight="800" letter-spacing="-3">FURTHER ENGINE</text><rect x="307" y="181" width="736" height="5" rx="2.5" fill="url(#neon)"/><text x="309" y="230" fill="#cbc8ea" font-size="23" font-weight="500" letter-spacing="3.2">MODLA  •  OYNA  •  DAHA İLERİ GİT</text></g>
+<g transform="translate(1074 77)" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M53 0L106 53 53 106 0 53z" stroke="#35e7ff" stroke-width="6"/><path d="M53 27v52M27 53h52" stroke="#fff" stroke-width="6"/><path d="M112 110l24-24 24 24-24 24z" stroke="#ff4fc8" stroke-width="5"/></g>
+<rect x="1.5" y="1.5" width="1277" height="357" rx="26.5" fill="none" stroke="url(#neon)" stroke-opacity=".55" stroke-width="3"/>
+</svg>

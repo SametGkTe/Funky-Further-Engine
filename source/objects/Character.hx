@@ -11,6 +11,8 @@ import openfl.utils.Assets;
 import haxe.Json;
 
 import backend.Song;
+import backend.Mods;
+import vslice.compatibility.VSliceCharacterConverter;
 import states.stages.objects.TankmenBG;
 
 typedef CharacterFile = {
@@ -111,29 +113,57 @@ class Character extends FlxSprite
 		var characterPath:String = 'characters/$character.json';
 
 		var path:String = Paths.getPath(characterPath, TEXT);
+		var loadedVSlice:Bool = false;
 		#if MODS_ALLOWED
 		if (!FileSystem.exists(path))
 		#else
 		if (!Assets.exists(path))
 		#end
 		{
-			path = Paths.getSharedPath('characters/' + DEFAULT_CHARACTER + '.json'); //If a character couldn't be found, change him to BF just to prevent a crash
-			missingCharacter = true;
-			missingText = new FlxText(0, 0, 300, 'ERROR:\n$character.json', 16);
-			missingText.alignment = CENTER;
+			// V-SLICE KÖPRÜSÜ: Psych karakter JSON'u yoksa V-Slice modundaki
+			// data/characters/<id>.json dosyasını okuyup Psych formatına çevir.
+			#if MODS_ALLOWED
+			var vsliceJson:Dynamic = null;
+			if (Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0)
+				vsliceJson = VSliceCharacterConverter.convertFromMod(Mods.currentModDirectory, character);
+			if (vsliceJson == null)
+				for (mod in Mods.getGlobalMods())
+					if (vsliceJson == null) vsliceJson = VSliceCharacterConverter.convertFromMod(mod, character);
+
+			if (vsliceJson != null)
+			{
+				loadCharacterFile(vsliceJson);
+				loadedVSlice = true;
+				missingCharacter = false;
+			}
+			else
+			#end
+			{
+				path = Paths.getSharedPath('characters/' + DEFAULT_CHARACTER + '.json'); //If a character couldn't be found, change him to BF just to prevent a crash
+				missingCharacter = true;
+				missingText = new FlxText(0, 0, 300, 'ERROR:\n$character.json', 16);
+				missingText.alignment = CENTER;
+			}
 		}
 
-		try
+		#if MODS_ALLOWED
+		if (!loadedVSlice && FileSystem.exists(path))
+		#else
+		if (Assets.exists(path))
+		#end
 		{
-			#if MODS_ALLOWED
-			loadCharacterFile(Json.parse(File.getContent(path)));
-			#else
-			loadCharacterFile(Json.parse(Assets.getText(path)));
-			#end
-		}
-		catch(e:Dynamic)
-		{
-			trace('Error loading character file of "$character": $e');
+			try
+			{
+				#if MODS_ALLOWED
+				loadCharacterFile(Json.parse(File.getContent(path)));
+				#else
+				loadCharacterFile(Json.parse(Assets.getText(path)));
+				#end
+			}
+			catch(e:Dynamic)
+			{
+				trace('Error loading character file of "$character": $e');
+			}
 		}
 
 		skipDance = false;

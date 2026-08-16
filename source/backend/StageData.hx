@@ -3,6 +3,7 @@ package backend;
 import openfl.utils.Assets;
 import haxe.Json;
 import backend.Song;
+import backend.Mods;
 import psychlua.ModchartSprite;
 
 typedef StageFile = {
@@ -85,6 +86,19 @@ class StageData {
 			#else
 			if(Assets.exists(path))
 				return cast tjson.TJSON.parse(Assets.getText(path));
+			#end
+
+			// V-SLICE KÖPRÜSÜ: Psych stage yoksa, V-Slice modundaki
+			// data/stages/<stage>.json dosyasını okuyup Psych StageFile'a çevir.
+			#if MODS_ALLOWED
+			var vsliceStage:Dynamic = null;
+			if (Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0)
+				vsliceStage = vslice.compatibility.VSliceStageConverter.convertFromMod(Mods.currentModDirectory, stage);
+			if (vsliceStage == null)
+				for (mod in Mods.getGlobalMods())
+					if (vsliceStage == null) vsliceStage = vslice.compatibility.VSliceStageConverter.convertFromMod(mod, stage);
+			if (vsliceStage != null)
+				return cast vsliceStage;
 			#end
 		}
 		return dummy();

@@ -1592,7 +1592,7 @@ class FunkinLua {
 			if(resultStr != null && result != 0) {
 				trace(resultStr);
 				#if (desktop || mobile)
-				CoolUtil.showPopUp(resultStr, 'Error on lua script!');
+				CoolUtil.showPopUp(resultStr, 'Lua Kodunda Hata!');
 				#else
 				luaTrace('$scriptName\n$resultStr', true, false, FlxColor.RED);
 				#end

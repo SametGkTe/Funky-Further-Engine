@@ -671,7 +671,7 @@ profile_open_settings: "Do you want to open your profile settings?"
 
 // Login State
 login_title: "Log In"
-login_subtitle: "Connect to your account"
+login_subtitle: "Connect your account"
 login_title_register: "Register"
 login_subtitle_register: "Create a new account"
 login_username_label: "USERNAME"
@@ -692,3 +692,11 @@ login_status_registering: "Registering, please wait..."
 login_status_register_success: "Registration successful!"
 login_status_logging_in: "Logging in..."
 login_status_login_success: "Login successful!"
+
+// Popup Messages
+mod_import_deferred: "Mod ZIP received.\nIt will be installed."
+open_data_folder_fail: "Could not open the file manager.\nSelect \"Further Engine / Data Folder\" from the sidebar of the system Files app."
+
+// Touch Visualizer
+setting_show_touches: "Show Touches"
+description_show_touches: "Shows a small white dot where you touch the screen. The dot fades out immediately."

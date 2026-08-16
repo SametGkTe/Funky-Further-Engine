@@ -216,15 +216,78 @@ class Paths
 	inline static public function music(key:String, ?modsAllowed:Bool = true):Sound
 		return returnSound('music/$key', modsAllowed);
 
-	inline static public function inst(song:String, ?modsAllowed:Bool = true):Sound
+	public static function inst(song:String, ?modsAllowed:Bool = true):Sound
+	{
+		#if MODS_ALLOWED
+		// V-SLICE KÖPRÜSÜ: V-Slice modları sesi songs/<Song>/Inst.ogg altında
+		// tutar (büyük/küçük harf farkı olabilir). Önce normal Psych yolunu dene,
+		// bulunamazsa V-Slice ses yolunu case-insensitive bul.
+		var found:String = findVSliceAudio('songs', formatToSongPath(song), 'Inst');
+		if (found != null) return returnSoundFromPath(found);
+		#end
 		return returnSound('${formatToSongPath(song)}/Inst', 'songs', modsAllowed);
+	}
 
-	inline static public function voices(song:String, postfix:String = null, ?modsAllowed:Bool = true):Sound
+	public static function voices(song:String, postfix:String = null, ?modsAllowed:Bool = true):Sound
 	{
 		var songKey:String = '${formatToSongPath(song)}/Voices';
 		if(postfix != null) songKey += '-' + postfix;
-		//trace('songKey test: $songKey');
+
+		#if MODS_ALLOWED
+		// V-SLICE KÖPRÜSÜ: V-Slice modları çift vokal kullanır (Voices-Bf.ogg +
+		// Voices-Zardy.ogg). Psych tek Voices.ogg bekler; önce normal yolu dene,
+		// bulunamazsa Voices-Bf.ogg'u Voices olarak kullan (case-insensitive).
+		var found:String = findVSliceAudio('songs', formatToSongPath(song), 'Voices');
+		if (found != null) return returnSoundFromPath(found);
+		#end
 		return returnSound(songKey, 'songs', modsAllowed, false);
+	}
+
+	/** V-Slice modundaki ses dosyasını case-insensitive olarak bulur (yol döner). */
+	static function findVSliceAudio(lib:String, song:String, name:String):String
+	{
+		#if (MODS_ALLOWED && sys)
+		var searchDirs:Array<String> = [];
+		if (Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0)
+			searchDirs.push(Mods.currentModDirectory);
+		for (mod in Mods.getGlobalMods())
+			if (!searchDirs.contains(mod)) searchDirs.push(mod);
+
+		for (mod in searchDirs)
+		{
+			var base:String = mods(mod) + '$lib/';
+			if (!FileSystem.exists(base)) continue;
+			// şarkı klasörünü case-insensitive bul
+			for (dir in FileSystem.readDirectory(base))
+			{
+				if (dir.toLowerCase() != song.toLowerCase()) continue;
+				var sdir:String = base + dir + '/';
+				if (!FileSystem.isDirectory(sdir)) continue;
+				// Inst.ogg / Voices-Bf.ogg / Voices.ogg ara
+				for (f in FileSystem.readDirectory(sdir))
+				{
+					var fl:String = f.toLowerCase();
+					if (fl == name.toLowerCase() + '.ogg') return sdir + f;
+					if (fl == name.toLowerCase() + '-bf.ogg') return sdir + f;
+				}
+			}
+		}
+		#end
+		return null;
+	}
+
+	/** Verilen dosya yolundan ses yükler (returnSound mantığıyla). */
+	static function returnSoundFromPath(file:String):Sound
+	{
+		#if sys
+		if (FileSystem.exists(file) && !currentTrackedSounds.exists(file))
+			currentTrackedSounds.set(file, Sound.fromFile(file));
+		if (currentTrackedSounds.exists(file)) return currentTrackedSounds.get(file);
+		#else
+		if (OpenFlAssets.exists(file, SOUND))
+			return OpenFlAssets.getSound(file);
+		#end
+		return FlxAssets.getSound('flixel/sounds/beep');
 	}
 
 	inline static public function soundRandom(key:String, min:Int, max:Int, ?modsAllowed:Bool = true)
@@ -491,6 +554,11 @@ class Paths
 			var fileToCheck:String = mods(Mods.currentModDirectory + '/' + key);
 			if(FileSystem.exists(fileToCheck))
 				return fileToCheck;
+			// V-SLICE KÖPRÜSÜ: V-Slice modları asset'lerini 'shared/' altında tutar.
+			// Psych '<key>' ararken, mods/<mod>/shared/<key> de denensin.
+			var vsliceCheck:String = mods(Mods.currentModDirectory + '/shared/' + key);
+			if(FileSystem.exists(vsliceCheck))
+				return vsliceCheck;
 			#if linux
 			else
 			{
@@ -506,6 +574,10 @@ class Paths
 			var fileToCheck:String = mods(mod + '/' + key);
 			if(FileSystem.exists(fileToCheck))
 				return fileToCheck;
+			// V-SLICE KÖPRÜSÜ: global modlarda da shared/ altını dene.
+			var vsliceCheck:String = mods(mod + '/shared/' + key);
+			if(FileSystem.exists(vsliceCheck))
+				return vsliceCheck;
 			#if linux
 			else
 			{

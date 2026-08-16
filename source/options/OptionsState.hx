@@ -53,6 +53,9 @@ class OptionsState extends MusicBeatState
 
 	function openSelectedSubstate(langKey:String)
 	{
+		#if mobile
+		FlxG.mouse.visible = false;
+		#end
 		FlxG.camera.scroll.set(0, 0);
 
 		if (langKey != 'delay_combo') {
@@ -153,6 +156,9 @@ class OptionsState extends MusicBeatState
 	{
 		if (exiting) return;
 
+		#if mobile
+		FlxG.mouse.visible = false;
+		#end
 		FlxG.camera.scroll.set(0, 0);
 		FlxG.sound.play(Paths.sound('confirmMenu'));
 
@@ -176,8 +182,9 @@ class OptionsState extends MusicBeatState
 		bg.screenCenter();
 		bg.scrollFactor.set();
 		add(bg);
-
-		FlxG.mouse.visible = true;
+		
+		// Fak yu Cursor
+		FlxG.mouse.visible = #if mobile false #else true #end;
 
 		petButton = createPetButton(20, (FlxG.height - 226) * 0.5);
 		petHoverX = petButton.x - 6;
@@ -260,6 +267,10 @@ class OptionsState extends MusicBeatState
 
 		petHovered = false;
 		if (petButton != null) petButton.animation.play('idle', true);
+
+		#if mobile
+		FlxG.mouse.visible = false;
+		#end
 	}
 
 	override function update(elapsed:Float)

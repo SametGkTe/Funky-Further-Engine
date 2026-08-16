@@ -16,7 +16,7 @@ import flxanimate.FlxAnimate;
 import objects.Character;
 import sys.FileSystem;
 import sys.io.File;
-import mikolka.vslice.charSelect.CharSelectGF;
+import vslice.menus.charSelect.CharSelectGF;
 
 class ModsMenuState extends MusicBeatState
 {
@@ -26,7 +26,6 @@ class ModsMenuState extends MusicBeatState
 	var server:FlxSprite;
 	var lights:FlxSprite;
 	
-	// Characters
 	var bfCharacter:Character;
 	var gfCharacter:CharSelectGF;
 	var bfLabel:FlxText;
@@ -38,10 +37,8 @@ class ModsMenuState extends MusicBeatState
 	var gfX:Float = 50;
 	var gfY:Float = 100;
 	
-	// Title
 	var titleText:FlxText;
 	
-	// Mod columns
 	var disabledColumnBG:FlxSprite;
 	var activeColumnBG:FlxSprite;
 	var disabledColumnTitle:FlxText;
@@ -57,16 +54,13 @@ class ModsMenuState extends MusicBeatState
 	var disabledMaxScroll:Float = 0;
 	var activeMaxScroll:Float = 0;
 	
-	// Apply button
 	var applyButton:ModernButton;
 	
-	// Dragging
 	var draggingCard:ModCard = null;
 	var dragOffset:FlxPoint = new FlxPoint();
 	var originalColumn:String = '';
 	var originalIndex:Int = 0;
 	
-	// Mod list data
 	var modsList:ModsList = null;
 	var disabledMods:Array<String> = [];
 	var activeMods:Array<String> = [];
@@ -74,7 +68,6 @@ class ModsMenuState extends MusicBeatState
 	// Current loaded mod for BF
 	var currentBFMod:String = "";
 	
-	// Layout constants
 	static inline var COLUMN_WIDTH:Int = 400;
 	static inline var COLUMN_HEIGHT:Int = 500;
 	static inline var COLUMN_SPACING:Int = 40;
@@ -90,7 +83,6 @@ class ModsMenuState extends MusicBeatState
 		
 		persistentUpdate = persistentDraw = true;
 		
-		// Load mods list
 		modsList = Mods.parseList();
 		if (modsList != null)
 		{
@@ -119,11 +111,9 @@ class ModsMenuState extends MusicBeatState
 	
 	function setupBackground()
 	{
-		// Dark fill
 		var darkFill:FlxSprite = new FlxSprite(0, 0).makeGraphic(FlxG.width, FlxG.height, FlxColor.fromRGB(30, 30, 30));
 		add(darkFill);
 		
-		// Crowd animation
 		try
 		{
 			var crowdPath = Paths.getPath('images/about/crowd/Animation.json', TEXT, 'shared');
@@ -145,7 +135,6 @@ class ModsMenuState extends MusicBeatState
 			trace('Crowd animation load failed: ' + e);
 		}
 		
-		// BG Sprite
 		if (Paths.fileExists('images/about/bg.png', IMAGE, 'shared'))
 		{
 			bgSprite = new FlxSprite(0, 0).loadGraphic(Paths.image('about/bg', 'shared'));
@@ -157,7 +146,6 @@ class ModsMenuState extends MusicBeatState
 			add(bgSprite);
 		}
 		
-		// Scrolling backgrounds
 		var scrollBGs:Array<String> = ['menuBG', 'menuBGMagenta', 'menuDesat', 'menuBGBlue'];
 		var nextBgY:Float = FlxG.height;
 		
@@ -174,7 +162,6 @@ class ModsMenuState extends MusicBeatState
 			}
 		}
 		
-		// Server
 		if (Paths.fileExists('images/about/server.png', IMAGE, 'shared'))
 		{
 			server = new FlxSprite(0, 0).loadGraphic(Paths.image('about/server', 'shared'));
@@ -186,7 +173,6 @@ class ModsMenuState extends MusicBeatState
 			add(server);
 		}
 		
-		// Lights
 		if (Paths.fileExists('images/about/lights.png', IMAGE, 'shared'))
 		{
 			lights = new FlxSprite(0, 0).loadGraphic(Paths.image('about/lights', 'shared'));
@@ -201,7 +187,6 @@ class ModsMenuState extends MusicBeatState
 	
 	function setupCharacters()
 	{
-		// GF Character (Left) - Using CharSelectGF
 		try
 		{
 			gfCharacter = new CharSelectGF();
@@ -223,7 +208,6 @@ class ModsMenuState extends MusicBeatState
 			trace('[ModsMenu] GF character load failed: ' + e);
 		}
 		
-		// BF Character (Right)
 		try
 		{
 			bfCharacter = new Character(bfX, bfY, 'bf', true);
@@ -292,20 +276,17 @@ class ModsMenuState extends MusicBeatState
 		activeColumnTitle.antialiasing = ClientPrefs.data.antialiasing;
 		add(activeColumnTitle);
 		
-		// Mod card groups
 		disabledModsGroup = new FlxTypedGroup<ModCard>();
 		add(disabledModsGroup);
 		
 		activeModsGroup = new FlxTypedGroup<ModCard>();
 		add(activeModsGroup);
 		
-		// Populate cards
 		populateModCards();
 	}
 	
 	function populateModCards()
 	{
-		// Clear existing cards
 		disabledModsGroup.clear();
 		activeModsGroup.clear();
 		
@@ -314,7 +295,6 @@ class ModsMenuState extends MusicBeatState
 		var rightColumnX = centerX + (COLUMN_SPACING / 2);
 		var startY = 170;
 		
-		// Disabled mods
 		if (disabledMods != null)
 		{
 			for (i in 0...disabledMods.length)
@@ -324,7 +304,6 @@ class ModsMenuState extends MusicBeatState
 			}
 		}
 		
-		// Active mods
 		if (activeMods != null)
 		{
 			for (i in 0...activeMods.length)
@@ -368,7 +347,6 @@ class ModsMenuState extends MusicBeatState
 			}
 		}
 		
-		// Save disabled mods
 		if (disabledMods != null)
 		{
 			for (mod in disabledMods)
@@ -410,7 +388,6 @@ class ModsMenuState extends MusicBeatState
 			loadBFCharacter(targetBFMod);
 		}
 		
-		// GF always stays default
 		if (gfCharacter != null)
 		{
 			gfCharacter.switchGF("bf");
@@ -421,7 +398,6 @@ class ModsMenuState extends MusicBeatState
 	{
 		trace('[ModsMenu] loadBFCharacter called with mod: ${modName}');
 		
-		// Clean up old BF
 		if (bfCharacter != null)
 		{
 			trace('[ModsMenu] Removing old BF character');
@@ -455,7 +431,6 @@ class ModsMenuState extends MusicBeatState
 			#end
 		}
 		
-		// Load the character
 		try
 		{
 			trace('[ModsMenu] Creating character: ${characterToLoad}');
@@ -481,7 +456,6 @@ class ModsMenuState extends MusicBeatState
 				if (shouldPlayMiss)
 				{
 					trace('[ModsMenu] Playing miss animation');
-					// Play miss animation
 					if (bfCharacter.animOffsets.exists('singLEFTmiss'))
 						bfCharacter.playAnim('singLEFTmiss', true);
 					else if (bfCharacter.animOffsets.exists('singDOWNmiss'))
@@ -556,7 +530,6 @@ class ModsMenuState extends MusicBeatState
 	{
 		super.update(elapsed);
 		
-		// BF idle loop kontrol
 		if (bfCharacter != null && bfCharacter.animation.curAnim != null)
 		{
 			var currentAnimName = bfCharacter.animation.curAnim.name;
@@ -581,7 +554,6 @@ class ModsMenuState extends MusicBeatState
 			{
 				if (gfCharacter.anim != null)
 				{
-					// Animasyon bitiyse restart et
 					if (gfCharacter.anim.finished)
 					{
 						gfCharacter.anim.play("idle");
@@ -591,7 +563,6 @@ class ModsMenuState extends MusicBeatState
 			}
 		}
 		
-		// Back button
 		if (controls.BACK)
 		{
 			FlxG.sound.play(Paths.sound('cancelMenu'));
@@ -617,7 +588,6 @@ class ModsMenuState extends MusicBeatState
 	{
 		super.beatHit();
 		
-		// BF
 		if (bfCharacter != null) 
 		{
 			if (bfCharacter.animation.curAnim != null)
@@ -630,7 +600,6 @@ class ModsMenuState extends MusicBeatState
 			}
 		}
 		
-		// GF - onBeatHit çağır
 		if (gfCharacter != null)
 		{
 			gfCharacter.onBeatHit(curBeat);
@@ -664,7 +633,6 @@ class ModsMenuState extends MusicBeatState
 		
 		if (FlxG.mouse.pressed && draggingCard != null)
 		{
-			// Update card position
 			draggingCard.x = FlxG.mouse.x - dragOffset.x;
 			draggingCard.y = FlxG.mouse.y - dragOffset.y;
 		}
@@ -700,7 +668,6 @@ class ModsMenuState extends MusicBeatState
 		var centerX = FlxG.width / 2;
 		var targetColumn = (FlxG.mouse.x < centerX) ? 'disabled' : 'active';
 		
-		// Move mod between lists
 		if (originalColumn != targetColumn)
 		{
 			if (originalColumn == 'disabled' && disabledMods != null && activeMods != null)
@@ -721,7 +688,6 @@ class ModsMenuState extends MusicBeatState
 		}
 		else
 		{
-			// Return to original position
 			FlxG.sound.play(Paths.sound('scrollMenu'), 0.3);
 		}
 		
@@ -751,7 +717,6 @@ class ModsMenuState extends MusicBeatState
 			}
 		}
 		
-		// Smooth scrolling
 		disabledScrollY += (disabledTargetScrollY - disabledScrollY) * 8 * elapsed;
 		activeScrollY += (activeTargetScrollY - activeScrollY) * 8 * elapsed;
 	}
@@ -763,7 +728,6 @@ class ModsMenuState extends MusicBeatState
 		var rightColumnX = centerX + (COLUMN_SPACING / 2);
 		var startY = 170;
 		
-		// Update disabled cards
 		if (disabledModsGroup != null)
 		{
 			disabledModsGroup.forEachAlive(function(card:ModCard) {
@@ -776,7 +740,6 @@ class ModsMenuState extends MusicBeatState
 			});
 		}
 		
-		// Update active cards
 		if (activeModsGroup != null)
 		{
 			activeModsGroup.forEachAlive(function(card:ModCard) {
@@ -814,7 +777,6 @@ class ModCard extends FlxSpriteGroup
 		bg.alpha = 0.5;
 		add(bg);
 		
-		// Icon
 		icon = new FlxSprite(10, 10);
 		icon.antialiasing = ClientPrefs.data.antialiasing;
 		
@@ -872,14 +834,12 @@ class ModCard extends FlxSpriteGroup
 			if (pack.description != null) modDesc = pack.description;
 		}
 		
-		// Name text
 		nameText = new FlxText(120, 15, width - 130, modName);
 		nameText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		nameText.borderSize = 1.5;
 		nameText.antialiasing = ClientPrefs.data.antialiasing;
 		add(nameText);
 		
-		// Description text
 		descText = new FlxText(120, 45, width - 130, modDesc);
 		descText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.GRAY, LEFT);
 		descText.antialiasing = ClientPrefs.data.antialiasing;

@@ -30,7 +30,6 @@ class BaseOptionsMenu extends MusicBeatSubstate
 
 	var camTargetY:Float = 0;
 
-	// ========== INLINE DROPDOWN ==========
 	var dropdownOpen:Bool = false;
 	var dropdownOptionIndex:Int = -1; // which option in optionsArray is open
 	var dropdownSubItems:Array<Alphabet> = [];

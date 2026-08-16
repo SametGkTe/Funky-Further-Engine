@@ -133,8 +133,88 @@ class WeekData {
 					}
 				}
 			}
+
+			// V-SLICE KÖPRÜSÜ: Psych 'weeks/' yoksa, V-Slice modunun
+			// 'data/levels/<level>.json' dosyalarını Psych week'e çevir.
+			if (!FileSystem.exists(directory)) {
+				var vdir:String = directories[i] + 'data/levels/';
+				if (FileSystem.exists(vdir)) {
+					for (file in Paths.readDirectory(vdir)) {
+						if (file.endsWith('.json')) {
+							var levelName:String = file.substr(0, file.length - 5);
+							addVSliceWeek(levelName, vdir + file, directories[i], i, originalLength);
+						}
+					}
+				}
+			}
 		}
 		#end
+	}
+
+	/** V-Slice 'data/levels/<level>.json' dosyasını okuyup Psych week olarak ekler. */
+	private static function addVSliceWeek(levelName:String, path:String, directory:String, i:Int, originalLength:Int)
+	{
+		if (weeksLoaded.exists(levelName)) return;
+		try {
+			var raw:String = File.getContent(path);
+			var lvl:Dynamic = Json.parse(raw);
+			if (lvl == null || lvl.songs == null) return;
+			var rawSongs:Array<Dynamic> = cast lvl.songs;
+			var psychSongs:Array<Dynamic> = [];
+			for (s in rawSongs) {
+				if (s == null) continue;
+				var songName:String = Std.isOfType(s, String) ? Std.string(s) : (Reflect.hasField(s, 'name') ? Std.string(s.name) : '');
+				if (songName.length < 1) continue;
+				psychSongs.push({
+					name: songName,
+					color: [146, 113, 253],
+					icon: extractPlayerIcon(directory, songName)
+				});
+			}
+			if (psychSongs.length < 1) return;
+
+			var week:WeekFile = {
+				songs: psychSongs,
+				weekCharacters: ["dad", "bf", "gf"],
+				weekBackground: "stage",
+				weekBefore: "week1",
+				storyName: (lvl.name != null) ? Std.string(lvl.name) : levelName,
+				weekName: (lvl.name != null) ? Std.string(lvl.name) : levelName,
+				startUnlocked: true,
+				hiddenUntilUnlocked: false,
+				hideStoryMode: false,
+				hideFreeplay: false,
+				difficulties: ""
+			};
+			var weekFile:WeekData = new WeekData(week, levelName);
+			if (i >= originalLength) {
+				#if MODS_ALLOWED
+				weekFile.folder = directory.substring(Paths.mods().length, directory.length - 1);
+				#end
+			}
+			if (!PlayState.isStoryMode || !weekFile.hideStoryMode) {
+				weeksLoaded.set(levelName, weekFile);
+				weeksList.push(levelName);
+			}
+		} catch (e:Dynamic) {
+			trace('[WeekData] V-Slice week okunamadı ($levelName): $e');
+		}
+	}
+
+	/** V-Slice metadata'dan player karakter ikon adını çeker (yoksa şarkı adı). */
+	private static function extractPlayerIcon(directory:String, songName:String):String
+	{
+		var sp:String = Paths.formatToSongPath(songName);
+		var metaPath:String = directory + 'data/songs/$sp/${sp}-metadata.json';
+		try {
+			if (FileSystem.exists(metaPath)) {
+				var meta:Dynamic = Json.parse(File.getContent(metaPath));
+				var chars:Dynamic = meta != null && Reflect.hasField(meta, 'playData') ? Reflect.field(meta.playData, 'characters') : null;
+				var p:Dynamic = chars != null ? Reflect.field(chars, 'player') : null;
+				if (p != null && Std.string(p) != 'null' && Std.string(p).length > 0) return Std.string(p);
+			}
+		} catch (e:Dynamic) {}
+		return songName;
 	}
 
 	private static function addWeek(weekToCheck:String, path:String, directory:String, i:Int, originalLength:Int)
