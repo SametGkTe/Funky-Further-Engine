@@ -235,6 +235,7 @@ class MainMenuState extends MusicBeatState
 		var profileBox = new objects.ProfileBox(FlxG.width - 290, 10);
 		profileBox.scrollFactor.set();
 		add(profileBox);
+		objects.SafeModeBadge.addTo(this);
 		
         camFollow = new FlxObject(FlxG.width / 2, FlxG.height / 2, 1, 1);
         add(camFollow);

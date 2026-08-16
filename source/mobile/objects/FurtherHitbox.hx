@@ -39,7 +39,7 @@ class FurtherHitbox extends mobile.Hitbox {
 		var effMode:String = mode != null ? mode : ClientPrefs.data.hitboxMode;
 		if (effMode == 'V Slice')
 		{
-			var spacing:Float = ClientPrefs.data.vSliceSpacing;
+			var spacing:Float = ClientPrefs.data.vSliceCustomX ? 0 : ClientPrefs.data.vSliceSpacing;
 			if (spacing < 0) spacing = 0;
 			if (spacing > 1) spacing = 1;
 
@@ -67,7 +67,14 @@ class FurtherHitbox extends mobile.Hitbox {
 				var xPos:Float = compactLeft + (fullLeft - compactLeft) * spacing;
 				var right:Float = compactRight + (fullRight - compactRight) * spacing;
 				var w:Int = Std.int(Math.max(40, right - xPos));
-				addHint('buttonNote${i+1}', noteIds[i], i, xPos, 0, w, Std.int(FlxG.height), laneColors[i % 4]);
+				var zoneY:Float = 0;
+				var zoneH:Int = Std.int(FlxG.height);
+				if (ClientPrefs.data.vSliceCustomZones && i < 4 && ClientPrefs.data.vSliceButtonY.length >= 4 && ClientPrefs.data.vSliceButtonHeight.length >= 4)
+				{
+					zoneY = ClientPrefs.data.vSliceButtonY[i] * FlxG.height;
+					zoneH = Std.int(Math.max(40, Math.min(FlxG.height - zoneY, ClientPrefs.data.vSliceButtonHeight[i] * FlxG.height)));
+				}
+				addHint('buttonNote${i+1}', noteIds[i], i, xPos, zoneY, w, zoneH, laneColors[i % 4]);
 			}
 
 			// EKSTRA: ekranın ortasına dokununca ekstra buton sayılır (dodge/ring mekaniği için)

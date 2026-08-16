@@ -162,6 +162,7 @@ class MainMenuState extends MusicBeatState
 		var profileBox = new objects.ProfileBox(FlxG.width - 290, 10);
 		profileBox.scrollFactor.set();
 		add(profileBox);
+		objects.SafeModeBadge.addTo(this);
 		
 		// Rehber butonu - sağda sabit placeholder
 		var rehberButton = new flixel.ui.FlxButton(0, 0, "REHBER", function() {

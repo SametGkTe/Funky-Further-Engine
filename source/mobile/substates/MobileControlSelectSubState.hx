@@ -32,7 +32,7 @@ import flixel.ui.FlxButton as UIButton;
 
 class MobileControlSelectSubState extends MusicBeatSubstate
 {
-	var options:Array<String> = ['Pad-Right', 'Pad-Left', 'Pad-Custom', 'Hitbox'];
+	var options:Array<String> = ['Pad-Right', 'Pad-Left', 'Pad-Custom', 'Hitbox', 'V-Slice'];
 	var control:MobileControls;
 	var leftArrow:FlxSprite;
 	var rightArrow:FlxSprite;
@@ -41,7 +41,7 @@ class MobileControlSelectSubState extends MusicBeatSubstate
 	var positionTextBg:FlxSprite;
 	var bg:FlxBackdrop;
 	var ui:FlxCamera;
-	var curOption:Int = MobileData.mode;
+	var curOption:Int = ClientPrefs.data.ogGameControls ? 4 : MobileData.mode;
 	var buttonBinded:Bool = false;
 	var bindButton:TouchButton;
 	var reset:UIButton;
@@ -131,6 +131,8 @@ class MobileControlSelectSubState extends MusicBeatSubstate
 				return;
 			}
 			MobileData.mode = curOption;
+			ClientPrefs.data.ogGameControls = false;
+			ClientPrefs.saveSettings();
 			if (options[curOption] == 'Pad-Custom')
 				MobileData.setTouchPadCustom(control.touchPad);
 			controls.isInSubstate = FlxG.mouse.visible = false;
@@ -277,6 +279,15 @@ class MobileControlSelectSubState extends MusicBeatSubstate
 			case 2:
 				reset.visible = true;
 				changeControls();
+			case 4:
+				reset.visible = false;
+				if (control != null) { remove(control); control.destroy(); control = null; }
+				new FlxTimer().start(0.05, function(_)
+				{
+					close();
+					FlxG.state.openSubState(new VSliceControlEditorSubState());
+				});
+				return;
 			case 5:
 				reset.visible = true;
 				changeControls(0, true);

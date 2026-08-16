@@ -4381,6 +4381,8 @@ class PlayState extends MusicBeatState
 
 	public function getVSliceSpacing():Float
 	{
+		// Özel X preset'i kullanıldığında otomatik kontrol aralığı uygulanmaz.
+		if (ClientPrefs.data.vSliceCustomX) return 0;
 		var spacing:Float = ClientPrefs.data.vSliceSpacing;
 		if (spacing < 0) spacing = 0;
 		if (spacing > 1) spacing = 1;
@@ -4398,12 +4400,20 @@ class PlayState extends MusicBeatState
 			for (i in 0...4) {
 				var strum = playerStrums.members[i];
 				if (strum == null) continue;
-				strum.screenCenter(X);
-				var maxOff:Float = (FlxG.width * 0.5) - (strum.width * 0.5) - 8;
-				if (maxOff < 1) maxOff = 1;
-				var baseScale:Float = Math.min(1, maxOff / 360);
-				var scale:Float = baseScale + (maxOff / 360 - baseScale) * spacing;
-				strum.x += orig[i] * scale;
+				if (ClientPrefs.data.vSliceCustomX && ClientPrefs.data.vSliceButtonX != null && ClientPrefs.data.vSliceButtonX.length >= 4)
+				{
+					var center = ClientPrefs.data.vSliceButtonX[i] * FlxG.width;
+					strum.x = center - strum.width * 0.5;
+				}
+				else
+				{
+					strum.screenCenter(X);
+					var maxOff:Float = (FlxG.width * 0.5) - (strum.width * 0.5) - 8;
+					if (maxOff < 1) maxOff = 1;
+					var baseScale:Float = Math.min(1, maxOff / 360);
+					var scale:Float = baseScale + (maxOff / 360 - baseScale) * spacing;
+					strum.x += orig[i] * scale;
+				}
 			}
 			for (i in 0...4) {
 				var strum = opponentStrums.members[i];

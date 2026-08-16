@@ -51,6 +51,12 @@ import states.TitleState;
 	public var showTouches:Bool = false;
 	public var ogGameControls:Bool = false;
 	public var vSliceSpacing:Float = 0.1;
+	// Normalize edilmiş V-Slice dokunma alanları (0..1).
+	public var vSliceCustomX:Bool = false;
+	public var vSliceCustomZones:Bool = false;
+	public var vSliceButtonX:Array<Float> = [0.21875, 0.390625, 0.609375, 0.78125];
+	public var vSliceButtonY:Array<Float> = [0.0, 0.0, 0.0, 0.0];
+	public var vSliceButtonHeight:Array<Float> = [1.0, 1.0, 1.0, 1.0];
 	public var mobileExtraKeyReturns:Array<String> = ['SHIFT', 'SPACE', 'Q', 'E'];
 	#if android
 	// App-specific storage: no "All files access" needed on Android 13+.
