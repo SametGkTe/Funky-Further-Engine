@@ -1,14 +1,12 @@
 <div align="center">
 
-<img src="docs/img/FurtherEngineBanner.svg" alt="Further Engine" width="100%">
-
-<br>
-
 <img src="docs/img/fe.png" alt="Further Engine logosu" width="240">
 
 <br>
 
-**Further Engine, FNF Kullanıcıların Oyun deneyimini en iyi hale getirmeyi amaçlar diğEr adı ile "Psych Engine Türkiye" olarak bilinir**
+<img src="docs/img/FurtherEngineWordmark.png" alt="Further Engine" width="620">
+
+**Further Engine, FNF Kullanıcıların Oyun deneyimini en iyi hale getirmeyi amaçlar diğer adı ile "Psych Engine Türkiye" olarak bilinir**
 
 [![Sürüm](https://img.shields.io/badge/sürüm-1.6.2-9a6bff?style=for-the-badge)](https://github.com/SametGkTe/Funky-Further-Engine/tags)
 [![Durum](https://img.shields.io/badge/durum-Release%202%20Beta-ff4fc8?style=for-the-badge)](#proje-durumu)
@@ -27,12 +25,18 @@
 
 ### Arayüzler
 
+![Yeni Serbest Oyun](docs/img/wfreeplay.png)
+
+![Yeni Ana Menü](docs/img/wmainmenu.png)
+
 Klasik Psych Engine görünümü ile yeni V-Slice  menü stili arasında geçiş yap. Ana menü, Story Mode, Freeplay gibi menülerde etkili olur. Fakat cihazınızda donma / kasma problemleri oluşabilir
 
 </td>
 <td width="50%" valign="top">
 
 ### Modpackler
+**YAKINDA**
+![Yeni Ana Menü](docs/img/modpacks.png)
 
 Further için onaylanmış Modpackleri oyun içinden indir, içe aktar, güncelle veya kaldır. GitHub ve MediaFire kaynakları (Beta)
 
@@ -70,14 +74,9 @@ Android için **Psych Hitbox** ve **V-Slice Kontrolü**, mobil kontrol opaklığ
 - **[Psych Engine](https://github.com/ShadowMario/FNF-PsychEngine)** katkıcıları
 - **[Psych Engine Mobile](https://github.com/Luansilv16/Psych-Engine-1.0.4-Android)** port ekibi ve katkıcıları
 - **[The Funkin' Crew](https://github.com/FunkinCrew)** — Friday Night Funkin'
-- **[Psych Plus Team](https://github.com/Psych-Plus-Team/FNF-PlusEngine)** — uyarlanan FPS Plus referans varlıkları
-
-Kullanılan kütüphaneler ve uyarlanan bileşenler hakkında ayrıntılı bilgi için [üçüncü taraf bildirimlerine](docs/THIRD_PARTY_NOTICES.md) bak.
 
 <div align="center">
 
 **Kullandığın FNF'i daha fazla ileri (Further) it.**
-
-[Başa dön](#further-engine)
 
 </div>
