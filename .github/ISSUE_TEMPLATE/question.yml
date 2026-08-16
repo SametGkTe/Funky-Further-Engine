@@ -1,9 +1,20 @@
-name: Question
-description: Ask about something here.
+name: Genel soru
+description: Further Engine projesi hakkında genel bir soru sorun.
+title: "[SORU] "
 labels: [question]
 body:
   - type: textarea
+    id: question
     attributes:
-      label: What is your question?
+      label: Sorunuz
+      description: Sorunuzu mümkün olduğunca açık ve ayrıntılı yazın.
     validations:
       required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Ek bağlam
+      description: İlgili bağlantı, ekran görüntüsü veya sürüm bilgisi varsa ekleyin.
+    validations:
+      required: false

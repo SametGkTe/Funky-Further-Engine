@@ -371,7 +371,7 @@ class Paths
 	public static function fileExists(key:String, type:AssetType, ?ignoreMods:Bool = false, ?parentFolder:String = null)
 	{
 		#if MODS_ALLOWED
-		if(!ignoreMods)
+		if(!ignoreMods && !SafeMode.active)
 		{
 			var modKey:String = key;
 			if(parentFolder == 'songs') modKey = 'songs/$key';
@@ -549,6 +549,9 @@ class Paths
 
 	static public function modFolders(key:String)
 	{
+		if (SafeMode.active)
+			return (#if android StorageUtil.getExternalStorageDirectory() + #else Sys.getCwd() + #end 'mods/__SAFE_MODE_DISABLED__/' + key);
+
 		if(Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0)
 		{
 			var fileToCheck:String = mods(Mods.currentModDirectory + '/' + key);

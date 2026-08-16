@@ -151,15 +151,15 @@ class CoolUtil
 		#if android
 			StorageUtil.openDataFolder();
 		#elseif sys
-			if(!absolute) folder =  Sys.getCwd() + '$folder';
+			if (!absolute) folder = haxe.io.Path.join([Sys.getCwd(), folder]);
+			folder = haxe.io.Path.normalize(folder);
 
-			folder = folder.replace('/', '\\');
-			if(folder.endsWith('/')) folder.substr(0, folder.length - 1);
-
-			#if linux
-			var command:String = '/usr/bin/xdg-open';
-			#else
+			#if windows
 			var command:String = 'explorer.exe';
+			#elseif mac
+			var command:String = '/usr/bin/open';
+			#else
+			var command:String = '/usr/bin/xdg-open';
 			#end
 			Sys.command(command, [folder]);
 			trace('$command $folder');

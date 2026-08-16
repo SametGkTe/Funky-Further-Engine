@@ -20,6 +20,11 @@ on:
       artifactPath:
         required: true
         type: string
+    secrets:
+      ANDROID_KEYSTORE_BASE64:
+        required: false
+      ANDROID_KEYSTORE_PASSWORD:
+        required: false
 
 env:
   HAXE_VERSION: 4.3.6
@@ -113,6 +118,25 @@ jobs:
           restore-keys: |
             compile-${{ inputs.os }}-${{ inputs.buildArgs }}-
 
+      - name: Prepare Android signing key
+        if: inputs.name == 'Android'
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 and ANDROID_KEYSTORE_PASSWORD secrets are required for Android release builds."
+            exit 1
+          fi
+          python3 - <<'PY'
+          import base64, os
+          with open('key.keystore', 'wb') as output:
+              output.write(base64.b64decode(os.environ['ANDROID_KEYSTORE_BASE64']))
+          PY
+          chmod 600 key.keystore
+          echo "Android signing key prepared securely."
+
       - name: Clean Android
         if: inputs.name == 'Android'
         run: haxelib run lime clean android || true
@@ -122,7 +146,20 @@ jobs:
         run: haxelib run lime clean ios || true
 
       - name: Compile
-        run: haxelib run lime build ${{ inputs.buildArgs }}
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ "${{ inputs.name }}" = "Android" ]; then
+            haxelib run lime build ${{ inputs.buildArgs }} --certificate-password="$ANDROID_KEYSTORE_PASSWORD"
+          else
+            haxelib run lime build ${{ inputs.buildArgs }}
+          fi
+
+      - name: Remove Android signing key
+        if: always() && inputs.name == 'Android'
+        shell: bash
+        run: rm -f key.keystore
 
       - name: Make IPA
         if: inputs.name == 'iOS'

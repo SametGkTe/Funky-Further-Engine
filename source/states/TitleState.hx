@@ -106,6 +106,23 @@ class TitleState extends MusicBeatState
 			Language.reloadPhrases();
 		}
 
+		// AlertMgr, Main tarafından FlxGame'den sonra eklenir. Kısa gecikme hem
+		// güvenli mod bildirimini hem pack.json uyumluluk uyarılarını garanti eder.
+		new FlxTimer().start(0.55, function(_)
+		{
+			if (backend.SafeMode.consumeNotice())
+			{
+				objects.AlertMgr.AlertMsg.show(
+					'Dikkat',
+					'Oyunu Güvenli Mod (Shift) ile açtınız, oyun Modları yüklemeyecek, Çoğu özellik çalışmayacaktır,',
+					10,
+					objects.AlertMgr.AlertMessage.COLOR_WARNING
+				);
+			}
+			else
+				backend.ModCompatibility.checkEnabledMods();
+		});
+
 		curWacky = FlxG.random.getObject(getIntroTextShit());
 
 		if(!initialized)

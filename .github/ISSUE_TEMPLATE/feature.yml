@@ -1,0 +1,54 @@
+name: Özellik önerisi
+description: Further Engine için yeni bir özellik veya iyileştirme önerin.
+title: "[ÖNERİ] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Öneriniz hangi sorunu çözüyor?
+      description: Özellikten önce yaşanan problemi veya eksikliği açıklayın.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Önerdiğiniz çözüm
+      description: Özelliğin nasıl çalışmasını istediğinizi anlatın.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: İlgili alan
+      options:
+        - Oynanış
+        - Modlama API'si
+        - Masaüstü
+        - Android / iOS
+        - Arayüz
+        - Mod paketi sistemi
+        - Editörler
+        - Performans
+        - Dokümantasyon
+        - Diğer
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatifler ve ek bağlam
+      description: Düşündüğünüz alternatifleri, örnekleri veya taslakları ekleyin.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Kontrol
+      options:
+        - label: Benzer bir önerinin daha önce açılmadığını kontrol ettim.
+          required: true

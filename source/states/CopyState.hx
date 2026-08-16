@@ -23,7 +23,7 @@
 package states;
 
 #if COPYSTATE_ALLOWED
-import states.TitleState;
+import states.StartupState;
 import lime.utils.Assets as LimeAssets;
 import openfl.utils.Assets as OpenFLAssets;
 import openfl.utils.ByteArray;
@@ -62,7 +62,7 @@ class CopyState extends MusicBeatState
 		checkExistingFiles();
 		if (maxLoopTimes <= 0)
 		{
-			MusicBeatState.switchState(new TitleState());
+			MusicBeatState.switchState(new StartupState());
 			return;
 		}
 
@@ -120,7 +120,7 @@ class CopyState extends MusicBeatState
 				
 				FlxG.sound.play(Paths.sound('confirmMenu')).onComplete = () ->
 				{
-					MusicBeatState.switchState(new TitleState());
+					MusicBeatState.switchState(new StartupState());
 				};
 		
 				canUpdate = false;

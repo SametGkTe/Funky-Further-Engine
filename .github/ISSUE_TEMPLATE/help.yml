@@ -1,62 +1,74 @@
-name: Help me!
-description: If you need help using the port.
+name: Yardım isteği
+description: Further Engine kullanımı, modlama veya derleme hakkında yardım isteyin.
+title: "[YARDIM] "
 labels: [help wanted]
 body:
-  - type: textarea
-    id: description
-    attributes:
-      label: "Describe your problem here."
-    validations:
-      required: true
-
-  - type: dropdown
-    id: modding
-    attributes:
-      label: "Are you modding a build from source or with Lua?"
-      options:
-        - Lua
-        - Source
-        - Lua and Source
-        - I am not modding
-    validations:
-      required: true
-
-  - type: dropdown
-    id: btarget
-    attributes:
-      label: "What is your build target?"
-      options:
-        - "Desktop (Linux, Windows or Mac)"
-        - "Android"
-        - "iOS"
-        - "HashLink"
-        - "Flash/AIR"
-        - "Other/Unknown/I don't know"
-    validations:
-      required: true
-
-  - type: dropdown
-    id: psychver
-    attributes:
-      label: "Which psych engine version you're on?"
-      options:
-        - "DevBuild"
-        - "1.0.4"
-        - "1.0.3"
-        - "1.0.2h"
-        - "1.0.2"
-        - "1.0.1"
-        - "1.0"
-        - "1.0 (Prerelease)"
-        - "0.7.x"
-        - "0.6.x or older"
-    validations:
-      required: true
-
   - type: input
-    id: buildsummary
+    id: version
     attributes:
-      label: "Did you edit anything in this build? If so, mention or summarize your changes."
-      placeholder: "Yes, I edited ClientPrefs.hx and tried to add a new setting"
+      label: Further Engine sürümü
+      placeholder: "Örn. 1.5.3"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: topic
+    attributes:
+      label: Konu
+      options:
+        - Oyunu çalıştırma
+        - Kaynak koddan derleme
+        - Lua modlama
+        - HScript modlama
+        - Android / mobil kontroller
+        - Mod paketi yükleme
+        - Galeri sistemi
+        - Diğer
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Windows
+        - Linux
+        - macOS
+        - Android
+        - iOS
+        - Diğer
+    validations:
+      required: true
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: Ne yapmaya çalışıyorsunuz?
+      description: Hedefinizi ve izlediğiniz rehberi açıklayın.
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Nerede takıldınız?
+      description: Denediğiniz yöntemleri ve aldığınız hata mesajını paylaşın.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: İlgili log veya kod
+      render: shell
     validations:
       required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Kontrol
+      options:
+        - label: Wiki, README ve mevcut issue'larda çözüm aradım.
+          required: true

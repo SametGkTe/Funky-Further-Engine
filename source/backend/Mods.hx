@@ -39,6 +39,7 @@ class Mods
 	inline public static function pushGlobalMods() // prob a better way to do this but idc
 	{
 		globalMods = [];
+		if (SafeMode.active) return globalMods;
 		for(mod in parseList().enabled)
 		{
 			var pack:Dynamic = getPack(mod);
@@ -50,6 +51,7 @@ class Mods
 	inline public static function getModDirectories():Array<String>
 	{
 		var list:Array<String> = [];
+		if (SafeMode.active) return list;
 		#if MODS_ALLOWED
 		var modsFolder:String = Paths.mods();
 		if(FileSystem.exists(modsFolder)) {
@@ -107,7 +109,7 @@ class Mods
 		}
 
 		#if MODS_ALLOWED
-		if(mods)
+		if(mods && !SafeMode.active)
 		{
 			// Global mods first
 			for(mod in Mods.getGlobalMods())
@@ -133,6 +135,7 @@ class Mods
 
 	public static function getPack(?folder:String = null):Dynamic
 	{
+		if (SafeMode.active) return null;
 		#if MODS_ALLOWED
 		if(folder == null) folder = Mods.currentModDirectory;
 
@@ -159,8 +162,9 @@ class Mods
 
 	public static var updatedOnState:Bool = false;
 	inline public static function parseList():ModsList {
-		if(!updatedOnState) updateModList();
 		var list:ModsList = {enabled: [], disabled: [], all: []};
+		if (SafeMode.active) return list;
+		if(!updatedOnState) updateModList();
 
 		#if MODS_ALLOWED
 		try {
@@ -233,6 +237,7 @@ class Mods
 	public static function loadTopMod()
 	{
 		Mods.currentModDirectory = '';
+		if (SafeMode.active) return;
 		
 		#if MODS_ALLOWED
 		var list:Array<String> = Mods.parseList().enabled;

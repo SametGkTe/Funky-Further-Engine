@@ -1,70 +1,114 @@
-name: Bug report
-description: Report bugs with the port here
+name: Hata bildirimi
+description: Further Engine'de karşılaştığınız yeniden üretilebilir bir hatayı bildirin.
+title: "[HATA] "
 labels: [bug]
 body:
-  - type: textarea
-    id: description
+  - type: markdown
     attributes:
-      label: "Describe your bug here."
-    validations:
-      required: true
+      value: |
+        Bildirimden önce aynı sorunun daha önce açılmadığını kontrol edin. Mod kullanıyorsanız hatayı mümkünse modsuz veya Güvenli Modda da deneyin.
 
-  - type: textarea
-    id: terminal
+  - type: input
+    id: version
     attributes:
-      label: "Crash Log or logcat logs (if existing)"
-      render: bash
-    validations:
-      required: false
-
-  - type: dropdown
-    id: modding
-    attributes:
-      label: "Are you modding a build from source or with Lua?"
-      options:
-        - Lua
-        - Source
-        - Lua and Source
-        - I am not modding
+      label: Further Engine sürümü
+      description: Ana menüde/FPS sayacında görünen sürüm veya commit etiketi.
+      placeholder: "Örn. 1.5.3 veya devbuild-abcdef0"
     validations:
       required: true
 
   - type: dropdown
-    id: btarget
+    id: platform
     attributes:
-      label: "What is your build target?"
+      label: Platform
       options:
-        - "Desktop (Linux, Windows or Mac)"
-        - "Android"
-        - "iOS"
-        - "HashLink"
-        - "Flash/AIR"
-        - "Other/Unknown/I don't know"
-    validations:
-      required: true
-
-  - type: dropdown
-    id: psychver
-    attributes:
-      label: "Which psych engine version you're on?"
-      options:
-        - "DevBuild"
-        - "1.0.4"
-        - "1.0.3"
-        - "1.0.2h"
-        - "1.0.2"
-        - "1.0.1"
-        - "1.0"
-        - "1.0 (Prerelease)"
-        - "0.7.x"
-        - "0.6.x or older"
+        - Windows
+        - Linux
+        - macOS Intel
+        - macOS Apple Silicon
+        - Android
+        - iOS
+        - Diğer
     validations:
       required: true
 
   - type: input
-    id: buildsummary
+    id: platform-version
     attributes:
-      label: "Did you edit anything in this build? If so, mention or summarize your changes."
-      placeholder: "Yes, I edited ClientPrefs.hx and tried to add a new setting"
+      label: İşletim sistemi / cihaz
+      placeholder: "Örn. Windows 11 24H2 veya Android 14 — Samsung A54"
     validations:
       required: true
+
+  - type: dropdown
+    id: menu-style
+    attributes:
+      label: Menü stili
+      options:
+        - Klasik
+        - Yeni / V-Slice
+        - Her ikisinde de oluyor
+        - İlgili değil / Bilmiyorum
+    validations:
+      required: true
+
+  - type: dropdown
+    id: modding
+    attributes:
+      label: Modlama durumu
+      options:
+        - Mod kullanmıyorum
+        - Lua modu
+        - HScript modu
+        - Kaynak kod değişikliği
+        - Birden fazlası
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Hatanın açıklaması
+      description: Ne olmasını bekliyordunuz, gerçekte ne oldu?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Yeniden üretme adımları
+      placeholder: |
+        1. Oyunu aç
+        2. Mods menüsüne gir
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Crash log / logcat
+      description: Kişisel bilgi veya erişim anahtarı bulunmadığını kontrol ederek logs klasöründeki ilgili içeriği ekleyin.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: mods
+    attributes:
+      label: Aktif modlar ve yaptığınız değişiklikler
+      placeholder: "Mod adları, değiştirdiğiniz kaynak dosyaları veya 'Yok'."
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Son kontroller
+      options:
+        - label: Aynı hatayı bildiren açık bir issue aradım.
+          required: true
+        - label: Mümkünse hatayı Güvenli Modda veya modlar kapalıyken denedim.
+          required: false
+        - label: Paylaştığım loglarda şifre, token veya kişisel bilgi bulunmadığını kontrol ettim.
+          required: true

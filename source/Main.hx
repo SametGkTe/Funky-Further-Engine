@@ -9,6 +9,8 @@ import openfl.events.Event;
 import openfl.display.StageScaleMode;
 import lime.app.Application;
 import states.TitleState;
+import states.StartupState;
+import objects.AlertMgr.AlertMgr;
 #if HSCRIPT_ALLOWED
 import crowplexus.iris.Iris;
 import psychlua.HScript.HScriptInfos;
@@ -40,7 +42,7 @@ class Main extends Sprite
 	public static final game = {
 		width: 1280, // WINDOW width
 		height: 720, // WINDOW height
-		initialState: TitleState, // initial game state
+		initialState: StartupState, // güvenli mod kontrolünden sonra TitleState'e geçer
 		framerate: 60, // default framerate
 		skipSplash: true, // if the default flixel splash screen should be skipped
 		startFullscreen: false // if the game should start at fullscreen mode
@@ -90,12 +92,8 @@ class Main extends Sprite
 		sys.ssl.Socket.DEFAULT_VERIFY_CERT = false;
 		#end
 
-		#if LUA_ALLOWED
-		Mods.pushGlobalMods();
-		#end
-		Mods.loadTopMod();
-		
-		backend.PolymodHandler.init();
+		// Mod ve Polymod kurulumu StartupState'e bırakılır. Böylece oyun açılırken
+		// SHIFT basılıysa hiçbir mod dosyası çalıştırılmadan güvenli moda geçilebilir.
 
 		FlxG.save.bind('funkin', CoolUtil.getSavePath());
 		Highscore.load();
@@ -167,7 +165,6 @@ class Main extends Sprite
 		});
 		#end
 		addChild(new FlxGame(game.width, game.height, #if COPYSTATE_ALLOWED !CopyState.checkExistingFiles() ? CopyState : #end game.initialState, game.framerate, game.framerate, game.skipSplash, game.startFullscreen));
-		backend.modpack.ModImportQueue.hook();
 		fpsVar = new FPSCounter(10, 3, 0xFFFFFF);
 		addChild(fpsVar);
 		Lib.current.stage.align = "tl";
@@ -177,6 +174,7 @@ class Main extends Sprite
 		}
 
 		addChild(new PopupMgr());
+		addChild(new AlertMgr());
 		
 		#if mobile
 		addChild(new TouchVisualizer());
