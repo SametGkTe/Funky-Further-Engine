@@ -6,8 +6,6 @@ Further Engine'in Android release anahtarı artık depoda tutulmaz. Workflow, de
 
 Depoda **Settings → Secrets and variables → Actions → New repository secret** yolunu açıp şunları ekleyin:
 
-| Secret | İçerik |
-| :-- | :-- |
 | `ANDROID_KEYSTORE_BASE64` | `key.keystore` dosyasının Base64 çıktısı |
 | `ANDROID_KEYSTORE_PASSWORD` | Keystore parolası |
 
@@ -34,7 +32,7 @@ base64 < key.keystore | tr -d '\n' > key.keystore.base64.txt
   Set-Content -NoNewline key.keystore.base64.txt
 ```
 
-Oluşan metnin tamamını `ANDROID_KEYSTORE_BASE64` secret'ına yapıştırın.
+Oluşan metnin tamamını `ANDROID_KEYSTORE_BASE64` yerine yapıştırın.
 
 > [!CAUTION]
 > Bu depoda daha önce bir keystore ve parolası commit edildiği için anahtarın açığa çıkmış olduğu kabul edilmelidir. Üretim dağıtımında mümkünse yeni bir keystore oluşturun. Eski dosyayı yalnızca son commit'ten silmek Git geçmişinden kaldırmaz.
@@ -47,7 +45,7 @@ Anahtar dosyasını yalnızca yerel çalışma dizininize koyun; `.gitignore` ar
 lime build android -final --certificate-password="PAROLANIZ"
 ```
 
-Parolayı kabuk geçmişine yazmamak için Lime'ın parola istemini kullanmak daha güvenlidir:
+Parolayı geçmişe yazmamak için Lime'ın parola istemini kullanmak daha güvenlidir:
 
 ```bash
 lime build android -final

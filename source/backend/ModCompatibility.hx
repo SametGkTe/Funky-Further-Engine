@@ -4,7 +4,6 @@ import backend.update.UpdateConfig;
 import objects.AlertMgr.AlertMsg;
 import objects.AlertMgr.AlertMessage;
 
-/** Further Engine'e özel, geriye uyumlu pack.json kontrolleri. */
 class ModCompatibility
 {
 	static var checked:Bool = false;
@@ -30,11 +29,6 @@ class ModCompatibility
 		#end
 	}
 
-	/**
-	 * Önerilen alan: "minimumFurtherVersion": "1.5.3"
-	 * İleriye dönük nested biçim ve ilk prototiplerde kullanılan iki alias da
-	 * okunur. Hiçbiri yoksa klasik Psych pack.json aynen çalışmaya devam eder.
-	 */
 	static function readMinimumVersion(pack:Dynamic):Null<String>
 	{
 		if (Reflect.hasField(pack, 'minimumFurtherVersion'))
@@ -55,9 +49,9 @@ class ModCompatibility
 		if (Reflect.hasField(pack, 'name') && Reflect.field(pack, 'name') != null)
 			displayName = Std.string(Reflect.field(pack, 'name'));
 
-		var shortMessage = 'Mod Klasöründeki "$folder" bu sürümü desteklemiyor, lütfen sürümünüzü yükseltin';
+		var shortMessage = 'Mod Klasöründeki "$folder" bu engine sürümünü desteklemiyor, lütfen sürümünüzü yükseltin';
 		var details = [
-			'FURTHER ENGINE MOD UYUMLULUK HATASI',
+			'MOD UYUMLULUK HATASI',
 			'',
 			'Mod: $displayName',
 			'Mod klasörü: $folder',
@@ -65,9 +59,9 @@ class ModCompatibility
 			'Kullanılan Further Engine sürümü: $current',
 			'',
 			'Bu mod daha yeni bir Further Engine sürümü için hazırlanmış.',
-			'Modun hatalı çalışmasını veya oyunun çökmesini önlemek için motoru güncelleyin.',
+			'Modun hatalı çalışmasını veya oyunun çökmesini önlemek için lütfen Engine son sürüme güncelleyin.',
 			'',
-			'Geri dönmek için ESC/B; devam etmek için ENTER/A tuşunu kullanabilirsiniz.'
+			'Geri dönmek için ESC/B; devam etmek için ENTER/A basın.'
 		].join('\n');
 
 		AlertMsg.show('UYARI', shortMessage, 12, AlertMessage.COLOR_WARNING, function()

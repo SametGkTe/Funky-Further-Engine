@@ -59,8 +59,7 @@ import states.TitleState;
 	public var vSliceButtonHeight:Array<Float> = [1.0, 1.0, 1.0, 1.0];
 	public var mobileExtraKeyReturns:Array<String> = ['SHIFT', 'SPACE', 'Q', 'E'];
 	#if android
-	// App-specific storage: no "All files access" needed on Android 13+.
-	public var storageType:String = "EXTERNAL_DATA";
+	public var storageType:String = "EXTERNAL_PE";
 	public var openDataFolder:Bool = false;
 	#end
 	public var popUpRating:Bool = true;

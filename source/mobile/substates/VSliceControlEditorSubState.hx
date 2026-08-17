@@ -2,18 +2,22 @@ package mobile.substates;
 
 import flixel.FlxSprite;
 import flixel.FlxCamera;
+import flixel.group.FlxSpriteGroup;
 import flixel.text.FlxText;
-import flixel.ui.FlxButton;
 import flixel.util.FlxColor;
+import flixel.util.FlxSpriteUtil;
 import mobile.backend.TouchUtil;
 import mobile.backend.VSliceControlPreset;
+import objects.Note;
 
-/** Dört V-Slice dokunma alanı için normalize edilmiş düzen editörü. */
+/** Dört V-Slice dokunma alanı için mobil öncelikli, normalize düzen editörü. */
 class VSliceControlEditorSubState extends MusicBeatSubstate
 {
-	static inline var TOOLBAR_H:Float = 96;
+	static inline var HEADER_H:Float = 92;
+	static inline var BOTTOM_PANEL_H:Float = 132;
 	static inline var LANE_W:Float = 150;
 	var lanes:Array<FlxSprite> = [];
+	var arrows:Array<FlxSprite> = [];
 	var labels:Array<FlxText> = [];
 	var handles:Array<FlxSprite> = [];
 	var selected:Int = 0;
@@ -25,84 +29,113 @@ class VSliceControlEditorSubState extends MusicBeatSubstate
 	var status:FlxText;
 	var xChanged:Bool = false;
 	var zonesChanged:Bool = false;
+	var actionButtons:Array<EditorActionButton> = [];
+
+	inline function editBottom():Float return FlxG.height - BOTTOM_PANEL_H;
 
 	public function new()
 	{
 		super();
 		ui = new FlxCamera();
-		ui.bgColor = 0xFF101018;
+		ui.bgColor = 0xFF0C0D16;
 		FlxG.cameras.add(ui, false);
 
-		var colors = [0xFFC24B99, 0xFF00FFFF, 0xFF12FA05, 0xFFF9393F];
+		var header = new FlxSprite().makeGraphic(FlxG.width, Std.int(HEADER_H), 0xFF171925);
+		header.cameras = [ui]; add(header);
+		var title = new FlxText(24, 13, 650, 'V-SLICE KONTROL DÜZENİ', 25);
+		title.setFormat(Paths.font('vcr.ttf'), 25, FlxColor.WHITE, LEFT);
+		title.cameras = [ui]; add(title);
+
+		status = new FlxText(24, 51, FlxG.width - 210,
+			'Alanı sürükle • Parlak alt kenarı sürükleyerek yüksekliği değiştir', 15);
+		status.setFormat(Paths.font('vcr.ttf'), 15, 0xFFADB2C8, LEFT);
+		status.cameras = [ui]; add(status);
+
+		// Görsel preset işlemleri sağ üstte, büyük dokunma alanlarıyla.
+		makeIconButton(FlxG.width - 166, 11, 'noteColorMenu/copy', 'Kopyala', function()
+		{
+			saveValues(); VSliceControlPreset.copyToClipboard(); setStatus('Preset panoya kopyalandı.');
+		});
+		makeIconButton(FlxG.width - 84, 11, 'noteColorMenu/paste', 'Yapıştır', pastePreset);
+
+		var colors = [0xFFC24B99, 0xFF00D9FF, 0xFF22D65F, 0xFFFF4655];
 		var names = ['SOL', 'AŞAĞI', 'YUKARI', 'SAĞ'];
+		var prefixes = ['arrowLEFT', 'arrowDOWN', 'arrowUP', 'arrowRIGHT'];
+		var noteAtlas = getCurrentNoteAtlas();
 		for (i in 0...4)
 		{
 			var lane = new FlxSprite();
 			lane.makeGraphic(Std.int(LANE_W), 100, colors[i]);
-			lane.alpha = 0.32;
-			lane.cameras = [ui];
-			add(lane);
-			lanes.push(lane);
+			lane.alpha = 0.28;
+			lane.cameras = [ui]; add(lane); lanes.push(lane);
 
-			var label = new FlxText(0, 0, Std.int(LANE_W), names[i] + '\nSÜRÜKLE', 16);
+			var arrow = new FlxSprite();
+			arrow.frames = noteAtlas;
+			arrow.animation.addByPrefix('idle', prefixes[i], 24, false);
+			arrow.animation.play('idle');
+			arrow.setGraphicSize(88, 88);
+			arrow.updateHitbox();
+			arrow.antialiasing = ClientPrefs.data.antialiasing;
+			arrow.cameras = [ui]; add(arrow); arrows.push(arrow);
+
+			var label = new FlxText(0, 0, Std.int(LANE_W), names[i], 16);
 			label.setFormat(Paths.font('vcr.ttf'), 16, FlxColor.WHITE, CENTER);
-			label.cameras = [ui];
-			add(label);
-			labels.push(label);
+			label.cameras = [ui]; add(label); labels.push(label);
 
-			var handle = new FlxSprite().makeGraphic(Std.int(LANE_W), 10, FlxColor.WHITE);
-			handle.alpha = 0.9;
-			handle.cameras = [ui];
-			add(handle);
-			handles.push(handle);
+			var handle = new FlxSprite().makeGraphic(Std.int(LANE_W), 14, FlxColor.WHITE);
+			handle.cameras = [ui]; add(handle); handles.push(handle);
 		}
 
-		makeButton(12, 10, 'KAYDET', saveAndClose);
-		makeButton(152, 10, 'KOPYALA', function() { saveValues(); VSliceControlPreset.copyToClipboard(); setStatus('Preset panoya kopyalandı.'); });
-		makeButton(292, 10, 'YAPIŞTIR', pastePreset);
-		makeButton(432, 10, "Y'Yİ EŞİTLE", alignY);
-		makeButton(572, 10, 'BOYU EŞİTLE', equalHeight);
-		makeButton(712, 10, "X'İ EŞİTLE", equalSpacing);
-		makeButton(852, 10, 'SIFIRLA', resetPreset);
-		makeButton(992, 10, 'İPTAL', closeEditor);
-
-		status = new FlxText(12, 59, FlxG.width - 24,
-			'Bir alanı sürükleyin. Alt kenardaki parlak bölümü sürükleyerek yüksekliği değiştirin.', 15);
-		status.setFormat(Paths.font('vcr.ttf'), 15, 0xFFDDDDDD, CENTER);
-		status.cameras = [ui];
-		add(status);
-
+		buildBottomPanel();
 		loadValues();
 		FlxG.mouse.visible = !FlxG.onMobile;
 	}
 
-	function makeButton(x:Float, y:Float, text:String, action:Void->Void):Void
+	function getCurrentNoteAtlas():flixel.graphics.frames.FlxAtlasFrames
 	{
-		var button = new FlxButton(x, y, text, action);
-		button.setGraphicSize(126, 38);
-		button.updateHitbox();
-		button.label.setFormat(Paths.font('vcr.ttf'), 12, FlxColor.WHITE, CENTER);
-		button.cameras = [ui];
-		add(button);
+		var skin = Note.defaultNoteSkin + Note.getNoteSkinPostfix();
+		if (!Paths.fileExists('images/$skin.png', IMAGE)) skin = Note.defaultNoteSkin;
+		return Paths.getSparrowAtlas(skin);
+	}
+
+	function buildBottomPanel():Void
+	{
+		var y = editBottom();
+		var panel = new FlxSprite(0, y).makeGraphic(FlxG.width, Std.int(BOTTOM_PANEL_H), 0xFF171925);
+		panel.cameras = [ui]; add(panel);
+		var names = ['KAYDET', "Y'Yİ EŞİTLE", 'BOYU EŞİTLE', "X'İ EŞİTLE", 'SIFIRLA', 'İPTAL'];
+		var actions:Array<Void->Void> = [saveAndClose, alignY, equalHeight, equalSpacing, resetPreset, closeEditor];
+		var gap:Float = 12;
+		var margin:Float = 18;
+		var w:Float = (FlxG.width - margin * 2 - gap * 5) / 6;
+		for (i in 0...names.length)
+		{
+			var color = i == 0 ? 0xFF276B4A : (i == 5 ? 0xFF6A3038 : 0xFF2B3045);
+			var button = new EditorActionButton(margin + i * (w + gap), y + 25, w, 76, names[i], actions[i], color);
+			button.cameras = [ui]; add(button); actionButtons.push(button);
+		}
+	}
+
+	function makeIconButton(x:Float, y:Float, image:String, hint:String, action:Void->Void):Void
+	{
+		var button = new EditorActionButton(x, y, 70, 70, '', action, 0xFF2B3045, image);
+		button.cameras = [ui]; add(button); actionButtons.push(button);
 	}
 
 	override function update(elapsed:Float):Void
 	{
 		var touch = TouchUtil.touch;
-		if (TouchUtil.justPressed && touch != null && touch.y >= TOOLBAR_H)
+		if (TouchUtil.justPressed && touch != null && touch.y >= HEADER_H && touch.y < editBottom())
 		{
 			for (i in 0...lanes.length)
 			{
 				var lane = lanes[i];
 				if (touch.x >= lane.x && touch.x <= lane.x + lane.width && touch.y >= lane.y && touch.y <= lane.y + lane.height)
 				{
-					selected = i;
-					dragging = true;
-					resizing = touch.y >= lane.y + lane.height - 34;
-					dragOffsetX = touch.x - lane.x;
-					dragOffsetY = touch.y - lane.y;
-					refreshVisuals();
-					break;
+					selected = i; dragging = true;
+					resizing = touch.y >= lane.y + lane.height - 38;
+					dragOffsetX = touch.x - lane.x; dragOffsetY = touch.y - lane.y;
+					refreshVisuals(); break;
 				}
 			}
 		}
@@ -111,17 +144,14 @@ class VSliceControlEditorSubState extends MusicBeatSubstate
 			var lane = lanes[selected];
 			if (resizing)
 			{
-				lane.scale.y = 1;
-				lane.setGraphicSize(Std.int(LANE_W), Std.int(Math.max(50, Math.min(FlxG.height - lane.y, touch.y - lane.y))));
-				lane.updateHitbox();
-				zonesChanged = true;
+				lane.setGraphicSize(Std.int(LANE_W), Std.int(Math.max(54, Math.min(editBottom() - lane.y, touch.y - lane.y))));
+				lane.updateHitbox(); zonesChanged = true;
 			}
 			else
 			{
 				lane.x = Math.max(0, Math.min(FlxG.width - lane.width, touch.x - dragOffsetX));
-				lane.y = Math.max(TOOLBAR_H, Math.min(FlxG.height - lane.height, touch.y - dragOffsetY));
-				xChanged = true;
-				zonesChanged = true;
+				lane.y = Math.max(HEADER_H, Math.min(editBottom() - lane.height, touch.y - dragOffsetY));
+				xChanged = true; zonesChanged = true;
 			}
 			refreshVisuals();
 		}
@@ -134,11 +164,11 @@ class VSliceControlEditorSubState extends MusicBeatSubstate
 	{
 		for (i in 0...4)
 		{
-			var h = Math.max(0.05, ClientPrefs.data.vSliceButtonHeight[i]) * FlxG.height;
-			lanes[i].setGraphicSize(Std.int(LANE_W), Std.int(h));
-			lanes[i].updateHitbox();
-			lanes[i].x = ClientPrefs.data.vSliceButtonX[i] * FlxG.width - lanes[i].width * 0.5;
-			lanes[i].y = ClientPrefs.data.vSliceButtonY[i] * FlxG.height;
+			var y = Math.max(HEADER_H, ClientPrefs.data.vSliceButtonY[i] * FlxG.height);
+			var h = Math.min(Math.max(54, ClientPrefs.data.vSliceButtonHeight[i] * FlxG.height), editBottom() - y);
+			lanes[i].setGraphicSize(Std.int(LANE_W), Std.int(h)); lanes[i].updateHitbox();
+			lanes[i].x = Math.max(0, Math.min(FlxG.width - LANE_W, ClientPrefs.data.vSliceButtonX[i] * FlxG.width - LANE_W * 0.5));
+			lanes[i].y = y;
 		}
 		refreshVisuals();
 	}
@@ -146,88 +176,74 @@ class VSliceControlEditorSubState extends MusicBeatSubstate
 	function saveValues():Void
 	{
 		var xs:Array<Float> = [], ys:Array<Float> = [], hs:Array<Float> = [];
-		for (lane in lanes)
-		{
-			xs.push((lane.x + lane.width * 0.5) / FlxG.width);
-			ys.push(lane.y / FlxG.height);
-			hs.push(lane.height / FlxG.height);
-		}
-		ClientPrefs.data.vSliceButtonX = xs;
-		ClientPrefs.data.vSliceButtonY = ys;
-		ClientPrefs.data.vSliceButtonHeight = hs;
+		for (lane in lanes) { xs.push((lane.x + lane.width * 0.5) / FlxG.width); ys.push(lane.y / FlxG.height); hs.push(lane.height / FlxG.height); }
+		ClientPrefs.data.vSliceButtonX = xs; ClientPrefs.data.vSliceButtonY = ys; ClientPrefs.data.vSliceButtonHeight = hs;
 		if (xChanged) ClientPrefs.data.vSliceCustomX = true;
 		if (zonesChanged) ClientPrefs.data.vSliceCustomZones = true;
-		ClientPrefs.data.ogGameControls = true;
-		ClientPrefs.saveSettings();
+		ClientPrefs.data.ogGameControls = true; ClientPrefs.saveSettings();
 	}
 
 	function saveAndClose():Void { saveValues(); closeEditor(); }
 	function closeEditor():Void { FlxG.mouse.visible = false; controls.isInSubstate = false; close(); }
-
-	function alignY():Void
-	{
-		var y = lanes[selected].y;
-		for (lane in lanes) lane.y = Math.min(y, FlxG.height - lane.height);
-		zonesChanged = true; refreshVisuals(); setStatus("Y konumları eşitlendi.");
-	}
-
-	function equalHeight():Void
-	{
-		var h = lanes[selected].height;
-		for (lane in lanes) { lane.setGraphicSize(Std.int(LANE_W), Std.int(Math.min(h, FlxG.height - lane.y))); lane.updateHitbox(); }
-		zonesChanged = true; refreshVisuals(); setStatus('Yükseklikler eşitlendi.');
-	}
-
+	function alignY():Void { var y = lanes[selected].y; for (lane in lanes) lane.y = Math.min(y, editBottom() - lane.height); zonesChanged = true; refreshVisuals(); setStatus("Y konumları eşitlendi."); }
+	function equalHeight():Void { var h = lanes[selected].height; for (lane in lanes) { lane.setGraphicSize(Std.int(LANE_W), Std.int(Math.min(h, editBottom() - lane.y))); lane.updateHitbox(); } zonesChanged = true; refreshVisuals(); setStatus('Yükseklikler eşitlendi.'); }
 	function equalSpacing():Void
 	{
-		var ordered = lanes.copy();
-		ordered.sort(function(a, b) return a.x < b.x ? -1 : (a.x > b.x ? 1 : 0));
-		var left = ordered[0].x;
-		var right = ordered[3].x;
-		var step = (right - left) / 3;
-		for (i in 0...4) ordered[i].x = left + step * i;
-		xChanged = true; refreshVisuals(); setStatus("X aralıkları eşitlendi; Kontrol Aralığı ayarı artık kullanılmayacak.");
+		var ordered = lanes.copy(); ordered.sort(function(a, b) return a.x < b.x ? -1 : (a.x > b.x ? 1 : 0));
+		var step = (ordered[3].x - ordered[0].x) / 3; for (i in 0...4) ordered[i].x = ordered[0].x + step * i;
+		xChanged = true; refreshVisuals(); setStatus("X aralıkları eşitlendi; Kontrol Aralığı artık kullanılmayacak.");
 	}
-
-	function pastePreset():Void
-	{
-		var error = VSliceControlPreset.pasteFromClipboard();
-		if (error != null) { setStatus(error, true); return; }
-		xChanged = ClientPrefs.data.vSliceCustomX;
-		zonesChanged = ClientPrefs.data.vSliceCustomZones;
-		loadValues(); setStatus('Preset panodan yüklendi.');
-	}
-
-	function resetPreset():Void
-	{
-		VSliceControlPreset.reset(); xChanged = false; zonesChanged = false; loadValues();
-		setStatus('V-Slice düzeni varsayılana döndürüldü; Kontrol Aralığı yeniden etkin.');
-	}
+	function pastePreset():Void { var error = VSliceControlPreset.pasteFromClipboard(); if (error != null) { setStatus(error, true); return; } xChanged = ClientPrefs.data.vSliceCustomX; zonesChanged = ClientPrefs.data.vSliceCustomZones; loadValues(); setStatus('Preset panodan yüklendi.'); }
+	function resetPreset():Void { VSliceControlPreset.reset(); xChanged = false; zonesChanged = false; loadValues(); setStatus('Varsayılan düzen geri yüklendi; Kontrol Aralığı yeniden etkin.'); }
 
 	function refreshVisuals():Void
 	{
 		for (i in 0...lanes.length)
 		{
-			lanes[i].alpha = i == selected ? 0.55 : 0.30;
-			labels[i].x = lanes[i].x;
-			labels[i].y = lanes[i].y + 12;
-			handles[i].x = lanes[i].x;
-			handles[i].y = lanes[i].y + lanes[i].height - handles[i].height;
-			handles[i].alpha = i == selected ? 1 : 0.65;
-			// Parlak alt kenar, yüksekliği değiştiren sürükleme tutamacıdır.
-			labels[i].text = labels[i].text.split('\n')[0] + '\n' + (i == selected ? 'SEÇİLİ • ALT KENAR: BOY' : 'SÜRÜKLE');
+			var lane = lanes[i]; lane.alpha = i == selected ? 0.48 : 0.25;
+			arrows[i].x = lane.x + (lane.width - arrows[i].width) * 0.5;
+			arrows[i].y = lane.y + (lane.height - arrows[i].height) * 0.5;
+			labels[i].x = lane.x; labels[i].y = Math.max(lane.y + 8, arrows[i].y - 25);
+			handles[i].x = lane.x; handles[i].y = lane.y + lane.height - handles[i].height;
+			handles[i].alpha = i == selected ? 1 : 0.6;
+		}
+	}
+	function setStatus(message:String, error:Bool = false):Void { status.text = message; status.color = error ? 0xFFFF6374 : 0xFFADB2C8; }
+	override function destroy():Void { FlxG.cameras.remove(ui); super.destroy(); }
+}
+
+/** FlxButton yerine büyük dokunma alanı, modern kart ve okunaklı metin sunar. */
+private class EditorActionButton extends FlxSpriteGroup
+{
+	var bg:FlxSprite;
+	var callback:Void->Void;
+	var areaW:Float;
+	var areaH:Float;
+
+	public function new(x:Float, y:Float, width:Float, height:Float, text:String, callback:Void->Void, color:Int, ?iconPath:String)
+	{
+		super(x, y); this.callback = callback; areaW = width; areaH = height;
+		bg = new FlxSprite().makeGraphic(Std.int(width), Std.int(height), FlxColor.TRANSPARENT);
+		FlxSpriteUtil.drawRoundRect(bg, 0, 0, width, height, 16, 16, color, {thickness: 2, color: 0xFF596078}); add(bg);
+		if (iconPath != null)
+		{
+			var icon = new FlxSprite().loadGraphic(Paths.image(iconPath)); icon.setGraphicSize(42, 50); icon.updateHitbox();
+			icon.x = (width - icon.width) * 0.5; icon.y = (height - icon.height) * 0.5; add(icon);
+		}
+		else
+		{
+			var label = new FlxText(8, 0, Std.int(width - 16), text, 17);
+			label.setFormat(Paths.font('vcr.ttf'), 17, FlxColor.WHITE, CENTER); label.y = (height - label.height) * 0.5; add(label);
 		}
 	}
 
-	function setStatus(message:String, error:Bool = false):Void
+	override function update(elapsed:Float):Void
 	{
-		status.text = message;
-		status.color = error ? 0xFFFF5252 : 0xFFDDDDDD;
-	}
-
-	override function destroy():Void
-	{
-		FlxG.cameras.remove(ui);
-		super.destroy();
+		var touch = TouchUtil.touch;
+		var overTouch = touch != null && touch.x >= x && touch.x <= x + areaW && touch.y >= y && touch.y <= y + areaH;
+		var overMouse = FlxG.mouse.x >= x && FlxG.mouse.x <= x + areaW && FlxG.mouse.y >= y && FlxG.mouse.y <= y + areaH;
+		bg.alpha = (overTouch && TouchUtil.pressed) || (overMouse && FlxG.mouse.pressed) ? 0.72 : 1;
+		if ((TouchUtil.justPressed && overTouch) || (FlxG.mouse.justPressed && overMouse)) { FlxG.sound.play(Paths.sound('scrollMenu')); callback(); }
+		super.update(elapsed);
 	}
 }
