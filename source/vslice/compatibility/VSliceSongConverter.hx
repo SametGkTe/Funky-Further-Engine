@@ -48,8 +48,25 @@ class VSliceSongConverter
 		if (songJson.notes == null) return false;
 		var notes:Dynamic = songJson.notes;
 
-		// Psych: notes array'dir. V-Slice: notes object'dir.
-		return Std.isOfType(notes, Array) == false;
+		// Psych: notes array'dir. V-Slice: difficulty -> note array map'idir.
+		if (Std.isOfType(notes, Array)) return false;
+		var difficulties = Reflect.fields(notes);
+		if (difficulties == null || difficulties.length == 0) return false;
+		for (difficulty in difficulties)
+		{
+			var list:Dynamic = Reflect.field(notes, difficulty);
+			if (!Std.isOfType(list, Array)) continue;
+			var arr:Array<Dynamic> = cast list;
+			if (arr.length == 0)
+			{
+				// Boş chart ancak V-Slice'a özgü ek alanlardan biri varsa kabul edilir.
+				if (Reflect.hasField(songJson, 'scrollSpeed') || Reflect.hasField(songJson, 'version')) return true;
+				continue;
+			}
+			var first = arr[0];
+			if (first != null && Reflect.hasField(first, 't') && Reflect.hasField(first, 'd')) return true;
+		}
+		return false;
 	}
 
 	/**

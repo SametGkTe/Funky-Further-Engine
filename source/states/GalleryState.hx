@@ -951,8 +951,8 @@ class GalleryState extends MusicBeatState {
 		}
 
 		if ((viewMode == SINGLE_VIEW || viewMode == FULLSCREEN) && img.visible && smoothPan) {
-			img.x = FlxMath.lerp(img.x, targetX, elapsed * 10);
-			img.y = FlxMath.lerp(img.y, targetY, elapsed * 10);
+			img.x = backend.FrameUtil.damp(img.x, targetX, 10, elapsed);
+			img.y = backend.FrameUtil.damp(img.y, targetY, 10, elapsed);
 		}
 
 		super.update(elapsed);

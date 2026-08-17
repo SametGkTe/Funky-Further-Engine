@@ -4,92 +4,101 @@ import backend.update.UpdateConfig;
 import objects.AlertMgr.AlertMsg;
 import objects.AlertMgr.AlertMessage;
 
+typedef ModCompatibilityIssue = {
+	var folder:String;
+	var displayName:String;
+	var minimum:String;
+	var current:String;
+}
+
+/** Geriye uyumlu pack.json preflight ve Further Engine sürüm kontrolü. */
 class ModCompatibility
 {
-	static var checked:Bool = false;
+	static var preflightDone:Bool = false;
+	static var warningsShown:Bool = false;
+	static var pendingIssues:Array<ModCompatibilityIssue> = [];
 
-	public static function checkEnabledMods():Void
+	/** Mod scriptleri, global modlar ve Polymod çalışmadan önce çağrılmalıdır. */
+	public static function preflightEnabledMods():Void
 	{
 		#if MODS_ALLOWED
-		if (checked || SafeMode.active) return;
-		checked = true;
+		if (preflightDone || SafeMode.active) return;
+		preflightDone = true;
+		pendingIssues = [];
+		Mods.blockedMods.clear();
 
-		for (folder in Mods.parseList().enabled)
+		// blockedMods henüz boşken kullanıcının gerçekten etkinleştirdiği listeyi al.
+		var enabled = Mods.parseList().enabled.copy();
+		for (folder in enabled)
 		{
 			var pack:Dynamic = Mods.getPack(folder);
-			if (pack == null) continue;
+			if (pack == null) continue; // Klasik/Psych pack.json'sız modlar desteklenir.
 
 			var minimum:String = readMinimumVersion(pack);
 			if (minimum == null || StringTools.trim(minimum).length == 0) continue;
-
 			var current:String = UpdateConfig.CURRENT_ENGINE_VERSION;
-			if (compareVersions(current, minimum) < 0)
-				showWarning(folder, pack, minimum, current);
+			if (compareVersions(current, minimum) >= 0) continue;
+
+			var displayName:String = folder;
+			if (Reflect.hasField(pack, 'name') && Reflect.field(pack, 'name') != null)
+				displayName = Std.string(Reflect.field(pack, 'name'));
+			var reason = 'Further Engine $minimum veya üzeri gerekiyor (mevcut: $current)';
+			Mods.blockMod(folder, reason);
+			pendingIssues.push({folder: folder, displayName: displayName, minimum: minimum, current: current});
+			trace('[ModPreflight] "$folder" yüklenmedi: $reason');
 		}
+		#end
+	}
+
+	/** AlertMgr hazır olduktan sonra bekleyen preflight sonuçlarını gösterir. */
+	public static function checkEnabledMods():Void
+	{
+		#if MODS_ALLOWED
+		if (SafeMode.active || warningsShown) return;
+		if (!preflightDone) preflightEnabledMods();
+		warningsShown = true;
+		for (issue in pendingIssues) showWarning(issue);
 		#end
 	}
 
 	static function readMinimumVersion(pack:Dynamic):Null<String>
 	{
-		if (Reflect.hasField(pack, 'minimumFurtherVersion'))
-			return Std.string(Reflect.field(pack, 'minimumFurtherVersion'));
-		if (Reflect.hasField(pack, 'minimumEngineVersion'))
-			return Std.string(Reflect.field(pack, 'minimumEngineVersion'));
-
+		if (Reflect.hasField(pack, 'minimumFurtherVersion')) return Std.string(Reflect.field(pack, 'minimumFurtherVersion'));
+		if (Reflect.hasField(pack, 'minimumEngineVersion')) return Std.string(Reflect.field(pack, 'minimumEngineVersion'));
 		var further:Dynamic = Reflect.field(pack, 'furtherEngine');
-		if (further != null && Reflect.hasField(further, 'minimumVersion'))
-			return Std.string(Reflect.field(further, 'minimumVersion'));
-
+		if (further != null && Reflect.hasField(further, 'minimumVersion')) return Std.string(Reflect.field(further, 'minimumVersion'));
 		return null;
 	}
 
-	static function showWarning(folder:String, pack:Dynamic, minimum:String, current:String):Void
+	static function showWarning(issue:ModCompatibilityIssue):Void
 	{
-		var displayName:String = folder;
-		if (Reflect.hasField(pack, 'name') && Reflect.field(pack, 'name') != null)
-			displayName = Std.string(Reflect.field(pack, 'name'));
-
-		var shortMessage = 'Mod Klasöründeki "$folder" bu engine sürümünü desteklemiyor, lütfen sürümünüzü yükseltin';
+		var shortMessage = 'Mod Klasöründeki "${issue.folder}" bu sürümü desteklemiyor ve güvenlik için yüklenmedi. Lütfen sürümünüzü yükseltin.';
 		var details = [
-			'MOD UYUMLULUK HATASI',
-			'',
-			'Mod: $displayName',
-			'Mod klasörü: $folder',
-			'Gereken minimum Further Engine sürümü: $minimum',
-			'Kullanılan Further Engine sürümü: $current',
-			'',
-			'Bu mod daha yeni bir Further Engine sürümü için hazırlanmış.',
-			'Modun hatalı çalışmasını veya oyunun çökmesini önlemek için lütfen Engine son sürüme güncelleyin.',
-			'',
-			'Geri dönmek için ESC/B; devam etmek için ENTER/A basın.'
+			'FURTHER ENGINE MOD UYUMLULUK HATASI', '',
+			'Mod: ${issue.displayName}', 'Mod klasörü: ${issue.folder}',
+			'Gereken minimum Further Engine sürümü: ${issue.minimum}',
+			'Kullanılan Further Engine sürümü: ${issue.current}', '',
+			'Bu modun scriptleri ve Polymod varlıkları güvenlik için yüklenmedi.',
+			'Motoru güncelledikten sonra mod otomatik olarak yeniden denenecektir.', '',
+			'Geri dönmek için ESC/B; devam etmek için ENTER/A tuşunu kullanabilirsiniz.'
 		].join('\n');
-
 		AlertMsg.show('UYARI', shortMessage, 12, AlertMessage.COLOR_WARNING, function()
-		{
-			MusicBeatState.switchState(new states.DebugErrState(details));
-		});
+			MusicBeatState.switchState(new states.DebugErrState(details)));
 	}
 
-	/** SemVer benzeri sürümleri karşılaştırır. Sonuç: -1, 0 veya 1. */
 	public static function compareVersions(a:String, b:String):Int
 	{
-		var av = parseVersion(a);
-		var bv = parseVersion(b);
+		var av = parseVersion(a); var bv = parseVersion(b);
 		var max = av.numbers.length > bv.numbers.length ? av.numbers.length : bv.numbers.length;
-
 		for (i in 0...max)
 		{
 			var ai = i < av.numbers.length ? av.numbers[i] : 0;
 			var bi = i < bv.numbers.length ? bv.numbers[i] : 0;
-			if (ai < bi) return -1;
-			if (ai > bi) return 1;
+			if (ai < bi) return -1; if (ai > bi) return 1;
 		}
-
-		// Aynı temel sürümde kararlı sürüm prerelease sürümünden yenidir.
 		if (av.pre.length == 0 && bv.pre.length > 0) return 1;
 		if (av.pre.length > 0 && bv.pre.length == 0) return -1;
-		if (av.pre < bv.pre) return -1;
-		if (av.pre > bv.pre) return 1;
+		if (av.pre < bv.pre) return -1; if (av.pre > bv.pre) return 1;
 		return 0;
 	}
 
@@ -97,19 +106,12 @@ class ModCompatibility
 	{
 		var clean = value == null ? '0' : StringTools.trim(value).toLowerCase();
 		if (StringTools.startsWith(clean, 'v')) clean = clean.substr(1);
-		clean = clean.split('+')[0];
-		var pieces = clean.split('-');
-		var numberPart = pieces.shift();
+		clean = clean.split('+')[0]; var pieces = clean.split('-'); var numberPart = pieces.shift();
 		var numbers:Array<Int> = [];
 		for (part in numberPart.split('.'))
 		{
-			var match = ~/^(\d+)/;
-			var parsed = 0;
-			if (match.match(part))
-			{
-				var result = Std.parseInt(match.matched(1));
-				if (result != null) parsed = result;
-			}
+			var match = ~/^(\d+)/; var parsed = 0;
+			if (match.match(part)) { var result = Std.parseInt(match.matched(1)); if (result != null) parsed = result; }
 			numbers.push(parsed);
 		}
 		return {numbers: numbers, pre: pieces.join('-')};

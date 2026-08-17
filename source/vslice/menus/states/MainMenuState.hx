@@ -697,9 +697,9 @@ class MainMenuState extends MusicBeatState
             var targetScale = isSelected ? pos.scale * 1.12 : pos.scale * 0.9;
             var targetAlpha = isSelected ? 1.0 : 0.45;
 
-            item.scale.x = FlxMath.lerp(item.scale.x, targetScale, elapsed * 12);
-            item.scale.y = FlxMath.lerp(item.scale.y, targetScale, elapsed * 12);
-            item.alpha = FlxMath.lerp(item.alpha, targetAlpha, elapsed * 10);
+            item.scale.x = backend.FrameUtil.damp(item.scale.x, targetScale, 12, elapsed);
+            item.scale.y = backend.FrameUtil.damp(item.scale.y, targetScale, 12, elapsed);
+            item.alpha = backend.FrameUtil.damp(item.alpha, targetAlpha, 10, elapsed);
             item.updateHitbox();
 
             var targetX = pos.x - (item.width / 2);
@@ -711,15 +711,15 @@ class MainMenuState extends MusicBeatState
                 targetY += breatheOffset - 8;
             }
 
-            item.x = FlxMath.lerp(item.x, targetX, elapsed * 10);
-            item.y = FlxMath.lerp(item.y, targetY, elapsed * 10);
+            item.x = backend.FrameUtil.damp(item.x, targetX, 10, elapsed);
+            item.y = backend.FrameUtil.damp(item.y, targetY, 10, elapsed);
         }
 
         var selectedItem = getItemByOption(currentOption);
         if (selectedItem != null)
         {
             var targetCamY = FlxG.height / 2 + (curRow - 1) * 25;
-            camFollow.y = FlxMath.lerp(camFollow.y, targetCamY, elapsed * 5);
+            camFollow.y = backend.FrameUtil.damp(camFollow.y, targetCamY, 5, elapsed);
         }
     }
 

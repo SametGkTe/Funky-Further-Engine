@@ -3118,7 +3118,7 @@ class PlayState extends MusicBeatState
 				FlxTween.tween(numScore, {alpha: 0}, 0.2 / playbackRate, {
 					onComplete: function(tween:FlxTween)
 					{
-						numScore.destroy();
+						backend.SafeDestroy.afterUpdate(numScore);
 					},
 					startDelay: Conductor.crochet * 0.002 / playbackRate
 				});
@@ -3135,8 +3135,8 @@ class PlayState extends MusicBeatState
 			FlxTween.tween(comboSpr, {alpha: 0}, 0.2 / playbackRate, {
 				onComplete: function(tween:FlxTween)
 				{
-					comboSpr.destroy();
-					rating.destroy();
+					backend.SafeDestroy.afterUpdate(comboSpr);
+					backend.SafeDestroy.afterUpdate(rating);
 				},
 				startDelay: Conductor.crochet * 0.002 / playbackRate
 			});
@@ -3640,9 +3640,10 @@ class PlayState extends MusicBeatState
 	}
 
 	public function invalidateNote(note:Note):Void {
-		//if(!ClientPrefs.data.lowQuality || !cpuControlled) note.kill();
+		if (note == null) return;
+		note.kill();
 		notes.remove(note, true);
-		note.destroy();
+		backend.SafeDestroy.afterUpdate(note);
 	}
 
 	public function spawnNoteSplashOnNote(note:Note) {

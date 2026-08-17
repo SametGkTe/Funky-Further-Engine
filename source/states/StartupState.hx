@@ -42,6 +42,9 @@ class StartupState extends FlxState
 
 		if (!SafeMode.active)
 		{
+			// FPS Plus'ın "yüklemeden önce metadata doğrulama" yaklaşımından
+			// bağımsız olarak uyarlandı. Uyumsuz mod scripti çalışmadan engellenir.
+			backend.ModCompatibility.preflightEnabledMods();
 			#if LUA_ALLOWED
 			Mods.pushGlobalMods();
 			#end

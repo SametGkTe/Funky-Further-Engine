@@ -110,9 +110,13 @@ class PolymodHandler
 		try
 		{
 			if (!FileSystem.exists(MODS_FOLDER)) return;
+			// Sadece modsList.txt içinde etkin ve preflight tarafından kabul edilen
+			// modlar Polymod'a gönderilir. Önceki kod devre dışı modları da yüklüyordu.
+			var enabledMods = Mods.parseList().enabled;
 
 			for (entry in FileSystem.readDirectory(MODS_FOLDER))
 			{
+				if (!enabledMods.contains(entry) || Mods.isBlocked(entry)) continue;
 				var full:String = haxe.io.Path.join([MODS_FOLDER, entry]);
 				if (!FileSystem.isDirectory(full)) continue;
 

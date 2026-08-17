@@ -168,13 +168,24 @@ class Song
 			}
 		}
 
-		if (rawData != null)
-		{
-			var parsed:SwagSong = try parseJSON(rawData, jsonInput) catch(e:Dynamic) null;
-			if (parsed != null) return parsed;
-		}
-		// Boş ama geçerli bir chart döndür (çökme yerine boş şarkı).
-		return emptySong(formattedSong);
+			if (rawData != null)
+			{
+				try
+				{
+					var parsed:SwagSong = parseJSON(rawData, jsonInput);
+					if (parsed != null) return parsed;
+				}
+				catch(e:Dynamic)
+				{
+					trace('[Song] CHART PARSE HATASI');
+					trace('[Song] Mod: ${Mods.currentModDirectory}');
+					trace('[Song] Chart: $jsonInput | Yol: $_lastPath');
+					trace('[Song] Hata: ${Std.string(e)}');
+					trace(haxe.CallStack.toString(haxe.CallStack.exceptionStack(true)));
+				}
+			}
+			// Boş ama geçerli bir chart döndür (çökme yerine boş şarkı).
+			return emptySong(formattedSong);
 	}
 
 	/** Boş ama geçerli bir chart üretir (bozuk/null chart'larda crash önler). */
@@ -270,7 +281,14 @@ class Song
 	/** Şarkı adından bilinen Psych difficulty suffixini atar. */
 	static function stripDifficulty(name:String):String
 	{
-		var suffixes:Array<String> = ['-easy', '-normal', '-hard', '-erect'];
+		var suffixes:Array<String> = ['-easy', '-normal', '-hard', '-erect', '-nightmare'];
+		for (difficulty in backend.Difficulty.list)
+		{
+			var suffix = '-' + Paths.formatToSongPath(difficulty);
+			if (!suffixes.contains(suffix)) suffixes.push(suffix);
+		}
+		// En uzun suffix önce; benzer isimlerde kısa olan erken eşleşmesin.
+		suffixes.sort(function(a, b) return b.length - a.length);
 		for (s in suffixes)
 			if (name.endsWith(s)) return name.substr(0, name.length - s.length);
 		return name;

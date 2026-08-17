@@ -436,7 +436,7 @@ class ModImportState extends MusicBeatState
 		}
 		#end
 
-		currentProgress = FlxMath.lerp(currentProgress, targetProgress, 0.18);
+		currentProgress = backend.FrameUtil.damp(currentProgress, targetProgress, 12, elapsed);
 		var barWidth:Int = FlxG.width - (BAR_MARGIN * 2);
 		var w:Int = Std.int(Math.max(2, barWidth * currentProgress));
 		if (barFill != null)

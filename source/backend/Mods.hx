@@ -32,6 +32,15 @@ class Mods
 	];
 
 	private static var globalMods:Array<String> = [];
+	// Preflight tarafından yalnızca bu oturum için engellenen modlar. modsList.txt
+	// değiştirilmez; motor güncellendiğinde mod otomatik olarak yeniden denenir.
+	public static var blockedMods:Map<String, String> = [];
+
+	public static function blockMod(folder:String, reason:String):Void
+		blockedMods.set(folder, reason);
+
+	public static inline function isBlocked(folder:String):Bool
+		return folder != null && blockedMods.exists(folder);
 
 	inline public static function getGlobalMods()
 		return globalMods;
@@ -42,6 +51,7 @@ class Mods
 		if (SafeMode.active) return globalMods;
 		for(mod in parseList().enabled)
 		{
+			if (isBlocked(mod)) continue;
 			var pack:Dynamic = getPack(mod);
 			if(pack != null && pack.runsGlobally) globalMods.push(mod);
 		}
@@ -241,8 +251,9 @@ class Mods
 		
 		#if MODS_ALLOWED
 		var list:Array<String> = Mods.parseList().enabled;
-		if(list != null && list[0] != null)
-			Mods.currentModDirectory = list[0];
+		if (list != null)
+			for (folder in list)
+				if (!isBlocked(folder)) { Mods.currentModDirectory = folder; break; }
 		#end
 	}
 }

@@ -180,6 +180,13 @@
 	
 	<!--Disable the Flixel core debugger. Automatically gets set whenever you compile in release mode!-->
 	<haxedef name="FLX_NO_DEBUG" unless="debug" />
+	<!-- FPS Plus'taki release compiler yaklaşımından bağımsız olarak uyarlandı. -->
+	<haxedef name="analyzer-optimize" unless="debug" />
+	<!-- İsteğe bağlı profiler build: lime build windows -D ENABLE_TRACY -->
+	<haxedef name="HXCPP_TELEMETRY" if="ENABLE_TRACY" />
+	<haxedef name="HXCPP_TRACY" if="ENABLE_TRACY" />
+	<haxedef name="HXCPP_TRACY_MEMORY" if="ENABLE_TRACY" />
+	<haxedef name="HXCPP_TRACY_ON_DEMAND" if="ENABLE_TRACY" />
 
 	<!--Enable this for Nape release builds for a serious peformance improvement-->
 	<haxedef name="NAPE_RELEASE_BUILD" unless="debug" />

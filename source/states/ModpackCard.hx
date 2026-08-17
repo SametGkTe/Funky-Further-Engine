@@ -243,24 +243,24 @@ class ModpackCard extends FlxSpriteGroup
 		{
 			if (FlxG.mouse.overlaps(dlBg))
 			{
-				dlBg.scale.set(FlxMath.lerp(dlBg.scale.x, 1.18, elapsed * 12), FlxMath.lerp(dlBg.scale.y, 1.18, elapsed * 12));
+				dlBg.scale.set(backend.FrameUtil.damp(dlBg.scale.x, 1.18, 12, elapsed), backend.FrameUtil.damp(dlBg.scale.y, 1.18, 12, elapsed));
 				if (FlxG.mouse.justPressed && onDownloadPress != null)
 					onDownloadPress();
 			}
 			else
 			{
-				dlBg.scale.set(FlxMath.lerp(dlBg.scale.x, 1, elapsed * 12), FlxMath.lerp(dlBg.scale.y, 1, elapsed * 12));
+				dlBg.scale.set(backend.FrameUtil.damp(dlBg.scale.x, 1, 12, elapsed), backend.FrameUtil.damp(dlBg.scale.y, 1, 12, elapsed));
 			}
 
 			if (FlxG.mouse.overlaps(linkBg))
 			{
-				linkBg.scale.set(FlxMath.lerp(linkBg.scale.x, 1.18, elapsed * 12), FlxMath.lerp(linkBg.scale.y, 1.18, elapsed * 12));
+				linkBg.scale.set(backend.FrameUtil.damp(linkBg.scale.x, 1.18, 12, elapsed), backend.FrameUtil.damp(linkBg.scale.y, 1.18, 12, elapsed));
 				if (FlxG.mouse.justPressed && onLinkPress != null)
 					onLinkPress();
 			}
 			else
 			{
-				linkBg.scale.set(FlxMath.lerp(linkBg.scale.x, 1, elapsed * 12), FlxMath.lerp(linkBg.scale.y, 1, elapsed * 12));
+				linkBg.scale.set(backend.FrameUtil.damp(linkBg.scale.x, 1, 12, elapsed), backend.FrameUtil.damp(linkBg.scale.y, 1, 12, elapsed));
 			}
 		}
 	}
