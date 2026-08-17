@@ -69,8 +69,12 @@ class Paths
 		// clear anything not in the tracked assets list
 		for (key in FlxG.bitmap._cache.keys())
 		{
-			if (!currentTrackedAssets.exists(key))
-				releaseGraphicWhenUnused(FlxG.bitmap.get(key));
+			var cachedGraphic = FlxG.bitmap.get(key);
+			// Further'da currentTrackedAssets bazen logical asset ID ile, Flixel
+			// cache ise gerçek mod dosya yoluyla anahtarlanır. Sadece key'e bakmak
+			// hâlâ kullanılan karakter texture'ını yanlışlıkla serbest bırakıyordu.
+			if (!currentTrackedAssets.exists(key) && !isTrackedGraphic(cachedGraphic))
+				releaseGraphicWhenUnused(cachedGraphic);
 		}
 
 		// clear all sounds that are cached
@@ -140,6 +144,14 @@ class Paths
 				}
 			}
 		}
+	}
+
+	static function isTrackedGraphic(graphic:FlxGraphic):Bool
+	{
+		if (graphic == null) return false;
+		for (tracked in currentTrackedAssets)
+			if (tracked == graphic) return true;
+		return false;
 	}
 
 	static function releaseGraphicWhenUnused(graphic:FlxGraphic):Void

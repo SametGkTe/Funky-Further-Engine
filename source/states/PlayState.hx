@@ -728,7 +728,9 @@ class PlayState extends MusicBeatState
 		if (ClientPrefs.data.petwatermark) createPETWatermark();
 
 		super.create();
-		Paths.clearUnusedMemory();
+		// PlayState kurulumu biter bitmez cache temizlemek mod/script tarafından
+		// yeni bağlanan atlasları yanlışlıkla serbest bırakabiliyordu. Temizlik
+		// güvenli state geçişlerinde yapılır.
 
 		cacheCountdown();
 		cachePopUpScore();
