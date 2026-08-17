@@ -59,6 +59,19 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 		option.onChange = onChangeFramerate;
 		#end
 
+		#if cpp
+		var option:Option = new Option('Yükleme İş Parçacığı',
+			'Şarkı varlıklarını aynı anda yükleyen iş sayısı. Çok yüksek değerler özellikle mobilde RAM taşmasına neden olabilir.',
+			'loadThreads',
+			INT);
+		option.minValue = 1;
+		option.maxValue = #if mobile 2 #else 4 #end;
+		option.changeValue = 1;
+		option.decimals = 0;
+		option.displayFormat = '%v Thread';
+		addOption(option);
+		#end
+
 		var option:Option = new Option('Yeni FPS Sistemi',
 			'Aktif edildiğinde, mevcut FPS sınırın altında olduğunda\noyunun "yavaş" ve "yumuşak" hissettirmesini önler.',
 			'fpsRework',

@@ -22,6 +22,7 @@ class FPSCounter extends Sprite
 	@:noCompletion private var times:Array<Float>;
 	@:noCompletion private var lastFramerateUpdateTime:Float;
 	@:noCompletion private var updateTime:Int;
+	@:noCompletion private var nextDisplayUpdate:Int;
 	@:noCompletion private var framesCount:Int;
 	@:noCompletion private var prevTime:Int;
 
@@ -74,6 +75,7 @@ class FPSCounter extends Sprite
 		lastFramerateUpdateTime = Timer.stamp();
 		prevTime = Lib.getTimer();
 		updateTime = prevTime + 500;
+		nextDisplayUpdate = prevTime;
 
 		redrawBackground();
 	}
@@ -145,7 +147,14 @@ class FPSCounter extends Sprite
 			currentFPS = times.length;
 		}
 
-		updateText();
+		// TextField metni, bellek sorgusu ve arka plan Shape çizimi her render
+		// frame'inde yapılmamalı. Sayaç örneklemeye devam eder, UI 4 Hz yenilenir.
+		var displayNow:Int = Lib.getTimer();
+		if (displayNow >= nextDisplayUpdate)
+		{
+			nextDisplayUpdate = displayNow + 250;
+			updateText();
+		}
 	}
 
 	private function redrawBackground():Void

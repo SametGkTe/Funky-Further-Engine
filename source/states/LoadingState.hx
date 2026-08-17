@@ -374,8 +374,10 @@ class LoadingState extends MusicBeatState
 	{
 		for (key => bitmap in requestedBitmaps)
 		{
-			if (bitmap != null && Paths.cacheBitmap(originalBitmapKeys.get(key), bitmap) != null) {}
-			else trace('görsel önbelleğe alınamadı: $key');
+				// cacheBitmap'in ikinci parametresi parentFolder'dır; BitmapData üçüncü
+				// parametre olarak verilmelidir. Eski çağrı bitmap'i klasör sanıyordu.
+				if (bitmap != null && Paths.cacheBitmap(originalBitmapKeys.get(key), null, bitmap) != null) {}
+				else trace('görsel önbelleğe alınamadı: $key');
 		}
 		requestedBitmaps.clear();
 		originalBitmapKeys.clear();
@@ -429,20 +431,45 @@ class LoadingState extends MusicBeatState
 	static var songsToPrepare:Array<String> = [];
 	public static function prepare(images:Array<String> = null, sounds:Array<String> = null, music:Array<String> = null)
 	{
-		if (images != null) imagesToPrepare = imagesToPrepare.concat(images);
-		if (sounds != null) soundsToPrepare = soundsToPrepare.concat(sounds);
-		if (music != null) musicToPrepare = musicToPrepare.concat(music);
+		appendUnique(imagesToPrepare, images);
+		appendUnique(soundsToPrepare, sounds);
+		appendUnique(musicToPrepare, music);
+	}
+
+	static function appendUnique(target:Array<String>, values:Array<String>):Void
+	{
+		if (values == null) return;
+		for (value in values)
+			if (value != null && !target.contains(value)) target.push(value);
+	}
+
+	static function dedupeQueue(queue:Array<String>):Void
+	{
+		var seen:Map<String, Bool> = [];
+		var i:Int = 0;
+		while (i < queue.length)
+		{
+			var value = queue[i];
+			if (value == null || seen.exists(value)) queue.splice(i, 1);
+			else { seen.set(value, true); i++; }
+		}
 	}
 
 	static var initialThreadCompleted:Bool = true;
 	static var dontPreloadDefaultVoices:Bool = false;
 	static function _startPool()
 	{
+		if (threadPool != null) return;
 		#if MULTITHREADED_LOADING
-		var threadCount:Int = Std.int(Math.max(1, CoolUtil.getCPUThreadsCount() - #if DISCORD_ALLOWED 2 #else 1 #end));
+		var platformMax:Int = #if mobile 2 #else 4 #end;
+		var available:Int = Std.int(Math.max(1, CoolUtil.getCPUThreadsCount() - #if DISCORD_ALLOWED 2 #else 1 #end));
+		var requested:Int = ClientPrefs.data.loadThreads;
+		if (requested < 1) requested = 1;
+		var threadCount:Int = Std.int(Math.max(1, Math.min(platformMax, Math.min(available, requested))));
 		#else
 		var threadCount:Int = 1;
 		#end
+		trace('[LoadingState] Preload thread sayısı: $threadCount');
 		threadPool = new FixedThreadPool(threadCount);
 	}
 
@@ -470,10 +497,20 @@ class LoadingState extends MusicBeatState
 		initialThreadCompleted = false;
 		var threadsCompleted:Int = 0;
 		var threadsMax:Int = 0;
+		var completionMutex:Mutex = new Mutex();
+		var preloadStarted:Bool = false;
 		function completedThread()
 		{
+			var shouldStart:Bool = false;
+			completionMutex.acquire();
 			threadsCompleted++;
-			if(threadsCompleted == threadsMax)
+			if (!preloadStarted && threadsCompleted >= threadsMax)
+			{
+				preloadStarted = true;
+				shouldStart = true;
+			}
+			completionMutex.release();
+			if (shouldStart)
 			{
 				clearInvalids();
 				startThreads();
@@ -614,8 +651,11 @@ class LoadingState extends MusicBeatState
 				});
 			}
 
-			if(threadsCompleted == threadsMax)
+			if (threadsMax == 0)
 			{
+				completionMutex.acquire();
+				preloadStarted = true;
+				completionMutex.release();
 				clearInvalids();
 				startThreads();
 				initialThreadCompleted = true;
@@ -624,11 +664,28 @@ class LoadingState extends MusicBeatState
 		}, isIntrusive))
 		.onError((err:Dynamic) -> {
 			trace('HATA! şarkı hazırlanırken: $err');
+			trace(haxe.CallStack.toString(haxe.CallStack.exceptionStack(true)));
+			// Hazırlık Future'ı hata verirse loading ekranını sonsuza kadar bekletme.
+			try
+			{
+				clearInvalids();
+				startThreads();
+			}
+			catch (fallbackError:Dynamic)
+			{
+				trace('HATA! preload fallback başlatılamadı: $fallbackError');
+				loaded = loadMax = 0;
+			}
+			initialThreadCompleted = true;
 		});
 	}
 
 	public static function clearInvalids()
 	{
+		dedupeQueue(imagesToPrepare);
+		dedupeQueue(soundsToPrepare);
+		dedupeQueue(musicToPrepare);
+		dedupeQueue(songsToPrepare);
 		clearInvalidFrom(imagesToPrepare, 'images', '.png', IMAGE);
 		clearInvalidFrom(soundsToPrepare, 'sounds', '.${Paths.SOUND_EXT}', SOUND);
 		clearInvalidFrom(musicToPrepare, 'music',' .${Paths.SOUND_EXT}', SOUND);
@@ -688,7 +745,9 @@ class LoadingState extends MusicBeatState
 
 	static function _threadFunc()
 	{
-		_startPool();
+		// prepareToSong sırasında oluşturulan havuzu yeniden kullan. Eski kod burada
+		// ikinci bir havuz oluşturup ilk worker grubunun referansını kaybediyordu.
+		if (threadPool == null) _startPool();
 		for (sound in soundsToPrepare) initThread(() -> preloadSound('sounds/$sound'), 'ses $sound');
 		for (music in musicToPrepare) initThread(() -> preloadSound('music/$music'), 'müzik $music');
 		for (song in songsToPrepare) initThread(() -> preloadSound(song, 'songs', true, false), 'şarkı $song');
@@ -718,7 +777,10 @@ class LoadingState extends MusicBeatState
 			catch(e:Dynamic) {
 				trace('HATA! $traceData ön yüklemesi başarısız: $e');
 			}
+			// Birden fazla worker aynı anda tamamlanabilir; sayaç artışı atomik tutulur.
+			if (mutex != null) mutex.acquire();
 			loaded++;
+			if (mutex != null) mutex.release();
 		});
 	}
 
@@ -833,8 +895,9 @@ class LoadingState extends MusicBeatState
 				else trace('böyle bir görsel mevcut değil: $key');
 			}
 
-			return Paths.currentTrackedAssets.get(requestKey).bitmap;
-		}
+				var tracked = Paths.currentTrackedAssets.get(requestKey);
+				return tracked != null ? tracked.bitmap : null;
+			}
 		catch(e:haxe.Exception)
 		{
 			trace('HATA! $key görseli ön yüklenirken başarısız');

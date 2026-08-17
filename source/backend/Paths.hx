@@ -35,25 +35,29 @@ class Paths
 	}
 
 	public static var dumpExclusions:Array<String> = ['assets/shared/music/freakyMenu.$SOUND_EXT', 'assets/shared/mobile/touchpad/bg.png'];
-	// haya I love you for the base cache dump I took to the max
-	public static function clearUnusedMemory()
+	// NovaFlare'ın state-geçişi cache politikasından uyarlanan güvenli temizlik.
+	// Her menü geçişinde senkron major GC çalıştırmak ciddi frame hitch üretir.
+	public static function clearUnusedMemory(?forceMajorGc:Bool = false)
 	{
-		// clear non local assets in the tracked assets list
 		for (key in currentTrackedAssets.keys())
 		{
-			// if it is not currently contained within the used local assets
 			if (!localTrackedAssets.contains(key) && !dumpExclusions.contains(key))
 			{
-				destroyGraphic(currentTrackedAssets.get(key)); // get rid of the graphic
-				currentTrackedAssets.remove(key); // and remove the key from local cache map
+				var graphic = currentTrackedAssets.get(key);
+				currentTrackedAssets.remove(key);
+				releaseGraphicWhenUnused(graphic);
 			}
 		}
 
-		// run the garbage collector for good measure lmfao
-		System.gc();
-		#if cpp
-		cpp.NativeGc.run(true);
-		#end
+		// Normal geçişlerde hxcpp kendi GC zamanlamasını kullansın. Bu seçenek
+		// yalnızca gerçek bellek baskısı veya tanılama için zorlanmalıdır.
+		if (forceMajorGc)
+		{
+			System.gc();
+			#if cpp
+			cpp.NativeGc.run(true);
+			#end
+		}
 	}
 
 	// define the locally tracked assets
@@ -66,7 +70,7 @@ class Paths
 		for (key in FlxG.bitmap._cache.keys())
 		{
 			if (!currentTrackedAssets.exists(key))
-				destroyGraphic(FlxG.bitmap.get(key));
+				releaseGraphicWhenUnused(FlxG.bitmap.get(key));
 		}
 
 		// clear all sounds that are cached
@@ -138,11 +142,25 @@ class Paths
 		}
 	}
 
+	static function releaseGraphicWhenUnused(graphic:FlxGraphic):Void
+	{
+		if (graphic == null || graphic.isDestroyed) return;
+		// Eski state son draw/update turundayken texture'ı anında dispose etmek
+		// native GL hatasına yol açabilir. Aktif owner varsa Flixel'e bırak.
+		if (graphic.useCount > 0)
+		{
+			graphic.persist = false;
+			graphic.destroyOnNoUse = true;
+			return;
+		}
+		destroyGraphic(graphic);
+	}
+
 	inline static function destroyGraphic(graphic:FlxGraphic)
 	{
-		// free some gpu memory
-		if (graphic != null && graphic.bitmap != null && graphic.bitmap.__texture != null)
-			graphic.bitmap.__texture.dispose();
+		if (graphic == null || graphic.isDestroyed) return;
+		// BitmapFrontEnd.remove, CPU/GPU kaynaklarını Flixel'in doğru yaşam
+		// döngüsünde serbest bırakır; texture'ı önceden elle dispose etme.
 		FlxG.bitmap.remove(graphic);
 	}
 
