@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Bundle;
 import android.provider.OpenableColumns;
 
 import java.io.File;
@@ -22,19 +23,37 @@ import org.haxe.extension.Extension;
  * Android bazı cihazlarda task'ın ilk share intent'ini process yeniden açıldığında
  * tekrar verebildiği için içerik SHA-256 değeri kalıcı olarak tekilleştirilir.
  */
-public class ShareImportUtil
+public class ShareImportUtil extends Extension
 {
+	private static volatile Intent pendingIntent = null;
 	private static final String PREFS = "further_shared_imports";
 	private static final String HANDLED_HASHES = "handled_sha256";
 	private static final int MAX_HANDLED = 64;
+
+	@Override public void onCreate(Bundle state)
+	{
+		// Soğuk açılışta share intent'i activity üzerinde bulunur.
+		if (Extension.mainActivity != null) pendingIntent = Extension.mainActivity.getIntent();
+	}
+
+	@Override public void onNewIntent(Intent intent)
+	{
+		// Oyun arka plandayken paylaşılan yeni ZIP GameActivity tarafından bu
+		// extension'a iletilir. getIntent() tek başına yeni intent'i göstermeyebilir.
+		pendingIntent = intent;
+		if (Extension.mainActivity != null) Extension.mainActivity.setIntent(intent);
+	}
 
 	public static String consumeSharedZip()
 	{
 		Activity activity = Extension.mainActivity;
 		if (activity == null) return null;
 
-		Intent intent = activity.getIntent();
+		Intent intent = pendingIntent;
+		if (intent == null) intent = activity.getIntent();
 		if (intent == null) return null;
+		// Aynı process'teki bir sonraki poll bu nesneyi tekrar tüketmesin.
+		pendingIntent = null;
 
 		String action = intent.getAction();
 		Uri uri = null;

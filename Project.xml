@@ -220,9 +220,11 @@
 
 	<!-- Official FNF-style DocumentsProvider (Files app sidebar) -->
 	<section if="android">
-		<template path="templates" />
-		<java path="source/android/java" />
-		<config:android permission="android.permission.INTERNET" />
+			<template path="templates" />
+			<java path="source/android/java" />
+			<!-- Oyun açık/arka plandayken gelen yeni share intent'ini yakala. -->
+			<config:android extension="furtherengine.util.ShareImportUtil" />
+			<config:android permission="android.permission.INTERNET" />
 		<config:android permission="android.permission.ACCESS_NETWORK_STATE" />
 		<config:android permission="android.permission.MANAGE_DOCUMENTS" />
 		<config:android permission="android.permission.MANAGE_EXTERNAL_STORAGE" />

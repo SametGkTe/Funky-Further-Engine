@@ -5,13 +5,14 @@ import flixel.FlxState;
 import backend.MusicBeatState;
 import mobile.backend.StorageUtil;
 import states.PlayState;
-import vslice.menus.results.ResultState;
+import objects.AlertMgr.AlertMsg;
 
 class ModImportQueue
 {
 	public static var pendingZipPath:String = null;
 	public static var deferredNoticeShown:Bool = false;
 	static var hooked:Bool = false;
+	static var pollElapsed:Float = 0;
 
 	public static function hook():Void
 	{
@@ -26,6 +27,17 @@ class ModImportQueue
 		});
 		FlxG.signals.postStateSwitch.add(function()
 		{
+			poll();
+			considerPresenting();
+		});
+
+		// Bazı Android cihazlarında focusGained, share activity dönüşünde güvenilir
+		// çalışmıyor. Düşük frekanslı poll tüm menü/substate'lerde intent'i yakalar.
+		FlxG.signals.postUpdate.add(function()
+		{
+			pollElapsed += FlxG.elapsed;
+			if (pollElapsed < 0.5) return;
+			pollElapsed = 0;
 			poll();
 			considerPresenting();
 		});
@@ -61,9 +73,9 @@ class ModImportQueue
 		if (state == null)
 			return false;
 
+		// Yalnızca gerçek PlayState ertelenir. Pause ve GameOver da PlayState'in
+		// substate'leri olduğundan bu kontrol tarafından kapsanır.
 		if (Std.isOfType(state, PlayState))
-			return true;
-		if (Std.isOfType(state, ResultState))
 			return true;
 
 		if (state.subState != null)
@@ -103,9 +115,11 @@ class ModImportQueue
 			if (!deferredNoticeShown)
 			{
 				deferredNoticeShown = true;
-				CoolUtil.showPopUp(
-					Language.getPhrase('mod_import_deferred', 'Mod zip alındı.\nKurulurken bekleyin.'),
-					Language.getPhrase('mobile_notice', 'Bilgi')
+				AlertMsg.show(
+					Language.getPhrase('mod_import_title', 'MOD İÇE AKTARMA'),
+					Language.getPhrase('mod_import_deferred', 'Mod ZIP alındı. Şarkı bittiğinde kurulum ekranı açılacak.'),
+					7,
+					AlertMsg.COLOR_INFO
 				);
 			}
 			return;
