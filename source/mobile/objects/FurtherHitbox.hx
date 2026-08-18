@@ -53,7 +53,11 @@ class FurtherHitbox extends mobile.Hitbox {
 			var laneColors:Array<Int> = [0xFFC24B99, 0xFF00FFFF, 0xFF12FA05, 0xFFF9393F];
 			for (i in 0...mania)
 			{
-				var center:Float = centers[i];
+				// Custom düzende yön kimliği fiziksel sıra ile karıştırılmamalı.
+				// DOWN ve UP yer değiştirse bile her lane kendi kayıtlı merkezini kullanır.
+				var center:Float = (ClientPrefs.data.vSliceCustomX && i < 4 && ClientPrefs.data.vSliceButtonX.length >= 4)
+					? ClientPrefs.data.vSliceButtonX[i] * FlxG.width
+					: centers[i];
 				if (center == 0 && i > 0)
 					center = (FlxG.width / mania) * (i + 0.5);
 
@@ -75,6 +79,7 @@ class FurtherHitbox extends mobile.Hitbox {
 					zoneH = Std.int(Math.max(40, Math.min(FlxG.height - zoneY, ClientPrefs.data.vSliceButtonHeight[i] * FlxG.height)));
 				}
 				addHint('buttonNote${i+1}', noteIds[i], i, xPos, zoneY, w, zoneH, laneColors[i % 4]);
+				trace('[VSliceHitbox] ${noteIds[i][0]} x=$xPos y=$zoneY w=$w h=$zoneH');
 			}
 
 			// EKSTRA: ekranın ortasına dokununca ekstra buton sayılır (dodge/ring mekaniği için)

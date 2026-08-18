@@ -25,6 +25,8 @@ class VSliceControlEditorSubState extends MusicBeatSubstate
 	var resizing:Bool = false;
 	var dragOffsetX:Float = 0;
 	var dragOffsetY:Float = 0;
+	var dragStartX:Float = 0;
+	var dragStartY:Float = 0;
 	var ui:FlxCamera;
 	var status:FlxText;
 	var xChanged:Bool = false;
@@ -135,6 +137,7 @@ class VSliceControlEditorSubState extends MusicBeatSubstate
 					selected = i; dragging = true;
 					resizing = touch.y >= lane.y + lane.height - 38;
 					dragOffsetX = touch.x - lane.x; dragOffsetY = touch.y - lane.y;
+					dragStartX = lane.x; dragStartY = lane.y;
 					refreshVisuals(); break;
 				}
 			}
@@ -155,9 +158,44 @@ class VSliceControlEditorSubState extends MusicBeatSubstate
 			}
 			refreshVisuals();
 		}
-		if (dragging && TouchUtil.justReleased) dragging = false;
+		if (dragging && TouchUtil.justReleased)
+		{
+			if (!resizing) resolveLaneOverlap();
+			dragging = false;
+			refreshVisuals();
+		}
 		if (controls.BACK) closeEditor();
 		super.update(elapsed);
+	}
+
+	/**
+	 * İki lane aynı yere bırakılırsa ikisi de aynı dokunmayı tüketir. Kullanıcı
+	 * özellikle AŞAĞI/YUKARI yerini değiştirmek istediğinde sürüklenen lane'i
+	 * hedef lane ile otomatik takas et.
+	 */
+	function resolveLaneOverlap():Void
+	{
+		var moved = lanes[selected];
+		var movedCenter = moved.x + moved.width * 0.5;
+		var closest:Int = -1;
+		var closestDistance:Float = Math.POSITIVE_INFINITY;
+		for (i in 0...lanes.length)
+		{
+			if (i == selected) continue;
+			var otherCenter = lanes[i].x + lanes[i].width * 0.5;
+			var distance = Math.abs(movedCenter - otherCenter);
+			if (distance < moved.width * 0.65 && distance < closestDistance)
+			{
+				closest = i;
+				closestDistance = distance;
+			}
+		}
+		if (closest >= 0)
+		{
+			lanes[closest].x = dragStartX;
+			xChanged = true;
+			setStatus('${labels[selected].text} ile ${labels[closest].text} konumu takas edildi.');
+		}
 	}
 
 	function loadValues():Void
