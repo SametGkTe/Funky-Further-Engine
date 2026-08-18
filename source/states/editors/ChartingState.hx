@@ -5170,10 +5170,12 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		MetaNote.noteTypeTexts = [];
 		fileDialog.destroy();
 		super.destroy();
-		#if cpp
-		// Büyük editor chart'ından çıkış güvenli bir major-GC noktasıdır.
-		cpp.NativeGc.run(true);
-		#end
+
+		// Editor ve önceki PlayState'in büyük karakter/stage atlaslarını yeni
+		// PlayState ile üst üste tutma. super.destroy() sonrası useCount'lar
+		// düştüğü için burası güvenli cache boşaltma noktasıdır.
+		Paths.clearStoredMemory();
+		Paths.clearUnusedMemory(true);
 	}
 
 	function loadFileList(mainFolder:String, ?optionalList:String = null, ?fileTypes:Array<String> = null)
