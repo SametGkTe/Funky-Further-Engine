@@ -65,6 +65,14 @@ class PolymodHandler
 		{
 			// Mod klasörlerini tarayıp "meta.json benzeri" _polymod_meta.json olanları seç.
 			buildModDirectories();
+			if (loadedModDirs.length == 0)
+			{
+				// Psych/Lua modları Polymod gerektirmez. Boş init bile özel asset
+				// library doğrulaması yapıp yanıltıcı ERROR üretiyordu.
+				loadedModMetadata = [];
+				initialized = true;
+				return;
+			}
 
 			// FPS Plus modeli: framework belirtilmez (FLIXEL otomatik) ama
 			// coreAssetRedirect verilir -> FLIXEL backend kasması önlenir.

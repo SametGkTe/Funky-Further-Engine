@@ -180,15 +180,71 @@ class Song
 		var formattedSong:String = Paths.formatToSongPath(jsonInput);
 		_lastPath = Paths.json('$formattedFolder/$formattedSong');
 
-		#if MODS_ALLOWED
-		if(FileSystem.exists(_lastPath))
-			rawData = File.getContent(_lastPath);
-		else
-		#end
-		{
-			// Assets.getText dosya yoksa exception fırlatabilir; null döndür.
-			try rawData = Assets.getText(_lastPath) catch(e:Dynamic) rawData = null;
-		}
+			#if MODS_ALLOWED
+			if(FileSystem.exists(_lastPath))
+				rawData = File.getContent(_lastPath);
+			else
+			{
+				// Freeplay metadata'sındaki folder eski/yanlış kalmışsa etkin modları
+				// doğrudan tara. Bulunan mod aktif context yapılır ki stage/audio da
+				// aynı moddan çözülsün.
+				for (mod in Mods.parseList().enabled)
+				{
+					if (Mods.isBlocked(mod)) continue;
+					var relative = 'data/$formattedFolder/$formattedSong.json';
+					var candidate = Paths.mods('$mod/$relative');
+					if (!FileSystem.exists(candidate)) candidate = Paths.mods('$mod/shared/$relative');
+					if (FileSystem.exists(candidate))
+					{
+						Mods.currentModDirectory = mod;
+						_lastPath = candidate;
+						rawData = File.getContent(candidate);
+						trace('[Song] Chart fallback ile bulundu: mod=$mod path=$candidate');
+						break;
+					}
+				}
+			}
+				#end
+
+				// Bazı eski Psych modları varsayılan chart'ı <song>.json olarak
+				// saklayıp difficulty adını "Hard" gösterir. -hard dosyası yoksa
+				// boş Week 1 fallback yerine base chart'ı dene.
+				if (rawData == null)
+				{
+					var baseSong = stripDifficulty(formattedSong);
+					if (baseSong != formattedSong)
+					{
+						#if MODS_ALLOWED
+						for (mod in Mods.parseList().enabled)
+						{
+							if (Mods.isBlocked(mod)) continue;
+							var relative = 'data/$formattedFolder/$baseSong.json';
+							var candidate = Paths.mods('$mod/$relative');
+							if (!FileSystem.exists(candidate)) candidate = Paths.mods('$mod/shared/$relative');
+							if (FileSystem.exists(candidate))
+							{
+								Mods.currentModDirectory = mod;
+								_lastPath = candidate;
+								rawData = File.getContent(candidate);
+								trace('[Song] Difficulty chart yok; base chart kullanılıyor: requested=$formattedSong base=$baseSong mod=$mod');
+								break;
+							}
+						}
+						#end
+						if (rawData == null)
+						{
+							var baseAsset = Paths.json('$formattedFolder/$baseSong');
+							try rawData = Assets.getText(baseAsset) catch(e:Dynamic) rawData = null;
+							if (rawData != null) _lastPath = baseAsset;
+						}
+					}
+				}
+
+				if (rawData == null)
+				{
+					// Assets.getText dosya yoksa exception fırlatabilir; null döndür.
+					try rawData = Assets.getText(_lastPath) catch(e:Dynamic) rawData = null;
+				}
 
 		// ---------- V-SLICE KÖPRÜSÜ ----------
 		// Psych chart yoksa, V-Slice mod path'ini dene (mods/<mod>/data/songs/<song>/<song>-chart.json)
@@ -218,8 +274,9 @@ class Song
 					trace(haxe.CallStack.toString(haxe.CallStack.exceptionStack(true)));
 				}
 			}
-			// Boş ama geçerli bir chart döndür (çökme yerine boş şarkı).
-			return emptySong(formattedSong);
+				// Sahte Week 1/boş şarkı başlatma. Çağıran Freeplay/Story hata
+				// ekranını gösterebilsin diye gerçek ve açıklayıcı hata fırlat.
+				throw 'Chart bulunamadı veya okunamadı: $formattedFolder/$formattedSong (mod: ${Mods.currentModDirectory})';
 	}
 
 	/** Boş ama geçerli bir chart üretir (bozuk/null chart'larda crash önler). */
