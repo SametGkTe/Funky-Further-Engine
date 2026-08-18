@@ -5127,12 +5127,53 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		Note.globalRgbShaders = [];
 		backend.NoteTypesConfig.clearNoteTypesData();
 
+		// Chart Editor sadece görünür section notalarını FlxGroup'a ekliyor;
+		// notes/events Array'indeki binlerce MetaNote super.destroy() tarafından
+		// görülmüyor ve sonraki PlayState kurulurken RAM'de kalıyordu.
+		if (curRenderedNotes != null) curRenderedNotes.clear();
+		if (behindRenderedNotes != null) behindRenderedNotes.clear();
+		if (notes != null)
+		{
+			for (note in notes) if (note != null) note.destroy();
+			notes = [];
+		}
+		if (events != null)
+		{
+			for (event in events) if (event != null) event.destroy();
+			events = [];
+		}
+		selectedNotes = [];
+		undoActions = [];
+
+		// Editor audio buffer'larını PlayState ile üst üste tutma.
+		if (vocals != null)
+		{
+			vocals.stop();
+			FlxG.sound.list.remove(vocals, true);
+			@:privateAccess vocals.cleanup(true);
+		}
+		if (opponentVocals != null)
+		{
+			opponentVocals.stop();
+			FlxG.sound.list.remove(opponentVocals, true);
+			@:privateAccess opponentVocals.cleanup(true);
+		}
+		if (FlxG.sound.music != null)
+		{
+			FlxG.sound.music.stop();
+			FlxG.sound.music = null;
+		}
+
 		for (num => text in MetaNote.noteTypeTexts)
 			text.destroy();
 
 		MetaNote.noteTypeTexts = [];
 		fileDialog.destroy();
 		super.destroy();
+		#if cpp
+		// Büyük editor chart'ından çıkış güvenli bir major-GC noktasıdır.
+		cpp.NativeGc.run(true);
+		#end
 	}
 
 	function loadFileList(mainFolder:String, ?optionalList:String = null, ?fileTypes:Array<String> = null)
