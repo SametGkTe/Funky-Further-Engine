@@ -119,7 +119,7 @@ class MobileOptionsSubState extends BaseOptionsMenu
 		addOption(goption);
 
 		option = new Option(
-			'Hitbox İpuçları',
+			'Hitbox ipucusu',
 			'Hitbox ipuçlarının görünümünü açar veya kapatır.',
 			'hitboxHint',
 			BOOL,
@@ -222,6 +222,8 @@ class MobileOptionsSubState extends BaseOptionsMenu
 		{
 			File.saveContent(lime.system.System.applicationStorageDirectory + 'storagetype.txt', ClientPrefs.data.storageType);
 			ClientPrefs.saveSettings();
+			StorageUtil.currentExternalStorageDirectory = null;
+			StorageUtil.maybeRequestAllFilesAccess(ClientPrefs.data.storageType, true);
 			StorageUtil.initExternalStorageDirectory();
 		}
 		#end

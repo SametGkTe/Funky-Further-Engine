@@ -203,21 +203,38 @@ class VSliceControlEditorSubState extends MusicBeatSubstate
 
 	function loadValues():Void
 	{
+		var canvasH = editBottom() - HEADER_H;
 		for (i in 0...4)
 		{
-			var y = Math.max(HEADER_H, ClientPrefs.data.vSliceButtonY[i] * FlxG.height);
-			var h = Math.min(Math.max(54, ClientPrefs.data.vSliceButtonHeight[i] * FlxG.height), editBottom() - y);
+			var normalizedH = Math.max(0.05, Math.min(1, ClientPrefs.data.vSliceButtonHeight[i]));
+			var normalizedY = Math.max(0, Math.min(1 - normalizedH, ClientPrefs.data.vSliceButtonY[i]));
+			var visualY = ClientPrefs.data.downScroll ? 1 - normalizedY - normalizedH : normalizedY;
+			var h = Math.max(54, normalizedH * canvasH);
+			var y = HEADER_H + visualY * canvasH;
+			h = Math.min(h, editBottom() - y);
 			lanes[i].setGraphicSize(Std.int(LANE_W), Std.int(h)); lanes[i].updateHitbox();
 			lanes[i].x = Math.max(0, Math.min(FlxG.width - LANE_W, ClientPrefs.data.vSliceButtonX[i] * FlxG.width - LANE_W * 0.5));
 			lanes[i].y = y;
 		}
 		refreshVisuals();
+		setStatus(ClientPrefs.data.downScroll
+			? 'Downscroll önizlemesi • Kontrol alanları oynanışta dikey aynalanır.'
+			: 'Upscroll önizlemesi • Parlak alt kenarı sürükleyerek yüksekliği değiştir.');
 	}
 
 	function saveValues():Void
 	{
 		var xs:Array<Float> = [], ys:Array<Float> = [], hs:Array<Float> = [];
-		for (lane in lanes) { xs.push((lane.x + lane.width * 0.5) / FlxG.width); ys.push(lane.y / FlxG.height); hs.push(lane.height / FlxG.height); }
+		var canvasH = editBottom() - HEADER_H;
+		for (lane in lanes)
+		{
+			var normalizedH = Math.max(0.05, Math.min(1, lane.height / canvasH));
+			var visualY = Math.max(0, Math.min(1 - normalizedH, (lane.y - HEADER_H) / canvasH));
+			var canonicalY = ClientPrefs.data.downScroll ? 1 - visualY - normalizedH : visualY;
+			xs.push((lane.x + lane.width * 0.5) / FlxG.width);
+			ys.push(Math.max(0, Math.min(1 - normalizedH, canonicalY)));
+			hs.push(normalizedH);
+		}
 		ClientPrefs.data.vSliceButtonX = xs; ClientPrefs.data.vSliceButtonY = ys; ClientPrefs.data.vSliceButtonHeight = hs;
 		if (xChanged) ClientPrefs.data.vSliceCustomX = true;
 		if (zonesChanged) ClientPrefs.data.vSliceCustomZones = true;
@@ -225,7 +242,12 @@ class VSliceControlEditorSubState extends MusicBeatSubstate
 	}
 
 	function saveAndClose():Void { saveValues(); closeEditor(); }
-	function closeEditor():Void { FlxG.mouse.visible = false; controls.isInSubstate = false; close(); }
+	function closeEditor():Void {
+		FlxG.mouse.visible = false;
+		// MobileControlSelectSubState'e dönüyoruz; OptionsState'e değil.
+		controls.isInSubstate = true;
+		close();
+	}
 	function alignY():Void { var y = lanes[selected].y; for (lane in lanes) lane.y = Math.min(y, editBottom() - lane.height); zonesChanged = true; refreshVisuals(); setStatus("Y konumları eşitlendi."); }
 	function equalHeight():Void { var h = lanes[selected].height; for (lane in lanes) { lane.setGraphicSize(Std.int(LANE_W), Std.int(Math.min(h, editBottom() - lane.y))); lane.updateHitbox(); } zonesChanged = true; refreshVisuals(); setStatus('Yükseklikler eşitlendi.'); }
 	function equalSpacing():Void

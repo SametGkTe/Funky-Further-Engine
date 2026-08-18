@@ -18,6 +18,12 @@ class StartupState extends FlxState
 	override public function create():Void
 	{
 		super.create();
+		#if android
+		// FlxG.save artık bağlı: storage seçimini modlar taranmadan önce gerçek
+		// runtime yolu ve storagetype.txt ile eşitle.
+		mobile.backend.StorageUtil.syncStorageTypeFromSave();
+		backend.PolymodHandler.MODS_FOLDER = mobile.backend.StorageUtil.getExternalStorageDirectory() + 'mods';
+		#end
 		SafeMode.detectPersistentRequest();
 	}
 

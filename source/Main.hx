@@ -178,6 +178,22 @@ class Main extends Sprite
 		
 		#if mobile
 		addChild(new TouchVisualizer());
+		#if android
+		FlxG.signals.focusGained.add(function()
+		{
+			if (StorageUtil.refreshAfterPermissionChange())
+			{
+				backend.PolymodHandler.MODS_FOLDER = StorageUtil.getExternalStorageDirectory() + 'mods';
+				Mods.updatedOnState = false;
+				if (!backend.SafeMode.active && PlayState.instance == null)
+				{
+					Mods.pushGlobalMods();
+					Mods.loadTopMod();
+					backend.PolymodHandler.forceReload();
+				}
+			}
+		});
+		#end
 		#end
 
 		#if (linux || mac) // fix the app icon not showing up on the Linux Panel / Mac Dock

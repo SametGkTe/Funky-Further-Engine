@@ -184,7 +184,7 @@ class StorageUtil
 
 	private static function getDefaultStorageType():String
 	{
-		var storageType:String = 'EXTERNAL_DATA';
+		var storageType:String = 'EXTERNAL_PE';
 
 		try
 		{
@@ -231,6 +231,55 @@ class StorageUtil
 		}
 
 		return storageType;
+	}
+
+	/**
+	 * Main açılışında storage init, ClientPrefs yüklenmeden önce çalışabiliyor.
+	 * Bu da UI'da EXTERNAL_PE görünürken runtime'ın eski EXTERNAL_DATA yolunda
+	 * kalmasına neden oluyordu. Save'deki seçimi storagetype.txt ile uzlaştırır.
+	 */
+	public static function syncStorageTypeFromSave():String
+	{
+		var selected:String = getDefaultStorageType();
+		try
+		{
+			var saved:Dynamic = FlxG.save != null ? Reflect.field(FlxG.save.data, 'storageType') : null;
+			if (saved != null && StringTools.trim(Std.string(saved)) != '')
+			{
+				selected = StringTools.trim(Std.string(saved));
+				ClientPrefs.data.storageType = selected;
+			}
+		}
+		catch (e:Dynamic) {}
+
+		persistStorageType(selected);
+		currentExternalStorageDirectory = null;
+		var result = initExternalStorageDirectory();
+		trace('[Storage] Seçim senkronlandı: type=$selected path=$result');
+		maybeRequestAllFilesAccess(selected, false);
+		return result;
+	}
+
+	public static function refreshAfterPermissionChange():Bool
+	{
+		var before = currentExternalStorageDirectory;
+		var selected = getSavedStorageType();
+		if (!storageTypeNeedsAllFiles(selected) || AndroidVersion.SDK_INT < AndroidVersionCode.R || AndroidEnvironment.isExternalStorageManager())
+		{
+			currentExternalStorageDirectory = null;
+			var after = initExternalStorageDirectory();
+			return before != after;
+		}
+		return false;
+	}
+
+	public static function maybeRequestAllFilesAccess(type:String, force:Bool):Void
+	{
+		if (!storageTypeNeedsAllFiles(type) || AndroidVersion.SDK_INT < AndroidVersionCode.R || AndroidEnvironment.isExternalStorageManager()) return;
+		var marker = rootDir + 'allfiles_prompted.txt';
+		if (!force && FileSystem.exists(marker)) return;
+		try { ensureDirectory(rootDir); File.saveContent(marker, '1'); } catch (e:Dynamic) {}
+		openAllFilesSettings();
 	}
 
 	private static function resolveExternalStorageDirectory():String
@@ -371,11 +420,22 @@ class StorageUtil
 			&& AndroidVersion.SDK_INT >= AndroidVersionCode.R
 			&& !AndroidEnvironment.isExternalStorageManager())
 		{
-			fallbackToAppStorage('All files access not granted');
+			// Seçimi EXTERNAL_DATA olarak ezme. İzin verilene kadar yalnızca bu
+			// oturumda app-specific klasörü güvenli fallback olarak kullan.
+			currentExternalStorageDirectory = appFiles;
+			trace('Temporary storage fallback: $selectedType için All files access gerekli.');
 		}
 
 		if (!canWritePath(currentExternalStorageDirectory))
-			fallbackToAppStorage('Cannot write ' + currentExternalStorageDirectory);
+		{
+			if (storageTypeNeedsAllFiles(selectedType))
+			{
+				trace('Temporary storage fallback: henüz yazılamıyor: $currentExternalStorageDirectory');
+				currentExternalStorageDirectory = appFiles;
+			}
+			else
+				fallbackToAppStorage('Cannot write ' + currentExternalStorageDirectory);
+		}
 
 		try
 		{

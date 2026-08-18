@@ -60,7 +60,7 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 		#end
 
 		#if cpp
-		var option:Option = new Option('Yükleme İş Parçacığı',
+		var option:Option = new Option('Yükleme iş Parçacığı',
 			'Şarkı varlıklarını aynı anda yükleyen iş sayısı. Çok yüksek değerler özellikle mobilde RAM taşmasına neden olabilir.',
 			'loadThreads',
 			INT);

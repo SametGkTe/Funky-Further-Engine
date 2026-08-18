@@ -75,8 +75,16 @@ class FurtherHitbox extends mobile.Hitbox {
 				var zoneH:Int = Std.int(FlxG.height);
 				if (ClientPrefs.data.vSliceCustomZones && i < 4 && ClientPrefs.data.vSliceButtonY.length >= 4 && ClientPrefs.data.vSliceButtonHeight.length >= 4)
 				{
-					zoneY = ClientPrefs.data.vSliceButtonY[i] * FlxG.height;
-					zoneH = Std.int(Math.max(40, Math.min(FlxG.height - zoneY, ClientPrefs.data.vSliceButtonHeight[i] * FlxG.height)));
+					var normalizedY = Math.max(0, Math.min(1, ClientPrefs.data.vSliceButtonY[i]));
+					var normalizedH = Math.max(0.05, Math.min(1, ClientPrefs.data.vSliceButtonHeight[i]));
+					zoneH = Std.int(Math.max(40, Math.min(FlxG.height, normalizedH * FlxG.height)));
+					zoneY = normalizedY * FlxG.height;
+
+					// Presetler upscroll koordinatında saklanır. Downscroll'da görsel
+					// receptorlar aşağı taşındığı için dokunma dikdörtgenini dikey aynala.
+					if (ClientPrefs.data.downScroll)
+						zoneY = FlxG.height - zoneY - zoneH;
+					zoneY = Math.max(0, Math.min(FlxG.height - zoneH, zoneY));
 				}
 				addHint('buttonNote${i+1}', noteIds[i], i, xPos, zoneY, w, zoneH, laneColors[i % 4]);
 				trace('[VSliceHitbox] ${noteIds[i][0]} x=$xPos y=$zoneY w=$w h=$zoneH');
