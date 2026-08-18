@@ -1450,13 +1450,17 @@ class PlayState extends MusicBeatState
 
 		try
 		{
-			var eventsChart:SwagSong = Song.getChart('events', songName);
-			if(eventsChart != null)
-				for (event in eventsChart.events) //Event Notes
+			var externalEvents = Song.getExternalEvents(songName);
+			trace('[PlayState] External events loaded: ${externalEvents.length}');
+			for (event in externalEvents)
+				if (event != null && event.length > 1 && event[1] != null)
 					for (i in 0...event[1].length)
 						makeEvent(event, i);
 		}
-		catch(e:Dynamic) {}
+		catch(e:Dynamic)
+		{
+			trace('[PlayState] events.json işlenemedi: $e');
+		}
 
 		var oldNote:Note = null;
 		var sectionsData:Array<SwagSection> = PlayState.SONG.notes;

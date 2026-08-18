@@ -122,6 +122,40 @@ class Song
 
 	public static var chartPath:String;
 	public static var loadedSongName:String;
+
+	/**
+	 * Legacy data/<song>/events.json yalnızca event kabıdır; tam SwagSong gibi
+	 * psych_v1 converter'a sokulması bazı modlarda eksik notes alanına erişiyordu.
+	 */
+	public static function getExternalEvents(folder:String):Array<Dynamic>
+	{
+		var formattedFolder = Paths.formatToSongPath(folder);
+		var path = Paths.json('$formattedFolder/events');
+		var raw:String = null;
+		#if MODS_ALLOWED
+		if (FileSystem.exists(path)) raw = File.getContent(path);
+		else
+		#end
+		try raw = Assets.getText(path) catch (e:Dynamic) {}
+		if (raw == null || StringTools.trim(raw) == '') return [];
+		try
+		{
+			var parsed:Dynamic = Json.parse(raw);
+			if (parsed != null && Reflect.hasField(parsed, 'song'))
+			{
+				var sub = Reflect.field(parsed, 'song');
+				if (sub != null && Type.typeof(sub) == TObject) parsed = sub;
+			}
+			var events:Dynamic = parsed != null ? Reflect.field(parsed, 'events') : null;
+			return Std.isOfType(events, Array) ? cast events : [];
+		}
+		catch (e:Dynamic)
+		{
+			trace('[Song] events.json okunamadı: $path | $e');
+			return [];
+		}
+	}
+
 	public static function loadFromJson(jsonInput:String, ?folder:String):SwagSong
 	{
 		if(folder == null) folder = jsonInput;
