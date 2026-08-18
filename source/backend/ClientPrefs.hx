@@ -54,8 +54,10 @@ import states.TitleState;
 	// Normalize edilmiş V-Slice dokunma alanları (0..1).
 	public var vSliceCustomX:Bool = false;
 	public var vSliceCustomZones:Bool = false;
+	public var vSliceCustomWidth:Bool = false;
 	public var vSliceButtonX:Array<Float> = [0.21875, 0.390625, 0.609375, 0.78125];
 	public var vSliceButtonY:Array<Float> = [0.0, 0.0, 0.0, 0.0];
+	public var vSliceButtonWidth:Array<Float> = [0.1171875, 0.1171875, 0.1171875, 0.1171875];
 	public var vSliceButtonHeight:Array<Float> = [1.0, 1.0, 1.0, 1.0];
 	public var mobileExtraKeyReturns:Array<String> = ['SHIFT', 'SPACE', 'Q', 'E'];
 	#if android

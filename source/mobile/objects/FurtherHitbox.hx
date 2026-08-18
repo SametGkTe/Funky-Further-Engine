@@ -71,6 +71,11 @@ class FurtherHitbox extends mobile.Hitbox {
 				var xPos:Float = compactLeft + (fullLeft - compactLeft) * spacing;
 				var right:Float = compactRight + (fullRight - compactRight) * spacing;
 				var w:Int = Std.int(Math.max(40, right - xPos));
+				if (ClientPrefs.data.vSliceCustomWidth && i < 4 && ClientPrefs.data.vSliceButtonWidth.length >= 4)
+				{
+					w = Std.int(Math.max(70, Math.min(FlxG.width, ClientPrefs.data.vSliceButtonWidth[i] * FlxG.width)));
+					xPos = Math.max(0, Math.min(FlxG.width - w, center - w * 0.5));
+				}
 				var zoneY:Float = 0;
 				var zoneH:Int = Std.int(FlxG.height);
 				if (ClientPrefs.data.vSliceCustomZones && i < 4 && ClientPrefs.data.vSliceButtonY.length >= 4 && ClientPrefs.data.vSliceButtonHeight.length >= 4)

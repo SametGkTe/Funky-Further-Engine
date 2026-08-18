@@ -718,6 +718,7 @@ class PlayState extends MusicBeatState
 		var splash:NoteSplash = new NoteSplash();
 		grpNoteSplashes.add(splash);
 		splash.alpha = 0.000001; //cant make it invisible or it won't allow precaching
+		splash.kill(); // Precache nesnesini havuzda yeniden kullanılabilir bırak.
 
 		#if mobile
 		addTouchPad('NONE', 'P');
@@ -3655,7 +3656,22 @@ class PlayState extends MusicBeatState
 	}
 
 	public function spawnNoteSplash(x:Float = 0, y:Float = 0, ?data:Int = 0, ?note:Note, ?strum:StrumNote) {
-		var splash:NoteSplash = grpNoteSplashes.recycle(NoteSplash);
+		var splash:NoteSplash = null;
+		#if mobile
+		// Jack/spam chartlarda aynı lane için onlarca shader'lı splash üst üste
+		// oluşturmak yerine o lane'in yaşayan splash'ını yeniden başlat. En fazla
+		// dört aktif gameplay splash'ı kalır.
+		for (candidate in grpNoteSplashes.members)
+		{
+			if (candidate != null && candidate.alive && candidate.noteData % Note.colArray.length == data % Note.colArray.length)
+			{
+				splash = candidate;
+				break;
+			}
+		}
+		#end
+		if (splash == null) splash = grpNoteSplashes.recycle(NoteSplash);
+		splash.revive();
 		splash.babyArrow = strum;
 		splash.spawnSplashNote(x, y, data, note);
 		grpNoteSplashes.add(splash);

@@ -41,6 +41,8 @@ class NoteSplash extends FlxSprite
 
 	var spawned:Bool = false;
 	var noteDataMap:Map<Int, String> = new Map();
+	// Her splash spawn'ında yeni RGBPalette/Shader allocate etme.
+	var workingPalette:RGBPalette = null;
 
 	public static var defaultNoteSplash(default, never):String = "noteSplashes/noteSplashes";
 	public static var configs:Map<String, NoteSplashConfig> = new Map();
@@ -52,7 +54,7 @@ class NoteSplash extends FlxSprite
 		animation = new PsychAnimationController(this);
 
 		rgbShader = new PixelSplashShaderRef();
-		shader = rgbShader.shader;
+		shader = ClientPrefs.data.shaders ? rgbShader.shader : null;
 
 		loadSplash(splash);
 	}
@@ -219,12 +221,17 @@ class NoteSplash extends FlxSprite
 		var anim:String = playDefaultAnim();
 
 		var tempShader:RGBPalette = null;
-		if (config.allowRGB)
+		if (config.allowRGB && ClientPrefs.data.shaders)
 		{
 			Note.initializeGlobalRGBShader(noteData % Note.colArray.length);
 			if (inEditor || (note == null || note.noteSplashData.useRGBShader) && (PlayState.SONG == null || !PlayState.SONG.disableNoteRGB))
 			{
-				tempShader = new RGBPalette();
+				if (workingPalette == null) workingPalette = new RGBPalette();
+				tempShader = workingPalette;
+				tempShader.r = 0xFFFF0000;
+				tempShader.g = 0xFF00FF00;
+				tempShader.b = 0xFF0000FF;
+				tempShader.mult = 1;
 				// If Note RGB is enabled:
 				if ((note == null || !note.noteSplashData.useGlobalShader) || inEditor)
 				{
@@ -432,6 +439,7 @@ class PixelSplashShaderRef
 
 	public function copyValues(tempShader:RGBPalette)
 	{
+		enabled = tempShader != null;
 		if (tempShader != null)
 		{
 			for (i in 0...3)
