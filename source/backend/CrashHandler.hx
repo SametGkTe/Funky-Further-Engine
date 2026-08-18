@@ -25,7 +25,7 @@ class CrashHandler
 	public static function init():Void
 	{
 		openfl.Lib.current.loaderInfo.uncaughtErrorEvents.addEventListener(UncaughtErrorEvent.UNCAUGHT_ERROR, onUncaughtError);
-		#if cpp
+		#if (cpp && !android)
 		untyped __global__.__hxcpp_set_critical_error_handler(onError);
 		#elseif hl
 		hl.Api.setErrorHandler(onError);

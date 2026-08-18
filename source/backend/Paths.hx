@@ -429,6 +429,11 @@ class Paths
 	{
 		var useMod = false;
 		var imageLoaded:FlxGraphic = image(key, parentFolder, allowGPU);
+		if (imageLoaded == null)
+		{
+			trace('[Paths] Atlas PNG yüklenemedi: $key');
+			return null;
+		}
 
 		var myXml:Dynamic = getPath('images/$key.xml', TEXT, parentFolder, true);
 		if(OpenFlAssets.exists(myXml) #if MODS_ALLOWED || (FileSystem.exists(myXml) && (useMod = true)) #end )
@@ -457,7 +462,9 @@ class Paths
 	static public function getMultiAtlas(keys:Array<String>, ?parentFolder:String = null, ?allowGPU:Bool = true):FlxAtlasFrames
 	{
 		
-		var parentFrames:FlxAtlasFrames = Paths.getAtlas(keys[0].trim());
+		if (keys == null || keys.length == 0) return null;
+		var parentFrames:FlxAtlasFrames = Paths.getAtlas(keys[0].trim(), parentFolder, allowGPU);
+		if (parentFrames == null) return null;
 		if(keys.length > 1)
 		{
 			var original:FlxAtlasFrames = parentFrames;
@@ -477,6 +484,7 @@ class Paths
 	{
 		if(key.contains('psychic')) trace(key, parentFolder, allowGPU);
 		var imageLoaded:FlxGraphic = image(key, parentFolder, allowGPU);
+		if (imageLoaded == null) { trace('[Paths] Sparrow PNG yüklenemedi: $key'); return null; }
 		#if MODS_ALLOWED
 		var xmlExists:Bool = false;
 
@@ -492,6 +500,7 @@ class Paths
 	inline static public function getPackerAtlas(key:String, ?parentFolder:String = null, ?allowGPU:Bool = true):FlxAtlasFrames
 	{
 		var imageLoaded:FlxGraphic = image(key, parentFolder, allowGPU);
+		if (imageLoaded == null) { trace('[Paths] Packer PNG yüklenemedi: $key'); return null; }
 		#if MODS_ALLOWED
 		var txtExists:Bool = false;
 		
@@ -507,6 +516,7 @@ class Paths
 	inline static public function getAsepriteAtlas(key:String, ?parentFolder:String = null, ?allowGPU:Bool = true):FlxAtlasFrames
 	{
 		var imageLoaded:FlxGraphic = image(key, parentFolder, allowGPU);
+		if (imageLoaded == null) { trace('[Paths] Aseprite PNG yüklenemedi: $key'); return null; }
 		#if MODS_ALLOWED
 		var jsonExists:Bool = false;
 

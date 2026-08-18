@@ -196,7 +196,9 @@
 		<haxedef name="HXCPP_CHECK_POINTER" />
 		<haxedef name="HXCPP_STACK_LINE" />
 		<haxedef name="HXCPP_STACK_TRACE" />
-		<haxedef name="HXCPP_CATCH_SEGV" />
+		<!-- Android signal yakalayıcısı native SIGSEGV'i sabit SIGILL trap'ine
+		     çevirip gerçek tombstone'u maskeliyordu. -->
+		<haxedef name="HXCPP_CATCH_SEGV" unless="android" />
 	</section>
 	
 	<!--Disable deprecated warnings-->
