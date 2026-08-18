@@ -461,9 +461,11 @@ class LoadingState extends MusicBeatState
 	{
 		if (threadPool != null) return;
 		#if MULTITHREADED_LOADING
-		var platformMax:Int = #if mobile 2 #else 4 #end;
+		// BitmapData/Sound decoderlarının Android worker thread güvenilirliği moddan
+		// moda değişiyor. Mobilde kararlılık için tek worker kullan.
+		var platformMax:Int = #if mobile 1 #else 4 #end;
 		var available:Int = Std.int(Math.max(1, CoolUtil.getCPUThreadsCount() - #if DISCORD_ALLOWED 2 #else 1 #end));
-		var requested:Int = ClientPrefs.data.loadThreads;
+		var requested:Int = #if mobile 1 #else ClientPrefs.data.loadThreads #end;
 		if (requested < 1) requested = 1;
 		var threadCount:Int = Std.int(Math.max(1, Math.min(platformMax, Math.min(available, requested))));
 		#else
@@ -495,28 +497,37 @@ class LoadingState extends MusicBeatState
 		songsToPrepare = [];
 
 		initialThreadCompleted = false;
-		var threadsCompleted:Int = 0;
-		var threadsMax:Int = 0;
-		var completionMutex:Mutex = new Mutex();
-		var preloadStarted:Bool = false;
-		function completedThread()
-		{
-			var shouldStart:Bool = false;
-			completionMutex.acquire();
-			threadsCompleted++;
-			if (!preloadStarted && threadsCompleted >= threadsMax)
+			var threadsCompleted:Int = 0;
+			var threadsMax:Int = 0;
+			var completionMutex:Mutex = new Mutex();
+			var preloadStarted:Bool = false;
+			var schedulingComplete:Bool = false;
+
+			function tryStartPreload():Void
 			{
-				preloadStarted = true;
-				shouldStart = true;
+				var shouldStart:Bool = false;
+				completionMutex.acquire();
+				if (schedulingComplete && !preloadStarted && threadsCompleted >= threadsMax)
+				{
+					preloadStarted = true;
+					shouldStart = true;
+				}
+				completionMutex.release();
+				if (shouldStart)
+				{
+					clearInvalids();
+					startThreads();
+					initialThreadCompleted = true;
+				}
 			}
-			completionMutex.release();
-			if (shouldStart)
+
+			function completedThread()
 			{
-				clearInvalids();
-				startThreads();
-				initialThreadCompleted = true;
+				completionMutex.acquire();
+				threadsCompleted++;
+				completionMutex.release();
+				tryStartPreload();
 			}
-		}
 
 		var song:SwagSong = PlayState.SONG;
 		var folder:String = Paths.formatToSongPath(Song.loadedSongName);
@@ -651,15 +662,12 @@ class LoadingState extends MusicBeatState
 				});
 			}
 
-			if (threadsMax == 0)
-			{
-				completionMutex.acquire();
-				preloadStarted = true;
-				completionMutex.release();
-				clearInvalids();
-				startThreads();
-				initialThreadCompleted = true;
-			}
+			// Tüm worker'lar planlanmadan önce hızlı bir worker tamamlanırsa eski
+			// kod preload'u yarım asset listesiyle başlatabiliyordu.
+			completionMutex.acquire();
+			schedulingComplete = true;
+			completionMutex.release();
+			tryStartPreload();
 			return true;
 		}, isIntrusive))
 		.onError((err:Dynamic) -> {
@@ -737,6 +745,9 @@ class LoadingState extends MusicBeatState
 	public static function startThreads()
 	{
 		mutex = new Mutex();
+		#if mobile
+		imagesToPrepare = [];
+		#end
 		loadMax = imagesToPrepare.length + soundsToPrepare.length + musicToPrepare.length + songsToPrepare.length;
 		loaded = 0;
 
@@ -752,7 +763,14 @@ class LoadingState extends MusicBeatState
 		for (music in musicToPrepare) initThread(() -> preloadSound('music/$music'), 'müzik $music');
 		for (song in songsToPrepare) initThread(() -> preloadSound(song, 'songs', true, false), 'şarkı $song');
 
+		#if mobile
+		// Büyük mod atlaslarını worker'da topluca decode edip requestedBitmaps'te
+		// tutmak Android'de yüzlerce MB peak RAM ve native process kill üretiyor.
+		// Görseller PlayState kurulurken ana thread'de ihtiyaç oldukça yüklenir.
+		imagesToPrepare = [];
+		#else
 		for (image in imagesToPrepare) initThread(() -> preloadGraphic(image), 'görsel $image');
+		#end
 	}
 
 	static function initThread(func:Void->Dynamic, traceData:String)

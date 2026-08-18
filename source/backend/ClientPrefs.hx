@@ -85,7 +85,7 @@ import states.TitleState;
 	public var cacheOnGPU:Bool = #if !switch false #else true #end; // GPU Caching made by Raltyro
 	// NovaFlare'ın kontrollü preload yaklaşımından uyarlanmıştır. Çok fazla thread
 	// özellikle Android'de RAM baskısını ve native kapanma riskini artırır.
-	public var loadThreads:Int = #if mobile 2 #else 4 #end;
+	public var loadThreads:Int = #if mobile 1 #else 4 #end;
 	public var framerate:Int = 60;
 	public var camZooms:Bool = true;
 	public var hideHud:Bool = false;

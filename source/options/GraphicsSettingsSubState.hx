@@ -65,7 +65,7 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 			'loadThreads',
 			INT);
 		option.minValue = 1;
-		option.maxValue = #if mobile 2 #else 4 #end;
+		option.maxValue = #if mobile 1 #else 4 #end;
 		option.changeValue = 1;
 		option.decimals = 0;
 		option.displayFormat = '%v Thread';
