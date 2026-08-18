@@ -275,6 +275,9 @@ class OptionsState extends MusicBeatState
 
 	override function update(elapsed:Float)
 	{
+		// Android dokunması mouse click olarak da raporlanır. V-Slice editörü
+		// açıkken PET ve arkadaki bütün Options inputlarını update etme.
+		if (mobile.substates.VSliceControlEditorSubState.blocksOptionsInput) return;
 		super.update(elapsed);
 
 		if (exiting) return;

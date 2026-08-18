@@ -13,6 +13,8 @@ import objects.Note;
 /** Dört V-Slice dokunma alanı için mobil öncelikli, normalize düzen editörü. */
 class VSliceControlEditorSubState extends MusicBeatSubstate
 {
+	/** OptionsState ve PET mouse hit-test'ini editör boyunca tamamen kilitler. */
+	public static var blocksOptionsInput(default, null):Bool = false;
 	static inline var HEADER_H:Float = 92;
 	static inline var BOTTOM_PANEL_H:Float = 132;
 	static inline var LANE_W:Float = 150;
@@ -38,6 +40,7 @@ class VSliceControlEditorSubState extends MusicBeatSubstate
 	public function new()
 	{
 		super();
+		blocksOptionsInput = true;
 		ui = new FlxCamera();
 		ui.bgColor = 0xFF0C0D16;
 		FlxG.cameras.add(ui, false);
@@ -247,7 +250,12 @@ class VSliceControlEditorSubState extends MusicBeatSubstate
 		}
 	}
 	function setStatus(message:String, error:Bool = false):Void { status.text = message; status.color = error ? 0xFFFF6374 : 0xFFADB2C8; }
-	override function destroy():Void { FlxG.cameras.remove(ui); super.destroy(); }
+	override function destroy():Void
+	{
+		blocksOptionsInput = false;
+		FlxG.cameras.remove(ui);
+		super.destroy();
+	}
 }
 
 /** FlxButton yerine büyük dokunma alanı, modern kart ve okunaklı metin sunar. */

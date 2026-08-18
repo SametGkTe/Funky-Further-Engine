@@ -246,6 +246,7 @@ class OptionsState extends MusicBeatState
 
 	override function update(elapsed:Float)
 	{
+		if (mobile.substates.VSliceControlEditorSubState.blocksOptionsInput) return;
 		super.update(elapsed);
 
 		if (exiting) return;
