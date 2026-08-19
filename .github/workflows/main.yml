@@ -53,9 +53,7 @@ jobs:
 
           - name: Android
             os: macos-15
-            # Modern Android release: tek mimari. ARMv7 + ARM64 aynı job'da tüm
-            # hxcpp/PCRE2 native bağımlılıklarını iki kez derliyordu.
-            buildArgs: "android -D ONLY_ARM64 -final"
+            buildArgs: "android -armv7 -arm64"
             setupCommand: sh ./setup/unix.sh
             artifactName: androidBuild
             artifactPath: "export/release/android/bin/app/build/outputs/apk/release/*.apk"
