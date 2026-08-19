@@ -1,0 +1,91 @@
+From cfa426601571eadacc716408245289e325dc968c Mon Sep 17 00:00:00 2001
+Date: Wed, 19 Aug 2026 18:19:34 +0000
+Subject: [PATCH] ci: speed up Android ARM64 builds and cache hxcpp objects
+
+---
+ .github/workflows/android-only.yml   |  2 +-
+ .github/workflows/build.yml          | 11 ++++++-----
+ .github/workflows/main.yml           |  4 +++-
+ .github/workflows/mobile-release.yml |  2 +-
+ 4 files changed, 11 insertions(+), 8 deletions(-)
+
+diff --git a/.github/workflows/android-only.yml b/.github/workflows/android-only.yml
+index a856210..ef74fd3 100644
+--- a/.github/workflows/android-only.yml
++++ b/.github/workflows/android-only.yml
+@@ -11,6 +11,6 @@ jobs:
+       name: Android
+       os: macos-15
+       setupCommand: sh ./setup/unix.sh
+-      buildArgs: "android -final"
++      buildArgs: "android -arm64 -final"
+       artifactName: androidBuild
+       artifactPath: "export/release/android/bin/app/build/outputs/apk/release/*.apk"
+\ No newline at end of file
+diff --git a/.github/workflows/build.yml b/.github/workflows/build.yml
+index dd21a7b..36b5d29 100644
+--- a/.github/workflows/build.yml
++++ b/.github/workflows/build.yml
+@@ -34,6 +34,7 @@ jobs:
+   build:
+     name: Build
+     runs-on: ${{ inputs.os }}
++    timeout-minutes: 90
+ 
+     steps:
+       - name: Checkout
+@@ -108,7 +109,9 @@ jobs:
+           haxelib run lime config ANDROID_SETUP true
+ 
+       - name: Restore Compile Cache
+-        if: inputs.name != 'Android' && inputs.name != 'iOS'
++        # Android native hxcpp/PCRE2 objeleri de cache'lenir. iOS signing/build
++        # yapısı runner'a daha bağımlı olduğu için hariç tutulur.
++        if: inputs.name != 'iOS'
+         id: compile-cache
+         uses: actions/cache@v4
+         with:
+@@ -137,10 +140,8 @@ jobs:
+           chmod 600 key.keystore
+           echo "Android signing key prepared securely."
+ 
+-      - name: Clean Android
+-        if: inputs.name == 'Android'
+-        run: haxelib run lime clean android || true
+-
++      # Android clean burada bilinçli olarak çalıştırılmaz: temiz Git checkout ve
++      # hash'li cache kullanılır; lime clean restore edilen objeleri silerdi.
+       - name: Clean iOS
+         if: inputs.name == 'iOS'
+         run: haxelib run lime clean ios || true
+diff --git a/.github/workflows/main.yml b/.github/workflows/main.yml
+index a43241b..0a8a497 100644
+--- a/.github/workflows/main.yml
++++ b/.github/workflows/main.yml
+@@ -53,7 +53,9 @@ jobs:
+ 
+           - name: Android
+             os: macos-15
+-            buildArgs: "android -armv7 -arm64"
++            # Modern Android release: tek mimari. ARMv7 + ARM64 aynı job'da tüm
++            # hxcpp/PCRE2 native bağımlılıklarını iki kez derliyordu.
++            buildArgs: "android -arm64 -final"
+             setupCommand: sh ./setup/unix.sh
+             artifactName: androidBuild
+             artifactPath: "export/release/android/bin/app/build/outputs/apk/release/*.apk"
+diff --git a/.github/workflows/mobile-release.yml b/.github/workflows/mobile-release.yml
+index c2ffd74..00a0263 100644
+--- a/.github/workflows/mobile-release.yml
++++ b/.github/workflows/mobile-release.yml
+@@ -41,7 +41,7 @@ jobs:
+         include:
+           - name: Android
+             os: macos-15
+-            buildArgs: "android -final"
++            buildArgs: "android -arm64 -final"
+             setupCommand: sh ./setup/unix.sh
+             artifactName: androidBuild
+             artifactPath: "export/release/android/bin/app/build/outputs/apk/release/*.apk"
+-- 
+2.47.3
+
