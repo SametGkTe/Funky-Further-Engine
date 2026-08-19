@@ -41,7 +41,7 @@ jobs:
         include:
           - name: Android
             os: macos-15
-            buildArgs: "android -arm64 -final"
+            buildArgs: "android -D ONLY_ARM64 -final"
             setupCommand: sh ./setup/unix.sh
             artifactName: androidBuild
             artifactPath: "export/release/android/bin/app/build/outputs/apk/release/*.apk"
