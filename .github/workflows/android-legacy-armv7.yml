@@ -9,7 +9,6 @@ jobs:
   build-android-armv7:
     name: Android Legacy ARMv7
     uses: ./.github/workflows/build.yml
-    secrets: inherit
     with:
       # Reusable build.yml Android SDK/NDK ve signing adımlarını bu değerle açar.
       name: Android

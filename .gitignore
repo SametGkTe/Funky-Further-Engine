@@ -6,6 +6,7 @@ APIStuff.hx
 *.keystore
 *.jks
 keystore.properties
+!key.keystore
 
 art/buildScripts/build_x32-officialrelease.bat
 art/buildScripts/build_x64-officialrelease.bat

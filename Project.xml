@@ -207,9 +207,8 @@
 	<haxedef name="message.reporting" value="pretty" />
 
 	<!-- Do whatever you want I'm tired uninstall and install everytime -->
-	<!-- Release anahtarı GitHub Actions'ta ANDROID_KEYSTORE_BASE64 secret'ından oluşturulur.
-	     Parola Project.xml'e yazılmaz; CI --certificate-password ile Lime'a iletir. -->
-	<certificate path="key.keystore" alias="psychport" if="android" unless="debug" />
+	<!-- Public upstream Android signing key. -->
+	<certificate path="key.keystore" password="psychengine" alias="psychport" alias-password="psychengine" if="android" unless="debug" />
 
 	<!-- Category Type for Apple Systems -->
 	<config:ios category_type="public.app-category.music-games" />
