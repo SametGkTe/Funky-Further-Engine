@@ -7,7 +7,7 @@ permissions:
 
 env:
   PROJECT_NAME: FurtherEngine
-  REPO_PATH: SametGkTe/Further-Engine
+  REPO_PATH: SametGkTe/Funky-Further-Engine
 
 jobs:
   get-commit-hash:
@@ -37,11 +37,12 @@ jobs:
     name: ${{ matrix.name }}
     needs: get-commit-hash
     strategy:
+      fail-fast: false
       matrix:
         include:
           - name: Android
             os: macos-15
-            buildArgs: "android -final"
+            buildArgs: "android -ONLY_ARM64"
             setupCommand: sh ./setup/unix.sh
             artifactName: androidBuild
             artifactPath: "export/release/android/bin/app/build/outputs/apk/release/*.apk"

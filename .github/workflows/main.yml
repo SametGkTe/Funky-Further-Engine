@@ -21,6 +21,7 @@ jobs:
     name: ${{ matrix.name }}
     needs: get-commit-hash
     strategy:
+      fail-fast: false
       matrix:
         include:
           - name: Windows
@@ -53,7 +54,7 @@ jobs:
 
           - name: Android
             os: macos-15
-            buildArgs: "android -armv7 -arm64"
+            buildArgs: "android -ONLY_ARM64"
             setupCommand: sh ./setup/unix.sh
             artifactName: androidBuild
             artifactPath: "export/release/android/bin/app/build/outputs/apk/release/*.apk"
