@@ -116,9 +116,7 @@
 		<assets path="alsoft.txt" rename="plugins/alsoft.conf" type="text" unless="windows"/>
 	</section>
 	
-	<!-- V-Slice (Polymod) mod desteği -->
-	<haxelib name="polymod"/>
-	<define name="POLYMOD_ALLOWED" if="desktop || mobile" />
+	<!-- V-Slice compatibility is handled by Further Engine converters. -->
 
 	<!-- _______________________________ Libraries ______________________________ -->
 

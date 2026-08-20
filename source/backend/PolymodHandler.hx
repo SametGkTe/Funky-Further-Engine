@@ -144,6 +144,7 @@ class PolymodHandler
 	}
 
 	/** Polymod tarafından yoksayılacak dosyalar. */
+	#if POLYMOD_ALLOWED
 	static function buildIgnoreList():Array<String>
 	{
 		var list:Array<String> = polymod.Polymod.getDefaultIgnoreList();
@@ -153,6 +154,7 @@ class PolymodHandler
 		list.push('README.md');
 		return list;
 	}
+	#end
 
 	/** Metadata yeniden tarama / hot-reload. Aşama 4'teki "Reload" butonu çağırır. */
 	public static function forceReload():Void

@@ -33,7 +33,6 @@ haxelib git funkin.vis https://github.com/FunkinCrew/funkVis 22b1ce089dd924f15cd
 haxelib git grig.audio https://gitlab.com/haxe-grig/grig.audio.git cbf91e2180fd2e374924fe74844086aab7891666 --quiet
 haxelib git mobile-controls https://github.com/Prohack101010/mobile-controls-dev --quiet
 haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate --quiet
-haxelib install polymod 1.8.0
 
 echo Finished!
 pause
