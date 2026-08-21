@@ -18,6 +18,9 @@ import backend.modpack.ModpackTier;
 import backend.modpack.MediafireStats;
 import backend.modpack.ModpackLinkHelper;
 import backend.modpack.DownloadManager;
+import backend.modpack.ModDeltaInstaller;
+import backend.modpack.ModpackCatalogTypes;
+import backend.update.SafeHttp;
 import substates.PickDownloadMethodSubState;
 
 enum StoreScreenState {
@@ -50,6 +53,7 @@ class ModpackStoreState extends MusicBeatState {
 
 	var downloader:DownloadManager;
 	var installer:ModpackInstaller;
+	var deltaInstaller:ModDeltaInstaller;
 
 	var screenState:StoreScreenState = Loading;
 	var currentProgress:Float = 0.0;
@@ -112,6 +116,7 @@ class ModpackStoreState extends MusicBeatState {
 
 		downloader = new DownloadManager();
 		installer = new ModpackInstaller();
+		deltaInstaller = new ModDeltaInstaller();
 
 		// ── Arka plan (GameBanana: menuDesat renkli + coolLines) ──
 		bg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
@@ -449,18 +454,24 @@ class ModpackStoreState extends MusicBeatState {
 		FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
 	}
 
-	// ── Kart aksiyonları ──
-
 	function startCardDownload(mp:Dynamic):Void {
 		var link:Null<String> = ModpackLinkHelper.getMediafireUrl(mp);
 		if (link == null) link = ModpackLinkHelper.getGithubUrl(mp);
 
-		if (link == null) {
+		var contentUrl:String = mp.contentCatalogUrl != null ? Std.string(mp.contentCatalogUrl) : "";
+
+		if (link == null && contentUrl.length == 0) {
 			showError("İndirme linki bulunamadı.");
 			return;
 		}
 
 		currentPack = mp;
+
+		if (contentUrl.length > 0) {
+			startDeltaInstall(contentUrl);
+			return;
+		}
+
 		openMethodPicker(link);
 	}
 
@@ -801,6 +812,16 @@ class ModpackStoreState extends MusicBeatState {
 	function startPackDownload(link:String):Void {
 		if (currentPack == null) return;
 
+		// ── Mod-bazlı (delta) güncelleme yolu ──
+		// Paket girişinde contentCatalogUrl varsa full ZIP yerine içerik kataloğu
+		// üzerinden SADECE eksik/değişen modlar indirilir.
+		var mpCheck:Dynamic = currentPack;
+		var contentUrl:String = mpCheck.contentCatalogUrl != null ? Std.string(mpCheck.contentCatalogUrl) : "";
+		if (contentUrl.length > 0) {
+			startDeltaInstall(contentUrl);
+			return;
+		}
+
 		var mp:Dynamic = currentPack;
 		var packId:String = mp.id != null ? Std.string(mp.id) : "unknown";
 		var version:String = mp.version != null ? Std.string(mp.version) : "0";
@@ -849,6 +870,56 @@ class ModpackStoreState extends MusicBeatState {
 				showBrowse();
 			}
 		}, expectedBytes);
+	}
+
+	/** Mod-bazlı kurulum: katalog çek → ModDeltaInstaller (sadece değişen modlar). */
+	function startDeltaInstall(contentUrl:String):Void {
+		if (currentPack == null) return;
+
+		var mp:Dynamic = currentPack;
+		var displayName:String = mp.displayName != null ? Std.string(mp.displayName) : "Modpack";
+
+		hideDetail();
+		screenState = Downloading;
+		showProgress();
+		phaseText.text = "İçerik kataloğu alınıyor...";
+		phaseText.color = FlxColor.WHITE;
+		phaseText.visible = true;
+		titleText.text = displayName;
+		targetProgress = 0;
+		currentProgress = 0;
+		controlsText.text = "[ESC] İptal";
+
+		var urls:Array<String> = ModpackCatalog.catalogUrls(contentUrl);
+		trace('[ModpackStore] Delta kurulum: $contentUrl');
+
+		SafeHttp.getFirst(urls, ["User-Agent" => "Further-Engine-Updater"], function(data:String) {
+			var catalog = ModpackCatalog.parse(data);
+			if (catalog == null || catalog.mods == null || catalog.mods.length == 0) {
+				showError('İçerik kataloğu okunamadı:\n$contentUrl');
+				return;
+			}
+
+			deltaInstaller.install(catalog, {
+				onProgress: function(progress:ModpackInstallProgress) {
+					targetProgress = progress.overallProgress;
+					sizeText.text = progress.message;
+					if (progress.currentFile != null && progress.currentFile.length > 0)
+						phaseText.text = 'Mod: ${progress.currentFile}';
+				},
+				onComplete: function(manifest:ModpackManifest) {
+					showPackComplete(manifest);
+				},
+				onError: function(error:String) {
+					showError('Kurulum hatası:\n$error');
+				},
+				onCancelled: function() {
+					showBrowse();
+				}
+			});
+		}, function(error:String) {
+			showError('İçerik kataloğu alınamadı:\n$error');
+		});
 	}
 
 	function startPackInstall(zipPath:String, packId:String, displayName:String):Void {
@@ -1117,6 +1188,7 @@ class ModpackStoreState extends MusicBeatState {
 				if (controls.BACK) {
 					downloader.cancel();
 					installer.cancel();
+					deltaInstaller.cancel();
 					showBrowse();
 				}
 
@@ -1264,6 +1336,15 @@ class ModpackStoreState extends MusicBeatState {
 
 		if (controls.ACCEPT && selectedLink >= 0 && selectedLink < 2 && linkRow[selectedLink].visible) {
 			var url:Null<String> = selectedLink == 0 ? ModpackLinkHelper.getMediafireUrl(currentPack) : ModpackLinkHelper.getGithubUrl(currentPack);
+
+			if (url == null && currentPack != null && currentPack.contentCatalogUrl != null)
+				url = Std.string(currentPack.contentCatalogUrl);
+
+			if (url == null) {
+				showError("Link bulunamadı.");
+				return;
+			}
+
 			openMethodPicker(url);
 		}
 

@@ -32,6 +32,9 @@ typedef ModpackManifest = {
 
 	@:optional var tier:String;
 
+	/** Mod-bazlı (delta) kurulum: { "Whitty": "1.0.4", ... } — klasör → sürüm. */
+	@:optional var modVersions:Dynamic;
+
 	@:optional var installedAt:String;
 
 	@:optional var installedEngineVersion:String;

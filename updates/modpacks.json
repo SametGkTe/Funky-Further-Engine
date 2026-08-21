@@ -2,7 +2,6 @@
   "lastUpdated": "2026-08-07 22:39",
   "engineVersion": "1.0.4",
   "engineName": "Further Engine",
-
   "tiers": [
     {
       "id": "lite",
@@ -26,7 +25,6 @@
       "color": "#A855F7"
     }
   ],
-
   "modpacks": [
     {
       "id": "lite",
@@ -57,7 +55,12 @@
       "fileSize": "100 MB",
       "fileSizeBytes": 104857600,
       "modCount": 8,
-      "tags": ["lite", "hafif", "100mb", "dusuk boyut"],
+      "tags": [
+        "lite",
+        "hafif",
+        "100mb",
+        "dusuk boyut"
+      ],
       "changelog": "İlk sürüm. Tier sistemi ile birlikte yayınlandı."
     },
     {
@@ -99,72 +102,35 @@
       "fileSize": "500 MB",
       "fileSizeBytes": 524288000,
       "modCount": 18,
-      "tags": ["medium", "orta"],
+      "tags": [
+        "medium",
+        "orta"
+      ],
       "changelog": "İlk sürüm. Tier sistemi ile birlikte yayınlandı."
     },
-    {
-      "id": "further",
-      "displayName": "Further Modpack",
-      "tier": "further",
-      "version": "1.0.0",
-      "versionLabel": "v1.0.0",
-      "author": "SametGkTe",
-      "description": "Tüm modların olduğu eksiksiz paket. En geniş deneyim — bol depolama alanı olanlar için.",
-      "category": "official",
-      "thumbnail": "https://example.com/thumbnails/further.png",
-      "includes": [
-        "QT ERECT",
-        "Miku Mod",
-        "Sonic.EXE",
-        "Vs. Bendy",
-        "Friday Night Fever",
-        "Whitty",
-        "Tabi",
-        "Tricky",
-        "Indie Cross",
-        "Hypno's Lullaby",
-        "Dave and Bambi",
-        "Mario Madness",
-        "Bob & Bosip",
-        "Matt",
-        "Sky",
-        "Saster",
-        "Shaggy",
-        "Impostor",
-        "Online VS",
-        "Garfield",
-        "Nonsense",
-        "D-Sides",
-        "V-Slice",
-        "Encounter",
-        "Bluey",
-        "Secret Exit",
-        "FNF: Classified",
-        "The Date Week",
-        "Pokemon",
-        "Zardy",
-        "Starlight Mayhem",
-        "Weekly",
-        "Erect Rebound",
-        "Pibby",
-        "Corrupted",
-        "Bushman",
-        "Fortnite",
-        "Skeleton Bros",
-        "Flippy",
-        "Silly Billy"
-      ],
-      "updatedAt": "2026-08-07 22:39",
-      "downloads": 4312,
-      "mediafireUrl": "https://www.mediafire.com/file/XXXXXX/further-modpack.zip/file",
-      "githubUrl": "https://github.com/SametGkTe/Further-Engine/releases/download/modpacks-v1/further-modpack.zip",
-      "directDownloadUrl": "",
-      "externalPageUrl": "",
-      "fileSize": "1.5 GB",
-      "fileSizeBytes": 1610612736,
-      "modCount": 40,
-      "tags": ["further", "tum modlar", "full", "eksiksiz"],
-      "changelog": "İlk sürüm. Tier sistemi ile birlikte yayınlandı."
-    }
+	{
+	  "id": "further",
+	  "displayName": "Further Modpack",
+	  "tier": "further",
+	  "version": "1.1.0",
+	  "versionLabel": "v1.1.0",
+	  "author": "SametGkTe",
+	  "description": "Tüm modların olduğu eksiksiz paket. En geniş deneyim.",
+	  "category": "official",
+	  "thumbnail": "",
+	  "includes": ["blammed noimix"],
+	  "updatedAt": "2026-08-21 04:00",
+	  "downloads": 0,
+	  "mediafireUrl": "",
+	  "githubUrl": "",
+	  "contentCatalogUrl": "https://raw.githubusercontent.com/SametGkTe/Further-Modpack-Content/main/modpack.json",
+	  "directDownloadUrl": "",
+	  "externalPageUrl": "",
+	  "fileSize": "11 MB",
+	  "fileSizeBytes": 12000000,
+	  "modCount": 1,
+	  "tags": ["further", "tum modlar"],
+	  "changelog": "İlk modpack sürümü."
+	}
   ]
 }

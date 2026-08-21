@@ -46,6 +46,9 @@ typedef RemoteModpackInfo = {
 	@:optional var downloads:Int;
 	@:optional var mediafireUrl:String;
 	@:optional var githubUrl:String;
+
+	/** Mod-bazlı (delta) güncelleme: içerik reposundaki modpack.json adresi. */
+	@:optional var contentCatalogUrl:String;
 }
 
 class UpdateChecker {
