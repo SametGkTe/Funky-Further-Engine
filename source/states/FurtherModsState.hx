@@ -20,7 +20,6 @@ import vslice.menus.charSelect.CharSelectGF;
 
 class ModsMenuState extends MusicBeatState
 {
-	// Background elements (from AboutState)
 	var crowdAnim:FlxAnimate;
 	var bgSprite:FlxSprite;
 	var server:FlxSprite;
@@ -31,7 +30,6 @@ class ModsMenuState extends MusicBeatState
 	var bfLabel:FlxText;
 	var gfLabel:FlxText;
 	
-	// Character positions (adjustable)
 	var bfX:Float = 900;
 	var bfY:Float = 250;
 	var gfX:Float = 50;
@@ -65,7 +63,6 @@ class ModsMenuState extends MusicBeatState
 	var disabledMods:Array<String> = [];
 	var activeMods:Array<String> = [];
 	
-	// Current loaded mod for BF
 	var currentBFMod:String = "";
 	
 	static inline var COLUMN_WIDTH:Int = 400;

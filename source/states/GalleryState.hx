@@ -205,6 +205,18 @@ class GalleryState extends MusicBeatState {
 			favorited: false,
 			dateAdded: "2026-07-3",
 			modDirectory: null
+		},
+		{
+			fileName: "eternalsugar",
+			title: "External Sugar :D",
+			description: "rlly like this char ngl",
+			type: IMAGE,
+			category: "Art",
+			artist: "sametgkte",
+			unlocked: true,
+			favorited: false,
+			dateAdded: "2026-08-22",
+			modDirectory: null
 		}
 	];
 

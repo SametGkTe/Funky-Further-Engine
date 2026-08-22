@@ -9,6 +9,7 @@ import flixel.util.FlxColor;
 
 import objects.StrumNote;
 
+import flixel.graphics.FlxGraphic;
 import flixel.math.FlxRect;
 
 using StringTools;
@@ -368,7 +369,7 @@ class Note extends FlxSprite
 		if(texture.length < 1)
 		{
 			skin = PlayState.SONG != null ? PlayState.SONG.arrowSkin : null;
-			if(skin == null || skin.length < 1)
+			if(!isUsableNoteSkin(skin))
 				skin = defaultNoteSkin + postfix;
 		}
 		else rgbShader.enabled = false;
@@ -384,39 +385,18 @@ class Note extends FlxSprite
 		var customSkin:String = skin + skinPostfix;
 		var path:String = PlayState.isPixelStage ? 'pixelUI/' : '';
 		if(customSkin == _lastValidChecked || Paths.fileExists('images/' + path + customSkin + '.png', IMAGE))
-		{
 			skin = customSkin;
+		else
+			skinPostfix = '';
+
+		var loaded:Bool = false;
+		if(PlayState.isPixelStage)
+			loaded = applyPixelNoteSkin(skinPixel, skinPostfix);
+		else
+			loaded = applyNormalNoteSkin(skin);
+
+		if(loaded)
 			_lastValidChecked = customSkin;
-		}
-		else skinPostfix = '';
-
-		if(PlayState.isPixelStage) {
-			if(isSustainNote) {
-				var graphic = Paths.image('pixelUI/' + skinPixel + 'ENDS' + skinPostfix);
-				loadGraphic(graphic, true, Math.floor(graphic.width / 4), Math.floor(graphic.height / 2));
-				originalHeight = graphic.height / 2;
-			} else {
-				var graphic = Paths.image('pixelUI/' + skinPixel + skinPostfix);
-				loadGraphic(graphic, true, Math.floor(graphic.width / 4), Math.floor(graphic.height / 5));
-			}
-			setGraphicSize(Std.int(width * PlayState.daPixelZoom));
-			loadPixelNoteAnims();
-			antialiasing = false;
-
-			if(isSustainNote) {
-				offsetX += _lastNoteOffX;
-				_lastNoteOffX = (width - 7) * (PlayState.daPixelZoom / 2);
-				offsetX -= _lastNoteOffX;
-			}
-		} else {
-			frames = Paths.getSparrowAtlas(skin);
-			loadNoteAnims();
-			if(!isSustainNote)
-			{
-				centerOffsets();
-				centerOrigin();
-			}
-		}
 
 		if(isSustainNote) {
 			scale.y = lastScaleY;
@@ -425,6 +405,165 @@ class Note extends FlxSprite
 
 		if(animName != null)
 			animation.play(animName, true);
+	}
+
+	function isUsableNoteSkin(skin:String):Bool
+	{
+		if(skin == null)
+			return false;
+		var s = skin.trim();
+		if(s.length < 1)
+			return false;
+		var lower = s.toLowerCase();
+		return lower != 'null' && lower != 'undefined';
+	}
+
+	function tryNoteImage(key:String):FlxGraphic
+	{
+		if(!isUsableNoteSkin(key))
+			return null;
+		try
+		{
+			return Paths.image(key);
+		}
+		catch (e:Dynamic)
+		{
+			return null;
+		}
+	}
+
+	function tryNoteAtlas(key:String):Dynamic
+	{
+		if(!isUsableNoteSkin(key))
+			return null;
+		try
+		{
+			return Paths.getSparrowAtlas(key);
+		}
+		catch (e:Dynamic)
+		{
+			return null;
+		}
+	}
+
+	function applyPixelNoteSkin(baseSkin:String, skinPostfix:String):Bool
+	{
+		var graphic:FlxGraphic = resolvePixelNoteGraphic(baseSkin, skinPostfix);
+		if(graphic == null)
+		{
+			makeGraphic(16, 16, 0xFFFFFFFF);
+			antialiasing = false;
+			return false;
+		}
+
+		var gw:Int = graphic.width;
+		var gh:Int = graphic.height;
+		if(gw < 4 || gh < 2)
+		{
+			makeGraphic(16, 16, 0xFFFFFFFF);
+			antialiasing = false;
+			return false;
+		}
+
+		if(isSustainNote)
+		{
+			loadGraphic(graphic, true, Math.floor(gw / 4), Math.floor(gh / 2));
+			originalHeight = gh / 2;
+		}
+		else
+		{
+			loadGraphic(graphic, true, Math.floor(gw / 4), Math.floor(gh / 5));
+		}
+		setGraphicSize(Std.int(width * PlayState.daPixelZoom));
+		loadPixelNoteAnims();
+		antialiasing = false;
+
+		if(isSustainNote)
+		{
+			offsetX += _lastNoteOffX;
+			_lastNoteOffX = (width - 7) * (PlayState.daPixelZoom / 2);
+			offsetX -= _lastNoteOffX;
+		}
+		return true;
+	}
+
+	function resolvePixelNoteGraphic(baseSkin:String, skinPostfix:String):FlxGraphic
+	{
+		var names:Array<String> = [];
+		if(isUsableNoteSkin(baseSkin))
+		{
+			names.push(baseSkin);
+			if(baseSkin.indexOf('/') == -1)
+				names.push('noteSkins/' + baseSkin);
+		}
+		names.push(defaultNoteSkin);
+		names.push('NOTE_assets');
+		names.push('noteSkins/NOTE_assets');
+
+		var seen:Map<String, Bool> = new Map();
+		var postfix:String = (skinPostfix != null) ? skinPostfix : '';
+		for (name in names)
+		{
+			if(!isUsableNoteSkin(name) || seen.exists(name))
+				continue;
+			seen.set(name, true);
+
+			var graphic:FlxGraphic = tryNoteImage('pixelUI/' + name + (isSustainNote ? 'ENDS' : '') + postfix);
+			if(graphic != null)
+				return graphic;
+			if(postfix.length > 0)
+			{
+				graphic = tryNoteImage('pixelUI/' + name + (isSustainNote ? 'ENDS' : ''));
+				if(graphic != null)
+					return graphic;
+			}
+		}
+		return null;
+	}
+
+	function applyNormalNoteSkin(skin:String):Bool
+	{
+		var atlas = resolveNoteAtlas(skin);
+		if(atlas == null)
+		{
+			makeGraphic(160, 160, 0xFFFFFFFF);
+			return false;
+		}
+
+		frames = atlas;
+		loadNoteAnims();
+		if(!isSustainNote)
+		{
+			centerOffsets();
+			centerOrigin();
+		}
+		return true;
+	}
+
+	function resolveNoteAtlas(skin:String):Dynamic
+	{
+		var names:Array<String> = [];
+		if(isUsableNoteSkin(skin))
+		{
+			names.push(skin);
+			if(skin.indexOf('/') == -1)
+				names.push('noteSkins/' + skin);
+		}
+		names.push(defaultNoteSkin);
+		names.push('NOTE_assets');
+		names.push('noteSkins/NOTE_assets');
+
+		var seen:Map<String, Bool> = new Map();
+		for (name in names)
+		{
+			if(!isUsableNoteSkin(name) || seen.exists(name))
+				continue;
+			seen.set(name, true);
+			var atlas = tryNoteAtlas(name);
+			if(atlas != null)
+				return atlas;
+		}
+		return null;
 	}
 
 	public static function getNoteSkinPostfix()
@@ -436,7 +575,7 @@ class Note extends FlxSprite
 	}
 
 	function loadNoteAnims() {
-		if (colArray[noteData] == null)
+		if (colArray[noteData] == null || frames == null)
 			return;
 
 		if (isSustainNote)

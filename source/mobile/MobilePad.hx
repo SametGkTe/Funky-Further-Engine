@@ -74,8 +74,9 @@ class MobilePad extends MobileInputHandler {
 			if (DPad != "NONE")
 			{
 				if (!MobileConfig.dpadModes.exists(DPad))
-					throw 'The mobilePad dpadMode "$DPad" doesn\'t exists.';
+					MobileConfig.ensureBuiltinDpadModes();
 
+				if (MobileConfig.dpadModes.exists(DPad))
 				for (buttonData in MobileConfig.dpadModes.get(DPad).buttons)
 				{
 					if (buttonData.scale == null) buttonData.scale = 1.0;
@@ -95,8 +96,9 @@ class MobilePad extends MobileInputHandler {
 			if (Action != "NONE")
 			{
 				if (!MobileConfig.actionModes.exists(Action))
-					throw 'The mobilePad actionMode "$Action" doesn\'t exists.';
+					MobileConfig.ensureBuiltinActionModes();
 
+				if (MobileConfig.actionModes.exists(Action))
 				for (buttonData in MobileConfig.actionModes.get(Action).buttons)
 				{
 					if (buttonData.scale == null) buttonData.scale = 1.0;

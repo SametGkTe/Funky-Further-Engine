@@ -176,7 +176,7 @@ class Controls
 
 	private function touchPadPressed(keys:Array<MobileInputID>):Bool
 	{
-		if (keys != null && requestedInstance.touchPad != null)
+		if (keys != null && requestedInstance != null && requestedInstance.touchPad != null)
 			if (requestedInstance.touchPad.anyPressed(keys) == true)
 				return true;
 
@@ -303,14 +303,18 @@ class Controls
 	{
 		if (isInSubstate)
 			return MusicBeatSubstate.instance;
-		else
-			return MusicBeatState.getState();
+		if (FlxG.state != null && Std.isOfType(FlxG.state, MusicBeatState))
+			return cast FlxG.state;
+		return null;
 	}
 
 	@:noCompletion
 	private function get_requestedMobileC():FMobileControls
 	{
-		return requestedInstance.mobileControls;
+		var inst:Dynamic = requestedInstance;
+		if (inst == null)
+			return null;
+		return inst.mobileControls;
 	}
 
 	@:noCompletion

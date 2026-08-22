@@ -106,6 +106,11 @@
 		<assets path="mobile/assets"            rename="assets/mobile"/>
 		<assets path="mobile/DPadModes"         rename="assets/mobile/DPadModes"/>
 		<assets path="mobile/ActionModes"       rename="assets/mobile/ActionModes"/>
+		<!-- MobileConfig.init() reads assets/shared/mobile/MobilePad/*, not assets/mobile -->
+		<assets path="mobile/assets/MobilePad/ActionModes" rename="assets/shared/mobile/MobilePad/ActionModes"/>
+		<assets path="mobile/assets/MobilePad/DPadModes" rename="assets/shared/mobile/MobilePad/DPadModes"/>
+		<assets path="mobile/ActionModes"       rename="assets/shared/mobile/ActionModes"/>
+		<assets path="mobile/DPadModes"         rename="assets/shared/mobile/DPadModes"/>
 		<assets path="mobile/images"            rename="assets/mobile/images"/>
 		<assets path="mobile/storageModes.txt"  rename="mobile/storageModes.txt"/>
 	</section>

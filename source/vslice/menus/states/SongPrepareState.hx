@@ -66,15 +66,24 @@ class SongPrepareState extends MusicBeatState
 			return;
 		}
 
-		if (cap.folder != null)
+		if (cap.folder != null && cap.folder.length > 0)
 			Mods.currentModDirectory = cap.folder;
-		else
-			Mods.loadTopMod();
+
+		var requestedDiff:String = currentDifficulty;
+		if (requestedDiff == null || requestedDiff.length < 1)
+			requestedDiff = cap.currentDifficulty;
+		if (requestedDiff == null || requestedDiff.length < 1)
+			requestedDiff = Difficulty.getDefault();
 
 		var diffId:Int = cap.loadAndGetDiffId();
-		if (diffId == -1)
+		if (diffId < 0 && cap.songDifficulties != null && cap.songDifficulties.length > 0)
 		{
-			trace("SELECTED DIFFICULTY IS MISSING: " + currentDifficulty);
+			Difficulty.copyFrom(cap.songDifficulties);
+			diffId = cap.loadAndGetDiffId();
+		}
+		if (diffId < 0)
+		{
+			trace("SELECTED DIFFICULTY IS MISSING: " + requestedDiff);
 			diffId = 0;
 		}
 
@@ -102,16 +111,17 @@ class SongPrepareState extends MusicBeatState
 		}
 
 		var songLowercase:String = Paths.formatToSongPath(cap.getNativeSongId());
-		var poop:String = Highscore.formatSong(songLowercase, diffId);
+		var poop:String = songLowercase;
+		if (Paths.formatToSongPath(requestedDiff) != Paths.formatToSongPath(Difficulty.getDefault()))
+			poop = songLowercase + '-' + Paths.formatToSongPath(requestedDiff);
 
 		try
 		{
+			PlayState.isStoryMode = false;
+			PlayState.storyDifficulty = diffId;
 			PlayState.SONG = Song.loadFromJson(poop, songLowercase);
 			if (PlayState.SONG == null)
 				throw "Song parsing failed!";
-
-			PlayState.isStoryMode = false;
-			PlayState.storyDifficulty = diffId;
 
 			var directory = StageData.forceNextDirectory;
 			LoadingState.loadNextDirectory();
@@ -144,6 +154,7 @@ class SongPrepareState extends MusicBeatState
 			FlxG.sound.music.stop();
 		#end
 
+		LoadingState.prepareToSong();
 		LoadingState.loadAndSwitchState(new PlayState(), true);
 
 		if (FlxG.sound.music != null)

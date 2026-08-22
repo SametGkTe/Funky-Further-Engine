@@ -70,6 +70,162 @@ class MobileConfig {
 					#end
 			}
 		}
+
+		// TitleState points MobileConfig at assets/shared/mobile, but lime
+		// packs the extra ActionModes under assets/mobile. Scan both.
+		if (mobileFolderPath.indexOf('assets/shared/') == 0)
+		{
+			readDirectoryPart1('assets/mobile/MobilePad/ActionModes', actionModes, ACTION);
+			readDirectoryPart1('assets/mobile/ActionModes', actionModes, ACTION);
+			readDirectoryPart1('assets/mobile/MobilePad/DPadModes', dpadModes, DPAD);
+			readDirectoryPart1('assets/mobile/DPadModes', dpadModes, DPAD);
+		}
+
+		ensureBuiltinActionModes();
+		ensureBuiltinDpadModes();
+	}
+
+	static var defaultInited:Bool = false;
+
+	public static function initDefault():Void
+	{
+		if (defaultInited)
+			return;
+		defaultInited = true;
+		MobileData.init();
+		init('MobileControls', CoolUtil.getSavePath(), 'assets/shared/mobile/',
+			['MobilePad/DPadModes', 'MobilePad/ActionModes', 'Hitbox/HitboxModes'],
+			[DPAD, ACTION, HITBOX]
+		);
+	}
+
+	public static inline var FREEPLAY_ACTION_MODE:String = 'A_B_C_P_X_Y_Z';
+
+	/**
+	 * Freeplay needs A_B_C_P_X_Y_Z. The JSON may live under assets/mobile
+	 * while MobileConfig reads assets/shared/mobile — inject the mode if
+	 * the packed APK never copied that file.
+	 */
+	public static function ensureBuiltinActionModes():Void
+	{
+		if (!actionModes.exists(FREEPLAY_ACTION_MODE))
+		{
+			var buttons:Array<ButtonsData> = [];
+			if (actionModes.exists('A_B_C_X_Y_Z') && actionModes.get('A_B_C_X_Y_Z').buttons != null)
+			{
+				for (b in actionModes.get('A_B_C_X_Y_Z').buttons)
+					buttons.push(b);
+			}
+			else
+			{
+				buttons = defaultAbcxyzButtons();
+			}
+
+			var hasP:Bool = false;
+			for (b in buttons)
+			{
+				if (b != null && b.button == 'buttonP')
+				{
+					hasP = true;
+					break;
+				}
+			}
+			if (!hasP)
+				buttons.push(makeButton('buttonP', 'p', 1156, 348, '0xE5DE00', ['P']));
+
+			actionModes.set(FREEPLAY_ACTION_MODE, {buttons: buttons});
+		}
+
+		if (!actionModes.exists('A'))
+			actionModes.set('A', {buttons: [makeButton('buttonA', 'a', 1156, 596, '0xFF0000', ['A'])]});
+		if (!actionModes.exists('B'))
+			actionModes.set('B', {buttons: [makeButton('buttonB', 'b', 1032, 596, '0xFFCB00', ['B'])]});
+		if (!actionModes.exists('P'))
+			actionModes.set('P', {buttons: [makeButton('buttonP', 'p', 1156, 348, '0xE5DE00', ['P'])]});
+		if (!actionModes.exists('E'))
+			actionModes.set('E', {buttons: [makeButton('buttonE', 'e', 1156, 596, '0xFF0000', ['E'])]});
+		if (!actionModes.exists('A_B'))
+			actionModes.set('A_B', {buttons: [
+				makeButton('buttonA', 'a', 1156, 596, '0xFF0000', ['A']),
+				makeButton('buttonB', 'b', 1032, 596, '0xFFCB00', ['B'])
+			]});
+		if (!actionModes.exists('A_B_C'))
+			actionModes.set('A_B_C', {buttons: [
+				makeButton('buttonA', 'a', 1156, 596, '0xFF0000', ['A']),
+				makeButton('buttonB', 'b', 1032, 596, '0xFFCB00', ['B']),
+				makeButton('buttonC', 'c', 908, 596, '0x44FF00', ['C'])
+			]});
+		if (!actionModes.exists('B_C'))
+			actionModes.set('B_C', {buttons: [
+				makeButton('buttonB', 'b', 1032, 596, '0xFFCB00', ['B']),
+				makeButton('buttonC', 'c', 908, 596, '0x44FF00', ['C'])
+			]});
+		if (!actionModes.exists('A_B_X_Y'))
+			actionModes.set('A_B_X_Y', {buttons: [
+				makeButton('buttonA', 'a', 1156, 596, '0xFF0000', ['A']),
+				makeButton('buttonB', 'b', 1032, 596, '0xFFCB00', ['B']),
+				makeButton('buttonX', 'x', 908, 472, '0x99062D', ['X']),
+				makeButton('buttonY', 'y', 1032, 472, '0x4A35B9', ['Y'])
+			]});
+		if (!actionModes.exists('A_B_C_X_Y_Z'))
+			actionModes.set('A_B_C_X_Y_Z', {buttons: defaultAbcxyzButtons()});
+	}
+
+	public static function ensureBuiltinDpadModes():Void
+	{
+		if (!dpadModes.exists('LEFT_RIGHT'))
+			dpadModes.set('LEFT_RIGHT', {buttons: [
+				makeButton('buttonLeft', 'left', 0, 585, '0xFFC24B99', ['LEFT']),
+				makeButton('buttonRight', 'right', 126, 585, '0xFFF9393F', ['RIGHT'])
+			]});
+		if (!dpadModes.exists('UP_DOWN'))
+			dpadModes.set('UP_DOWN', {buttons: [
+				makeButton('buttonUp', 'up', 0, 465, '0xFF12FA05', ['UP']),
+				makeButton('buttonDown', 'down', 0, 585, '0xFF00FFFF', ['DOWN'])
+			]});
+		if (!dpadModes.exists('LEFT_FULL'))
+			dpadModes.set('LEFT_FULL', {buttons: [
+				makeButton('buttonUp', 'up', 105, 372, '0xFF12FA05', ['UP']),
+				makeButton('buttonLeft', 'left', 0, 477, '0xFFC24B99', ['LEFT']),
+				makeButton('buttonRight', 'right', 207, 477, '0xFFF9393F', ['RIGHT']),
+				makeButton('buttonDown', 'down', 105, 585, '0xFF00FFFF', ['DOWN'])
+			]});
+		if (!dpadModes.exists('RIGHT_FULL'))
+			dpadModes.set('RIGHT_FULL', {buttons: [
+				makeButton('buttonUp', 'up', 1022, 314, '0xFF12FA05', ['UP']),
+				makeButton('buttonLeft', 'left', 896, 413, '0xFFC24B99', ['LEFT']),
+				makeButton('buttonRight', 'right', 1148, 413, '0xFFF9393F', ['RIGHT']),
+				makeButton('buttonDown', 'down', 1022, 521, '0xFF00FFFF', ['DOWN'])
+			]});
+		if (!dpadModes.exists('FULL') && dpadModes.exists('LEFT_FULL'))
+			dpadModes.set('FULL', dpadModes.get('LEFT_FULL'));
+	}
+
+	static function defaultAbcxyzButtons():Array<ButtonsData>
+	{
+		return [
+			makeButton('buttonX', 'x', 908, 472, '0x99062D', ['X']),
+			makeButton('buttonC', 'c', 908, 596, '0x44FF00', ['C']),
+			makeButton('buttonY', 'y', 1032, 472, '0x4A35B9', ['Y']),
+			makeButton('buttonB', 'b', 1032, 596, '0xFFCB00', ['B']),
+			makeButton('buttonZ', 'z', 1156, 472, '0xCCB98E', ['Z']),
+			makeButton('buttonA', 'a', 1156, 596, '0xFF0000', ['A'])
+		];
+	}
+
+	static function makeButton(name:String, graphic:String, x:Float, y:Float, color:String, ids:Array<String>):ButtonsData
+	{
+		return {
+			button: name,
+			buttonIDs: ids,
+			buttonUniqueID: null,
+			graphic: graphic,
+			x: x,
+			y: y,
+			color: color,
+			scale: null,
+			returnKey: null
+		};
 	}
 
 	static function readDirectoryPart1(folder:String, map:Dynamic, mode:ButtonsModes)

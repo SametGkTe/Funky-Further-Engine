@@ -10,6 +10,7 @@ import openfl.utils.Assets as OpenFlAssets;
 import flixel.graphics.FlxGraphic;
 import flixel.system.FlxAssets;
 import flixel.FlxState;
+import flixel.text.FlxText.FlxTextBorderStyle;
 
 import flash.media.Sound;
 
@@ -34,11 +35,14 @@ class LoadingState extends MusicBeatState
 {
 	public static var loaded:Int = 0;
 	public static var loadMax:Int = 0;
+	public static var loadStatus:String = 'Hazırlanıyor...';
 
 	static var originalBitmapKeys:Map<String, String> = [];
 	static var requestedBitmaps:Map<String, BitmapData> = [];
+	static var imageStatus:Map<String, String> = new Map();
 	static var mutex:Mutex;
 	static var threadPool:FixedThreadPool = null;
+	var statusTxt:FlxText;
 
 	function new(target:FlxState, stopMusic:Bool)
 	{
@@ -98,6 +102,12 @@ class LoadingState extends MusicBeatState
 		barGroup.add(bar);
 		barWidth = Std.int(barBack.width - 10);
 
+		statusTxt = new FlxText(0, barBack.y - 34, FlxG.width, loadStatus, 18);
+		statusTxt.setFormat(Paths.font('vcr.ttf'), 18, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		statusTxt.borderSize = 2;
+		statusTxt.scrollFactor.set();
+		add(statusTxt);
+
 		#if HSCRIPT_ALLOWED
 		if(Mods.currentModDirectory != null && Mods.currentModDirectory.trim().length > 0)
 		{
@@ -109,6 +119,7 @@ class LoadingState extends MusicBeatState
 					hscript = new HScript(null, scriptPath);
 					hscript.set('getLoaded', function() return loaded);
 					hscript.set('getLoadMax', function() return loadMax);
+					hscript.set('getLoadStatus', function() return loadStatus);
 					hscript.set('barBack', barBack);
 					hscript.set('bar', bar);
 	
@@ -135,15 +146,11 @@ class LoadingState extends MusicBeatState
 		}
 		#end
 
-		#if PSYCH_WATERMARKS // P.E.T / PSYCH LOADING SCREEN
+		#if PSYCH_WATERMARKS
 
-		// Arka plan
 		if(ClientPrefs.data.petloadingscreen)
 		{
-			// P.E.T özel yükleme ekranı
 				var style:String = ClientPrefs.data.petloadingscreenimage;
-				// Android dosya sistemi büyük/küçük harfe duyarlıdır. Klasörün gerçek
-				// adı "online" olduğu için kayıtlı "ONLINE" değerini normalize et.
 				switch (style.toUpperCase())
 				{
 					case 'ONLINE': style = 'online';
@@ -161,7 +168,6 @@ class LoadingState extends MusicBeatState
 					bg.loadGraphic(bgGraphic);
 				else
 				{
-					// Yedek: düz arka plan
 					bg.loadGraphic(Paths.image('menuDesat'));
 					bg.color = 0xFFD16FFF;
 				}
@@ -171,10 +177,8 @@ class LoadingState extends MusicBeatState
 			bg.screenCenter();
 			addBehindBar(bg);
 
-				// P.E.T logosu. Eski "pet/fe.png" depoda bulunmadığı için mevcut
-				// PET logosunu kullan; böylece her yüklemede iki gereksiz hata oluşmaz.
 				logo = new FlxSprite(0, 0);
-				var logoGraphic = Paths.image('pet/petlogos/logo');
+				var logoGraphic = Paths.image('pet/petlogos/fe');
 				if (logoGraphic == null) logoGraphic = Paths.image('loading_screen/icon');
 				logo.loadGraphic(logoGraphic);
 			logo.antialiasing = ClientPrefs.data.antialiasing;
@@ -204,7 +208,7 @@ class LoadingState extends MusicBeatState
 			addBehindBar(logo);
 		}
 
-		#else // BASE GAME LOADING SCREEN
+		#else
 		var bg = new FlxSprite().makeGraphic(1, 1, 0xFFCAFF4D);
 		bg.scale.set(FlxG.width, FlxG.height);
 		bg.updateHitbox();
@@ -241,6 +245,10 @@ class LoadingState extends MusicBeatState
 		{
 			if (!finishedLoading && checkLoaded())
 			{
+				if (ClientPrefs.data.shaders)
+					loadStatus = 'Shaderlar yükleniyor';
+				else
+					loadStatus = 'Tamamlanıyor...';
 				if(stateChangeDelay <= 0)
 				{
 					transitioning = true;
@@ -260,6 +268,17 @@ class LoadingState extends MusicBeatState
 			bar.scale.x = barWidth * curPercent;
 			bar.updateHitbox();
 		}
+
+		if (statusTxt != null)
+		{
+			var label:String = loadStatus;
+			if (label == null || label.length < 1)
+				label = 'Yükleniyor...';
+			if (loadMax > 0)
+				statusTxt.text = label + '  (' + loaded + '/' + loadMax + ')';
+			else
+				statusTxt.text = label;
+		}
 		
 		#if HSCRIPT_ALLOWED
 		if(hscript != null)
@@ -269,7 +288,7 @@ class LoadingState extends MusicBeatState
 		}
 		#end
 
-		#if PSYCH_WATERMARKS // PSYCH / P.E.T LOADING SCREEN
+		#if PSYCH_WATERMARKS
 		timePassed += elapsed;
 		shakeFl += elapsed * 3000;
 
@@ -346,6 +365,7 @@ class LoadingState extends MusicBeatState
 	var finishedLoading:Bool = false;
 	function onLoad()
 	{
+		loadStatus = 'Tamamlanıyor...';
 		_loaded();
 
 		if (stopMusic && FlxG.sound.music != null)
@@ -361,6 +381,8 @@ class LoadingState extends MusicBeatState
 	{
 		loaded = 0;
 		loadMax = 0;
+		loadStatus = 'Hazırlanıyor...';
+		imageStatus = new Map();
 		initialThreadCompleted = true;
 		isIntrusive = false;
 
@@ -374,8 +396,6 @@ class LoadingState extends MusicBeatState
 	{
 		for (key => bitmap in requestedBitmaps)
 		{
-				// cacheBitmap'in ikinci parametresi parentFolder'dır; BitmapData üçüncü
-				// parametre olarak verilmelidir. Eski çağrı bitmap'i klasör sanıyordu.
 				if (bitmap != null && Paths.cacheBitmap(originalBitmapKeys.get(key), null, bitmap) != null) {}
 				else trace('görsel önbelleğe alınamadı: $key');
 		}
@@ -429,11 +449,37 @@ class LoadingState extends MusicBeatState
 	static var soundsToPrepare:Array<String> = [];
 	static var musicToPrepare:Array<String> = [];
 	static var songsToPrepare:Array<String> = [];
-	public static function prepare(images:Array<String> = null, sounds:Array<String> = null, music:Array<String> = null)
+	public static function prepare(images:Array<String> = null, sounds:Array<String> = null, music:Array<String> = null, ?status:String)
 	{
-		appendUnique(imagesToPrepare, images);
+		if (images != null)
+		{
+			var st:String = (status != null && status.length > 0) ? status : 'Görseller yükleniyor';
+			for (img in images)
+				queueImage(img, st);
+		}
 		appendUnique(soundsToPrepare, sounds);
 		appendUnique(musicToPrepare, music);
+	}
+
+	static function queueImage(path:String, status:String):Void
+	{
+		if (path == null)
+			return;
+		var nam:String = path.trim();
+		if (nam.length < 1)
+			return;
+		if (!imagesToPrepare.contains(nam))
+			imagesToPrepare.push(nam);
+		imageStatus.set(nam, status);
+	}
+
+	static function setLoadStatus(status:String):Void
+	{
+		if (mutex != null)
+			mutex.acquire();
+		loadStatus = status;
+		if (mutex != null)
+			mutex.release();
 	}
 
 	static function appendUnique(target:Array<String>, values:Array<String>):Void
@@ -461,11 +507,12 @@ class LoadingState extends MusicBeatState
 	{
 		if (threadPool != null) return;
 		#if MULTITHREADED_LOADING
-		// BitmapData/Sound decoderlarının Android worker thread güvenilirliği moddan
-		// moda değişiyor. Mobilde kararlılık için tek worker kullan.
-		var platformMax:Int = #if mobile 1 #else 4 #end;
+		var platformMax:Int = #if mobile 2 #else 4 #end;
 		var available:Int = Std.int(Math.max(1, CoolUtil.getCPUThreadsCount() - #if DISCORD_ALLOWED 2 #else 1 #end));
-		var requested:Int = #if mobile 1 #else ClientPrefs.data.loadThreads #end;
+		var requested:Int = ClientPrefs.data.loadThreads;
+		#if mobile
+		requested = 2;
+		#end
 		if (requested < 1) requested = 1;
 		var threadCount:Int = Std.int(Math.max(1, Math.min(platformMax, Math.min(available, requested))));
 		#else
@@ -483,8 +530,10 @@ class LoadingState extends MusicBeatState
 			soundsToPrepare = [];
 			musicToPrepare = [];
 			songsToPrepare = [];
+			imageStatus = new Map();
 			loaded = 0;
 			loadMax = 0;
+			loadStatus = 'Hazırlanıyor...';
 			initialThreadCompleted = true;
 			isIntrusive = false;
 			return;
@@ -495,6 +544,8 @@ class LoadingState extends MusicBeatState
 		soundsToPrepare = [];
 		musicToPrepare = [];
 		songsToPrepare = [];
+		imageStatus = new Map();
+		loadStatus = 'Şarkı hazırlanıyor...';
 
 		initialThreadCompleted = false;
 			var threadsCompleted:Int = 0;
@@ -537,12 +588,12 @@ class LoadingState extends MusicBeatState
 	
 			var customSkin:String = noteSkin + Note.getNoteSkinPostfix();
 			if(Paths.fileExists('images/$customSkin.png', IMAGE)) noteSkin = customSkin;
-			imagesToPrepare.push(noteSkin);
+			queueImage(noteSkin, 'Notalar yükleniyor');
 
 			var noteSplash:String = NoteSplash.defaultNoteSplash;
 			if(PlayState.SONG.splashSkin != null && PlayState.SONG.splashSkin.length > 0) noteSplash = PlayState.SONG.splashSkin;
 			else noteSplash += NoteSplash.getSplashSkinPostfix();
-			imagesToPrepare.push(noteSplash);
+			queueImage(noteSplash, 'Notalar yükleniyor');
 
 			try
 			{
@@ -577,7 +628,7 @@ class LoadingState extends MusicBeatState
 								mscs.push(asset.substr('music/'.length));
 						}
 					}
-					prepare(imgs, snds, mscs);
+					prepare(imgs, snds, mscs, 'Görseller yükleniyor');
 				}
 			}
 			catch(e:Dynamic) {}
@@ -621,9 +672,10 @@ class LoadingState extends MusicBeatState
 								imgs.push(sprite.image);
 					}
 				}
-				prepare(imgs, snds, mscs);
+				prepare(imgs, snds, mscs, 'Sahne yükleniyor');
 			}
 
+			loadStatus = 'Karakterler yükleniyor';
 			songsToPrepare.push('$folder/Inst');
 
 			var player1:String = song.player1;
@@ -662,8 +714,6 @@ class LoadingState extends MusicBeatState
 				});
 			}
 
-			// Tüm worker'lar planlanmadan önce hızlı bir worker tamamlanırsa eski
-			// kod preload'u yarım asset listesiyle başlatabiliyordu.
 			completionMutex.acquire();
 			schedulingComplete = true;
 			completionMutex.release();
@@ -673,7 +723,6 @@ class LoadingState extends MusicBeatState
 		.onError((err:Dynamic) -> {
 			trace('HATA! şarkı hazırlanırken: $err');
 			trace(haxe.CallStack.toString(haxe.CallStack.exceptionStack(true)));
-			// Hazırlık Future'ı hata verirse loading ekranını sonsuza kadar bekletme.
 			try
 			{
 				clearInvalids();
@@ -756,20 +805,19 @@ class LoadingState extends MusicBeatState
 
 	static function _threadFunc()
 	{
-		// prepareToSong sırasında oluşturulan havuzu yeniden kullan. Eski kod burada
-		// ikinci bir havuz oluşturup ilk worker grubunun referansını kaybediyordu.
 		if (threadPool == null) _startPool();
-		for (sound in soundsToPrepare) initThread(() -> preloadSound('sounds/$sound'), 'ses $sound');
-		for (music in musicToPrepare) initThread(() -> preloadSound('music/$music'), 'müzik $music');
-		for (song in songsToPrepare) initThread(() -> preloadSound(song, 'songs', true, false), 'şarkı $song');
+		for (sound in soundsToPrepare) initThread(() -> preloadSound('sounds/$sound'), 'Sesler yükleniyor');
+		for (music in musicToPrepare) initThread(() -> preloadSound('music/$music'), 'Müzik yükleniyor');
+		for (song in songsToPrepare) initThread(() -> preloadSound(song, 'songs', true, false), 'Müzik yükleniyor');
 
 		#if mobile
-		// Büyük mod atlaslarını worker'da topluca decode edip requestedBitmaps'te
-		// tutmak Android'de yüzlerce MB peak RAM ve native process kill üretiyor.
-		// Görseller PlayState kurulurken ana thread'de ihtiyaç oldukça yüklenir.
 		imagesToPrepare = [];
 		#else
-		for (image in imagesToPrepare) initThread(() -> preloadGraphic(image), 'görsel $image');
+		for (image in imagesToPrepare)
+		{
+			var st:String = imageStatus.exists(image) ? imageStatus.get(image) : 'Görseller yükleniyor';
+			initThread(() -> preloadGraphic(image), st);
+		}
 		#end
 	}
 
@@ -783,6 +831,7 @@ class LoadingState extends MusicBeatState
 			var threadStart = Sys.time();
 			trace('$traceData ön yüklemeye başlamak ${threadStart - threadSchedule}s sürdü');
 			#end
+			setLoadStatus(traceData);
 
 			try {
 				if (func() != null) {
@@ -795,7 +844,6 @@ class LoadingState extends MusicBeatState
 			catch(e:Dynamic) {
 				trace('HATA! $traceData ön yüklemesi başarısız: $e');
 			}
-			// Birden fazla worker aynı anda tamamlanabilir; sayaç artışı atomik tutulur.
 			if (mutex != null) mutex.acquire();
 			loaded++;
 			if (mutex != null) mutex.release();
@@ -827,7 +875,7 @@ class LoadingState extends MusicBeatState
 				var split:Array<String> = img.split(',');
 				for (file in split)
 				{
-					imagesToPrepare.push(file.trim());
+					queueImage(file.trim(), 'Karakterler yükleniyor');
 				}
 			}
 			#if flxanimate
@@ -840,7 +888,7 @@ class LoadingState extends MusicBeatState
 	
 					if(Paths.fileExists('images/$img/spritemap$st.png', IMAGE))
 					{
-						imagesToPrepare.push('$img/spritemap$st');
+						queueImage('$img/spritemap$st', 'Karakterler yükleniyor');
 						break;
 					}
 				}
@@ -861,6 +909,25 @@ class LoadingState extends MusicBeatState
 
 	static function preloadSound(key:String, ?path:String, ?modsAllowed:Bool = true, ?beepOnNull:Bool = true):Null<Sound>
 	{
+		if (path == 'songs' && key != null)
+		{
+			var slash:Int = key.lastIndexOf('/');
+			if (slash > 0)
+			{
+				var songDir:String = key.substr(0, slash);
+				var stem:String = key.substr(slash + 1);
+				var stemLower:String = stem.toLowerCase();
+				var preloaded:Sound = null;
+				if (stemLower == 'inst')
+					preloaded = Paths.inst(songDir);
+				else if (stemLower == 'voices')
+					preloaded = Paths.voices(songDir);
+				else if (stemLower.startsWith('voices-'))
+					preloaded = Paths.voices(songDir, stem.substr(7));
+				if (preloaded != null)
+					return preloaded;
+			}
+		}
 		var file:String = Paths.getPath(Language.getFileTranslation(key) + '.${Paths.SOUND_EXT}', SOUND, path, modsAllowed);
 
 		if(!Paths.currentTrackedSounds.exists(file))

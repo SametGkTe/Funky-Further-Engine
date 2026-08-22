@@ -66,7 +66,7 @@ class CopyState extends MusicBeatState
 			return;
 		}
 
-		CoolUtil.showPopUp("Sanırım oyun için gerekli olan bazı dosyalar bulunamadı\nDevam etmek için OK basın", Language.getPhrase('mobile_notice', 'Dikkat!'));
+		CoolUtil.showPopUp("oyun için gerekli olan BAZI dosyalar bulunamadı\nDevam etmek için OK basın", Language.getPhrase('mobile_notice', 'Dikkat!'));
 
 		shouldCopy = true;
 

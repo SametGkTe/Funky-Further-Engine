@@ -9,22 +9,17 @@ import objects.AlertMgr.AlertMsg;
 
 class PinnedNotes
 {
-	/** Modların değiştirmesine izin verilmeyen ClientPrefs alanları */
 	public static var PROTECTED_PREFS:Array<String> = [
 		"downScroll", "middleScroll", "opponentStrums", "ghostTapping", "hideHud"
 	];
-
-	/** Bu şarkıda sabitleme gerçekten aktif mi (mod izniyle kapatılmış olabilir) */
 	public static var active(default, null):Bool = false;
 
-	/** Bu oturumda mod klasörü bazında verilen Evet/Hayır cevapları */
 	public static var sessionModPermissions:Map<String, Bool> = new Map();
 
 	static var prefsSnapshot:Map<String, Dynamic> = new Map();
 	static var pinnedTransforms:Array<PinnedTransform> = [];
 	static var hudTransforms:Array<HudTransform> = [];
 
-	/** Sabitlenmiş HUD aktif mi? (Sabitlenmiş Notalar'dan bağımsız ayar) */
 	public static function hudActive():Bool
 	{
 		return ClientPrefs.data.pinnedHud;
@@ -35,7 +30,6 @@ class PinnedNotes
 		return ClientPrefs.data.pinnedNotes;
 	}
 
-	/** PlayState.create en başında çağrılır — modlar dokunmadan prefs'i kaydet */
 	public static function snapshotPrefs():Void
 	{
 		prefsSnapshot = new Map();
@@ -43,18 +37,12 @@ class PinnedNotes
 			prefsSnapshot.set(field, Reflect.field(ClientPrefs.data, field));
 	}
 
-	/** Kaydedilen prefs değerlerini geri yükle (şarkı çıkışında son bir kez) */
 	public static function restorePrefs():Void
 	{
 		for (field => value in prefsSnapshot)
 			Reflect.setField(ClientPrefs.data, field, value);
 	}
 
-	/**
-	 * Şarkı başında çağrılır: (1) og açık ama otomatik açma hiç yapılmamışsa
-	 * Sabitlenmiş Notalar'ı bir kereliğine açar (eski og kullanıcıları için),
-	 * (2) aktiflik kararını verir, (3) izin isteyen modlara Evet/Hayır diyalogu açar.
-	 */
 	public static function onSongStart(play:PlayState):Void
 	{
 		// Bir kerelik otomatik açma (mevcut V-Slice kullanıcıları için)
@@ -70,7 +58,6 @@ class PinnedNotes
 		if (!active)
 			return;
 
-		// pack.json'ında "noteControl": true olan aktif modlar izin istiyor
 		var requesting:Array<String> = [];
 		try
 		{
@@ -78,7 +65,6 @@ class PinnedNotes
 			{
 				if (sessionModPermissions.exists(folder))
 				{
-					// Bu oturumda oyuncu bu moda zaten izin verdi
 					if (sessionModPermissions.get(folder) == true)
 						active = false;
 					continue;
@@ -94,12 +80,13 @@ class PinnedNotes
 		}
 
 		if (requesting.length > 0)
+		// I'm fucking genius
 		{
 			var names:String = requesting.join(', ');
 			AlertMsg.showChoice(
-				'Mod Nota Kontrolü İstiyor',
+				'Bu Mod Nota Kontrolü İstiyor',
 				'"$names" modu notaları kendi düzenine göre hareket ettirmek istiyor.\nİzin veriyor musun?',
-				15, // süre (sn) — süre dolarsa seçim yapılmamış sayılır, sabitleme devam eder
+				15,
 				AlertMsg.COLOR_WARNING,
 				'EVET', function() {
 					for (folder in requesting)
@@ -109,16 +96,11 @@ class PinnedNotes
 				'HAYIR', function() {
 					for (folder in requesting)
 						sessionModPermissions.set(folder, false);
-					// active zaten true, sabitleme devam eder
 				},
 				false);
 		}
 	}
 
-	/**
-	 * Strum dizilimi son halini aldıktan sonra çağrılır (arrow'lar + ogGameControls
-	 * V-Slice dizilimi dahil). O andeki x/y/açı/boyut/yön değerleri sabitlenir.
-	 */
 	public static function capture(play:PlayState):Void
 	{
 		pinnedTransforms = [];
@@ -147,11 +129,6 @@ class PinnedNotes
 		}
 	}
 
-	/**
-	 * Sabitlenmiş HUD: sağlık çubuğu (bg + sol/sağ dolgu), süre çubuğu, skor
-	 * yazısı, süre yazısı ve botplay yazısının konumu yakalanır. İkonların Y'si
-	 * de sabitlenir; X'leri sağlık oranına göre motor hesaplar.
-	 */
 	public static function captureHud(play:PlayState):Void
 	{
 		hudTransforms = [];
@@ -165,7 +142,6 @@ class PinnedNotes
 					continue;
 				hudTransforms.push({obj: obj, x: obj.x, y: obj.y});
 			}
-			// İkonlar: yalnız Y sabitlenir (X sağlık oranına bağlıdır)
 			iconP1YSet = (play.iconP1 != null);
 			iconP2YSet = (play.iconP2 != null);
 			if (iconP1YSet) iconP1Y = play.iconP1.y;
@@ -207,10 +183,6 @@ class PinnedNotes
 		return list;
 	}
 
-	/**
-	 * Her karede çağrılır (onUpdatePost'tan sonra): modun taşıdığı HUD
-	 * parçalarını sabitlenen konuma geri koyar ve ikonları yeniden hizalar.
-	 */
 	public static function enforceHud(play:PlayState):Void
 	{
 		for (t in hudTransforms)
@@ -231,10 +203,6 @@ class PinnedNotes
 	static var iconP1YSet:Bool = false;
 	static var iconP2YSet:Bool = false;
 
-	/**
-	 * PlayState.update'in SONUNDA çağrılır (onUpdatePost'tan sonra — son yazan biziz):
-	 * prefs koruması + strum dönüşümleri + notaların standart konuma dönmesi.
-	 */
 	public static function enforce(play:PlayState, fakeCrochet:Float, speed:Float):Void
 	{
 		enforcePrefs();
@@ -277,11 +245,6 @@ class PinnedNotes
 		}
 	}
 
-	/**
-	 * Modun elle yerleştirdiği notaları motorun standart konumuna döndürür.
-	 * PlayState.update'teki döngünün birebir kopyasıdır (yalnız konumlandırma,
-	 * vuruş/kaçırma mantığı HARİÇ).
-	 */
 	static function enforceNotes(play:PlayState, fakeCrochet:Float, speed:Float):Void
 	{
 		var i:Int = 0;
@@ -306,7 +269,6 @@ class PinnedNotes
 		}
 	}
 
-	/** Şarkı bittiğinde temizle (prefs'i geri yüklemeyi unutma) */
 	public static function clear():Void
 	{
 		pinnedTransforms = [];

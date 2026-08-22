@@ -1988,6 +1988,11 @@ class FreeplayState extends MusicBeatSubstate
 	override function closeSubState()
 	{
 		restoreOverlayCameras();
+		var saveBox = VsliceOptions.LAST_MOD;
+		if (saveBox != null && ModsHelper.isModDirEnabled(saveBox.mod_dir))
+			ModsHelper.loadModDir(saveBox.mod_dir);
+		else
+			ModsHelper.loadModDir('');
 		controls.isInSubstate = true;
 		super.closeSubState();
 
@@ -2003,6 +2008,7 @@ class FreeplayState extends MusicBeatSubstate
 		removeTouchPad();
 		addFreeplayTouchPad(true);
 		addTouchPadCamera();
+		blockInputFrames = 12;
 		#end
 
 		if (backend.freeplay.FreeplayCatalog.consumePendingApply())
@@ -2124,6 +2130,7 @@ class FreeplayState extends MusicBeatSubstate
 	{
 		if (busy || searchOpen)
 			return;
+		ModsHelper.loadModDir('');
 		persistentUpdate = false;
 		busy = true;
 		#if TOUCH_CONTROLS_ALLOWED
@@ -2299,6 +2306,8 @@ class FreeplayState extends MusicBeatSubstate
 
 		if (blockInputFrames > 0)
 		{
+			if (controls.BACK || (touchPad != null && touchPad.buttonB != null && touchPad.buttonB.pressed))
+				return;
 			blockInputFrames--;
 			return;
 		}
@@ -2412,6 +2421,7 @@ class FreeplayState extends MusicBeatSubstate
 			}
 			else if (FlxG.keys.justPressed.CONTROL #if TOUCH_CONTROLS_ALLOWED || touchPad?.buttonC.justPressed #end)
 			{
+				ModsHelper.loadModDir('');
 				persistentUpdate = false;
 				busy = true;
 				#if TOUCH_CONTROLS_ALLOWED
@@ -3419,6 +3429,11 @@ class FreeplayState extends MusicBeatSubstate
 					FreeplayHelpers.BPM = newBPM;
 				}
 			});
+			var saveBox = VsliceOptions.LAST_MOD;
+			if (saveBox != null && ModsHelper.isModDirEnabled(saveBox.mod_dir))
+				ModsHelper.loadModDir(saveBox.mod_dir);
+			else
+				ModsHelper.loadModDir('');
 		}
 	}
 

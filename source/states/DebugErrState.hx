@@ -1,9 +1,5 @@
 package states;
 
-/**
- * AlertMgr uyarılarının ayrıntılarını gösteren sade hata ekranı.
- * Bilerek tamamen siyah tutulur; hata metni sol üstten başlar.
- */
 class DebugErrState extends MusicBeatState
 {
 	final details:String;

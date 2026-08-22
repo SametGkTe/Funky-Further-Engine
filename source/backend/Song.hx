@@ -122,6 +122,27 @@ class Song
 
 	public static var chartPath:String;
 	public static var loadedSongName:String;
+	public static var loadedModDirectory:String = '';
+
+	public static function bindModDirectory(mod:String):Void
+	{
+		#if MODS_ALLOWED
+		if (mod != null && mod.length > 0)
+		{
+			Mods.currentModDirectory = mod;
+			loadedModDirectory = mod;
+		}
+		#end
+	}
+
+	public static function restoreModDirectory():Void
+	{
+		#if MODS_ALLOWED
+		if ((Mods.currentModDirectory == null || Mods.currentModDirectory.length < 1)
+			&& loadedModDirectory != null && loadedModDirectory.length > 0)
+			Mods.currentModDirectory = loadedModDirectory;
+		#end
+	}
 
 	/**
 	 * Legacy data/<song>/events.json yalnızca event kabıdır; tam SwagSong gibi
@@ -161,6 +182,10 @@ class Song
 		if(folder == null) folder = jsonInput;
 		PlayState.SONG = getChart(jsonInput, folder);
 		loadedSongName = folder;
+		#if MODS_ALLOWED
+		if (Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0)
+			loadedModDirectory = Mods.currentModDirectory;
+		#end
 		chartPath = _lastPath;
 		#if windows
 		// prevent any saving errors by fixing the path on Windows (being the only OS to ever use backslashes instead of forward slashes for paths)
@@ -196,7 +221,7 @@ class Song
 					if (!FileSystem.exists(candidate)) candidate = Paths.mods('$mod/shared/$relative');
 					if (FileSystem.exists(candidate))
 					{
-						Mods.currentModDirectory = mod;
+						bindModDirectory(mod);
 						_lastPath = candidate;
 						rawData = File.getContent(candidate);
 						trace('[Song] Chart fallback ile bulundu: mod=$mod path=$candidate');
@@ -221,14 +246,14 @@ class Song
 							var relative = 'data/$formattedFolder/$baseSong.json';
 							var candidate = Paths.mods('$mod/$relative');
 							if (!FileSystem.exists(candidate)) candidate = Paths.mods('$mod/shared/$relative');
-							if (FileSystem.exists(candidate))
-							{
-								Mods.currentModDirectory = mod;
-								_lastPath = candidate;
-								rawData = File.getContent(candidate);
-								trace('[Song] Difficulty chart yok; base chart kullanılıyor: requested=$formattedSong base=$baseSong mod=$mod');
-								break;
-							}
+						if (FileSystem.exists(candidate))
+						{
+							bindModDirectory(mod);
+							_lastPath = candidate;
+							rawData = File.getContent(candidate);
+							trace('[Song] Difficulty chart yok; base chart kullanılıyor: requested=$formattedSong base=$baseSong mod=$mod');
+							break;
+						}
 						}
 						#end
 						if (rawData == null)
@@ -321,58 +346,26 @@ class Song
 		// song='foolhardy-2023-hard' -> doğru ad folder'dır.
 		var songPath:String = Paths.formatToSongPath(folder != null && folder.length > 0 ? folder : stripDifficulty(song));
 
-		// Aranacak modlar: aktif mod + global modlar (+ aktif yoksa tüm modlar)
 		var searchDirs:Array<String> = [];
-		if (Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0)
-			searchDirs.push(Mods.currentModDirectory);
-		for (g in Mods.getGlobalMods())
-			if (!searchDirs.contains(g)) searchDirs.push(g);
+		function addDir(m:String):Void
+		{
+			if (m != null && m.length > 0 && !searchDirs.contains(m) && !Mods.isBlocked(m))
+				searchDirs.push(m);
+		}
+		addDir(Mods.currentModDirectory);
+		for (m in Mods.parseList().enabled) addDir(m);
+		for (g in Mods.getGlobalMods()) addDir(g);
 		if (searchDirs.length == 0)
-			searchDirs = Mods.getModDirectories();
+			for (m in Mods.getModDirectories()) addDir(m);
 
 		for (m in searchDirs)
 		{
 			// Paths.mods() Android'de dış depolama kökünü verir (relative 'mods/' değil!)
 			var base:String = Paths.mods(m + '/data/songs/$songPath/');
 			var chart:String = base + songPath + '-chart.json';
-			if (!FileSystem.exists(chart))
-			{
-				// PSYCH 1.0 / diğer düzenler: klasördeki dosya <song>.json,
-				// <song>-<diff>.json gibi isimlerde olabilir. Klasörü tarayıp
-				// en uygun adayı seç (metadata/events dosyalarını atla).
-				try
-				{
-					if (FileSystem.exists(base) && FileSystem.isDirectory(base))
-					{
-						var songLower:String = song.toLowerCase();
-						var alt:Null<String> = null;
-						for (f in FileSystem.readDirectory(base))
-						{
-							var fl:String = f.toLowerCase();
-							if (!fl.endsWith('.json')) continue;
-							if (fl.endsWith('-metadata.json') || fl.endsWith('-events.json')) continue;
-							if (fl == songLower + '.json') { alt = base + f; break; } // istenen diff dahil tam isim
-							if (fl == songPath + '.json') { alt = base + f; continue; } // düz <song>.json
-							if (alt == null && fl.startsWith(songPath + '-')) alt = base + f; // herhangi bir diff
-						}
-						if (alt != null) chart = alt;
-					}
-				}
-				catch (e:Dynamic) {}
-			}
 			if (FileSystem.exists(chart))
 			{
 				var meta:String = base + songPath + '-metadata.json';
-				if (!FileSystem.exists(meta))
-				{
-					// Metadata ismi de farklı olabilir (ör. büyük/küçük harf): tara
-					try
-					{
-						if (FileSystem.exists(base)) for (f in FileSystem.readDirectory(base))
-							if (f.toLowerCase().endsWith('-metadata.json')) { meta = base + f; break; }
-					}
-					catch (e:Dynamic) {}
-				}
 				var metaContent:String = FileSystem.exists(meta) ? File.getContent(meta) : null;
 				var chartContent:String = File.getContent(chart);
 				var metaJson:Dynamic = (metaContent != null && metaContent.length > 0) ? try Json.parse(metaContent) catch(e:Dynamic) null : null;
@@ -381,7 +374,8 @@ class Song
 				var chartJson:Dynamic = try Json.parse(chartContent) catch(e:Dynamic) null;
 				if (chartJson != null && VSliceSongConverter.isVSliceChart(chartJson))
 				{
-					var converted:backend.Song.SwagSong = VSliceSongConverter.convert(chartJson, metaJson, getDifficulty(), songPath);
+					bindModDirectory(m);
+					var converted:backend.Song.SwagSong = VSliceSongConverter.convert(chartJson, metaJson, getDifficulty(song), songPath);
 					return Json.stringify(converted);
 				}
 				else if (chartJson != null)
@@ -391,7 +385,7 @@ class Song
 					// Bu yüzden 'psych_v1' olarak işaretle ki convert uygulanmasın.
 					if (!Reflect.hasField(chartJson, 'format') || chartJson.format == null)
 						chartJson.format = 'psych_v1';
-					// Section null'ları temizle (bozuk chart'larda crash önler)
+					bindModDirectory(m);
 					var notesArr:Array<Dynamic> = cast chartJson.notes;
 					if (notesArr != null)
 						for (i in 0...notesArr.length)
@@ -420,11 +414,15 @@ class Song
 		return name;
 	}
 
-	/** Aktif zorluğu döndürür (PlayState kurulmadan önce Difficulty sabitinden). */
-	static function getDifficulty():String
+	static function getDifficulty(?jsonInput:String):String
 	{
-		// Difficulty.getString() 'Normal' gibi büyük harfle başlayabilir;
-		// V-Slice notes map anahtarları küçük harf (easy/normal/hard) bekler.
+		if (jsonInput != null && jsonInput.length > 0)
+		{
+			var formatted:String = Paths.formatToSongPath(jsonInput);
+			var base:String = stripDifficulty(formatted);
+			if (base != formatted && formatted.length > base.length + 1)
+				return formatted.substr(base.length + 1);
+		}
 		return backend.Difficulty.getString().toLowerCase();
 	}
 

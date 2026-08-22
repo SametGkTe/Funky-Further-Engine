@@ -6,13 +6,15 @@ class FreeplaySettingsSubState extends BaseOptionsMenu
 {
 	public function new()
 	{
-		title = Language.getPhrase('freeplay_settings', 'Freeplay Ayarlari');
+		Mods.clearMenuMod();
+
+		title = Language.getPhrase('freeplay_settings', 'Freeplay Ayarları');
 		rpcTitle = 'Freeplay Settings';
 
 		var option:Option = new Option(
-			Language.getPhrase('setting_quick_freeplay', 'Daha Hizli Freeplay'),
+			Language.getPhrase('setting_quick_freeplay', 'Daha Hizlı Freeplay'),
 			Language.getPhrase('description_quick_freeplay',
-				"Dikkatli kullanin: listeyi cok daha hizli acar.\nChart klasoru taranmaz, zorluklar week dosyasindan gelir.\nMod / modpack degisince liste otomatik yenilenir."),
+				"Akitf Edilirse, Şarkı listesini çok daha hızlı açar.\nChart Klasörlerini taranmaz, zorluklar week dosyasından gelir. /nDİKKATLİ KULLANIN"),
 			'quickFreeplay',
 			BOOL
 		);
@@ -20,9 +22,9 @@ class FreeplaySettingsSubState extends BaseOptionsMenu
 		addOption(option);
 
 		var listing:Option = new Option(
-			Language.getPhrase('setting_freeplay_listing', 'Listeleme:'),
+			Language.getPhrase('setting_freeplay_listing', 'Freeplay Listeleme:'),
 			Language.getPhrase('description_freeplay_listing',
-				"Sarkilari nasil gruplamak istediginizi secin.\nModpack: kurulu paketlere gore\nModlar: her moda gore\nOrjinal: duz liste"),
+				"Şarkıların nasıl gruplanmasını seçin."),
 			'freeplayListing',
 			DROPDOWN,
 			['original', 'mods', 'modpack'],
@@ -37,9 +39,9 @@ class FreeplaySettingsSubState extends BaseOptionsMenu
 		addOption(listing);
 
 		var hideOther:Option = new Option(
-			Language.getPhrase('setting_hide_other_mods', 'Diger Modlari Gizle'),
+			Language.getPhrase('setting_hide_other_mods', 'Diğer Modları Gizle'),
 			Language.getPhrase('description_hide_other_mods',
-				"Modpack listesinde pakete girmeyen leftover / Diger Modlar grubunu gizler.\nSadece Listeleme: Modpack e gore iken gecerli."),
+				"Aktif Edilirse, Modpack listesinde olmayan Modları göstermez."),
 			'freeplayHideOtherMods',
 			BOOL
 		);

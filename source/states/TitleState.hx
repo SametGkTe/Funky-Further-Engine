@@ -134,18 +134,7 @@ class TitleState extends MusicBeatState
 			}
 			persistentUpdate = true;
 			persistentDraw = true;
-			MobileData.init();
-			MobileConfig.init('MobileControls', CoolUtil.getSavePath(), 'assets/shared/mobile/',
-				[
-					'MobilePad/DPadModes',
-					'MobilePad/ActionModes',
-					'Hitbox/HitboxModes',
-				], [
-					DPAD,
-					ACTION,
-					HITBOX
-				]
-			);
+			MobileConfig.initDefault();
 		}
 
 		if (FlxG.save.data.weekCompleted != null)
@@ -167,17 +156,16 @@ class TitleState extends MusicBeatState
 		#elseif CHARTING
 		MusicBeatState.switchState(new ChartingState());
 		#else
-		// Kişiye özel karşılama (HelloState.ENABLED = false yaparsan tamamen kapalı)
-		if (HelloState.ENABLED && !HelloState.leftState && FlxG.save.data.helloShown != true)
+		if (HelloState.shouldShow())
 		{
 			controls.isInSubstate = false;
 			FlxTransitionableState.skipNextTransIn = true;
 			FlxTransitionableState.skipNextTransOut = true;
 			MusicBeatState.switchState(new HelloState());
 		}
-		else if (FlxG.save.data.flashing == null && !FlashingState.leftState)
+		else if(FlxG.save.data.flashing == null && !FlashingState.leftState)
 		{
-			controls.isInSubstate = false; //idfk what's wrong
+			controls.isInSubstate = false;
 			FlxTransitionableState.skipNextTransIn = true;
 			FlxTransitionableState.skipNextTransOut = true;
 			MusicBeatState.switchState(new FlashingState());

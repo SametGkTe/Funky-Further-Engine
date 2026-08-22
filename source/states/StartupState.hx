@@ -64,6 +64,11 @@ class StartupState extends FlxState
 			trace('[SafeMode] Modlar ve Polymod yüklenmeden oyun başlatılıyor.');
 		}
 
-		FlxG.switchState(new TitleState());
+		ClientPrefs.loadPrefs();
+		MobileConfig.initDefault();
+		if (!ClientPrefs.data.disableIntroVideo)
+			FlxG.switchState(new FurtherIntroState());
+		else
+			FlxG.switchState(new TitleState());
 	}
 }

@@ -38,6 +38,8 @@ class FreeplaySongData extends SngCapsuleData
 		SngCapsuleData.constructingLight = ClientPrefs.data.quickFreeplay;
 		var sng = new FreeplaySongData(entry.weekIndex, entry.songName, entry.songCharacter, entry.color);
 		SngCapsuleData.constructingLight = prev;
+		if (entry.folder != null && entry.folder.length > 0)
+			sng.folder = entry.folder;
 		if (ClientPrefs.data.quickFreeplay)
 			sng.applyCatalog(entry);
 		else
@@ -125,7 +127,7 @@ class FreeplaySongData extends SngCapsuleData
 		}
 
 		var prevDir:String = Mods.currentModDirectory;
-		if (folder != null)
+		if (folder != null && folder.length > 0)
 			Mods.currentModDirectory = folder;
 
 		var fileSngName:String = Paths.formatToSongPath(getNativeSongId());
@@ -485,7 +487,8 @@ class FreeplaySongData extends SngCapsuleData
 		this.songDifficulties = leWeek.difficulties.extractWeeks();
 		this.folder = leWeek.folder;
 
-		Mods.currentModDirectory = this.folder;
+		if (this.folder != null && this.folder.length > 0)
+			Mods.currentModDirectory = this.folder;
 
 		var fileSngName = Paths.formatToSongPath(getNativeSongId());
 		var sngDataPath = resolveSongDataPath(fileSngName);
@@ -592,9 +595,20 @@ class FreeplaySongData extends SngCapsuleData
 
 	public function loadAndGetDiffId()
 	{
+		#if MODS_ALLOWED
+		if (folder != null && folder.length > 0)
+			Mods.currentModDirectory = folder;
+		#end
 		var leWeek:WeekData = WeekData.weeksLoaded.get(WeekData.weeksList[levelId]);
 		Difficulty.loadFromWeek(leWeek);
-		return Difficulty.list.findIndex(s -> s.trim().toLowerCase() == currentDifficulty);
+		var want:String = currentDifficulty != null ? currentDifficulty.trim().toLowerCase() : '';
+		var idx:Int = Difficulty.list.findIndex(s -> s.trim().toLowerCase() == want);
+		if (idx < 0 && songDifficulties != null && songDifficulties.length > 0)
+		{
+			Difficulty.copyFrom(songDifficulties);
+			idx = Difficulty.list.findIndex(s -> s.trim().toLowerCase() == want);
+		}
+		return idx;
 	}
 
 	public function hasErectSong():Bool

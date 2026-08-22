@@ -424,6 +424,10 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			openNewChart();
 		}
 
+		#if MODS_ALLOWED
+		Song.restoreModDirectory();
+		#end
+
 		updateJsonData();
 		
 		// TABS
@@ -2062,6 +2066,9 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 	function loadMusic(?killAudio:Bool = false)
 	{
+		#if MODS_ALLOWED
+		Song.restoreModDirectory();
+		#end
 		setSongPlaying(false);
 		var time:Float = Conductor.songPosition;
 
@@ -2317,7 +2324,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				else if(secNum < PlayState.SONG.notes.length && note[0] >= time - 0.000001) note[0] = time - 0.000001;
 			}
 
-			if(FlxG.sound.music != null && time >= FlxG.sound.music.length)
+			if(FlxG.sound.music != null && FlxG.sound.music.length >= 3000 && time >= FlxG.sound.music.length)
 			{
 				var lastSectionNum:Int = PlayState.SONG.notes.length - 1;
 				if(secNum < lastSectionNum) //Delete extra sections

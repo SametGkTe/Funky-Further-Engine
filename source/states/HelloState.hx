@@ -14,7 +14,7 @@ import flixel.util.FlxTimer;
 class HelloState extends MusicBeatState
 {
 	public static var ENABLED:Bool = true;
-	public static var PERSON_NAME:String = "Eternal Sugar"; // ← buraya ismi yaz
+	public static var PERSON_NAME:String = "Eternal Sugar";
 	public static var SHOW_EVERY_LAUNCH:Bool = false;
 
 	static final MESSAGE_TR:String =
@@ -47,6 +47,15 @@ class HelloState extends MusicBeatState
 	var continueButton:FlxText;
 	var selector:FlxSprite;
 	var hintText:FlxText;
+
+	public static function shouldShow():Bool
+	{
+		if (!ENABLED || leftState)
+			return false;
+		if (SHOW_EVERY_LAUNCH)
+			return true;
+		return FlxG.save.data == null || FlxG.save.data.helloShown != true;
+	}
 
 	override function create()
 	{
@@ -99,7 +108,7 @@ class HelloState extends MusicBeatState
 		add(continueButton);
 
 		hintText = new FlxText(0, FlxG.height - 86, FlxG.width,
-			controls.mobileC ? "[A] Devam Et" : "[ENTER] Devam Et");
+			controls.mobileC ? "[A] Devam Et" : "[A] Devam Et");
 		hintText.setFormat(Paths.font(FONT_PATH), FONT_SIZE_HINT, 0xFFBFBFBF, CENTER);
 		add(hintText);
 	}
@@ -115,7 +124,8 @@ class HelloState extends MusicBeatState
 	function createMobilePad():Void
 	{
 		addTouchPad("NONE", "A");
-		touchPad.alpha = 0;
+		if (touchPad != null)
+			touchPad.alpha = 0;
 	}
 
 	function playIntro():Void
@@ -132,10 +142,13 @@ class HelloState extends MusicBeatState
 			allowInput = true;
 		});
 
-		FlxTween.tween(touchPad, {alpha: 1}, 0.35, {
-			startDelay: 0.32,
-			ease: FlxEase.quadOut
-		});
+		if (touchPad != null)
+		{
+			FlxTween.tween(touchPad, {alpha: 1}, 0.35, {
+				startDelay: 0.32,
+				ease: FlxEase.quadOut
+			});
+		}
 	}
 
 	function animateIn(sprite:FlxSprite, delay:Float, ?onComplete:Void->Void):Void
@@ -168,7 +181,6 @@ class HelloState extends MusicBeatState
 		allowInput = false;
 		skipTransitions();
 
-		// Bir daha gösterme (SHOW_EVERY_LAUNCH açık değilse)
 		if (!SHOW_EVERY_LAUNCH)
 		{
 			FlxG.save.data.helloShown = true;
@@ -193,15 +205,28 @@ class HelloState extends MusicBeatState
 		for (member in getUiMembers())
 			FlxTween.tween(member, {alpha: 0}, duration, {ease: FlxEase.quadOut});
 
-		FlxTween.tween(touchPad, {alpha: 0}, duration, {
-			ease: FlxEase.quadOut,
-			onComplete: function(_)
+		var finish = function()
+		{
+			MusicBeatState.switchState(new TitleState());
+		};
+
+		if (touchPad != null)
+		{
+			FlxTween.tween(touchPad, {alpha: 0}, duration, {
+				ease: FlxEase.quadOut,
+				onComplete: function(_)
+				{
+					finish();
+				}
+			});
+		}
+		else
+		{
+			new FlxTimer().start(duration, function(_)
 			{
-				// Normal akışa dön: TitleState yeniden başlar; ilk açılışsa
-				// FlashingState sorusu sırasıyla gelir.
-				MusicBeatState.switchState(new TitleState());
-			}
-		});
+				finish();
+			});
+		}
 	}
 
 	function getUiMembers():Array<FlxSprite>

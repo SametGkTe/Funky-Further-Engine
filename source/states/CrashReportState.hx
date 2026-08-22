@@ -1,12 +1,8 @@
 package states;
 
 import backend.SafeMode;
+import lime.system.Clipboard;
 
-/**
- * Kurtarılabilir çalışma zamanı hataları için Further Engine çökme ekranı.
- * Tam ekran önce CrashHandler tarafından kapatılır; böylece kullanıcı pencereye
- * ve işletim sistemi kontrollerine erişmeye devam eder.
- */
 class CrashReportState extends MusicBeatState
 {
 	final report:String;
@@ -14,7 +10,7 @@ class CrashReportState extends MusicBeatState
 	var selected:Int = 0;
 	var optionText:FlxText;
 	var statusText:FlxText;
-	final options:Array<String> = ['TAMAM', 'LOG KLASÖRÜNÜ AÇ', 'GÜVENLİ MODDA YENİDEN BAŞLAT'];
+	final options:Array<String> = ['TAMAM', 'LOGU KOPYALA', 'LOG KLASÖRÜNÜ AÇ', 'GÜVENLİ MODDA YENİDEN BAŞLAT'];
 
 	public function new(report:String, logPath:String)
 	{
@@ -30,28 +26,33 @@ class CrashReportState extends MusicBeatState
 
 		add(new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK));
 
-		var title = new FlxText(24, 20, FlxG.width - 48, 'FURTHER ENGINE BİR HATAYLA KARŞILAŞTI', 30);
-		title.setFormat(Paths.font('vcr.ttf'), 30, 0xFFFF5252, LEFT);
+		var title = new FlxText(0, 36, FlxG.width, 'FURTHER ENGINE BİR HATAYLA KARŞILAŞTI', 30);
+		title.setFormat(Paths.font('vcr.ttf'), 30, 0xFFFF5252, CENTER);
+		title.screenCenter(X);
 		add(title);
 
 		var bodyText = report;
 		if (bodyText.length > 2600) bodyText = bodyText.substr(0, 2600) + '\n\n[Log ekranda kısaltıldı. Tam ayrıntı log dosyasındadır.]';
-		var body = new FlxText(24, 72, FlxG.width - 48, bodyText, 16);
-		body.setFormat(Paths.font('vcr.ttf'), 16, FlxColor.WHITE, LEFT);
+		var body = new FlxText(48, title.y + title.height + 28, FlxG.width - 96, bodyText, 16);
+		body.setFormat(Paths.font('vcr.ttf'), 16, FlxColor.WHITE, CENTER);
 		add(body);
 
-		optionText = new FlxText(24, FlxG.height - 86, FlxG.width - 48, '', 18);
-		optionText.setFormat(Paths.font('vcr.ttf'), 18, FlxColor.WHITE, CENTER);
+		optionText = new FlxText(16, FlxG.height - 86, FlxG.width - 32, '', 16);
+		optionText.setFormat(Paths.font('vcr.ttf'), 16, FlxColor.WHITE, CENTER);
 		add(optionText);
 
-		statusText = new FlxText(24, FlxG.height - 42, FlxG.width - 48, '', 14);
+		statusText = new FlxText(16, FlxG.height - 42, FlxG.width - 32, '', 14);
 		statusText.setFormat(Paths.font('vcr.ttf'), 14, 0xFFAAAAAA, CENTER);
 		add(statusText);
 		refreshOptions();
 
 		super.create();
-		addTouchPad('LEFT_RIGHT', 'A_B');
-		addTouchPadCamera();
+		try
+		{
+			addTouchPad('LEFT_RIGHT', 'A_B');
+			addTouchPadCamera();
+		}
+		catch (e:Dynamic) {}
 	}
 
 	override function update(elapsed:Float):Void
@@ -74,9 +75,11 @@ class CrashReportState extends MusicBeatState
 				case 0:
 					lime.system.System.exit(1);
 				case 1:
+					copyLog();
+				case 2:
 					CoolUtil.openFolder('logs/');
 					statusText.text = logPath.length > 0 ? 'Log: $logPath' : 'Log klasörü açıldı.';
-				case 2:
+				case 3:
 					var restarted = SafeMode.restart();
 					#if desktop
 					if (restarted) lime.system.System.exit(1);
@@ -92,11 +95,31 @@ class CrashReportState extends MusicBeatState
 		super.update(elapsed);
 	}
 
+	function copyLog():Void
+	{
+		try
+		{
+			Clipboard.text = report;
+			#if android
+			try
+			{
+				mobile.ScreenUtil.clipboardSetText(report);
+			}
+			catch (e:Dynamic) {}
+			#end
+			statusText.text = 'Log panoya kopyalandı.';
+		}
+		catch (e:Dynamic)
+		{
+			statusText.text = 'Log kopyalanamadı.';
+		}
+	}
+
 	function refreshOptions():Void
 	{
 		var labels:Array<String> = [];
 		for (i in 0...options.length)
 			labels.push(i == selected ? '[ ${options[i]} ]' : options[i]);
-		optionText.text = labels.join('     ');
+		optionText.text = labels.join('   ');
 	}
 }

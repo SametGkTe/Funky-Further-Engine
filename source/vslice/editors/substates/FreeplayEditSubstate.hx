@@ -14,10 +14,6 @@ import vslice.menus.freeplay.backcards.BoyfriendCard;
 
 class FreeplayEditSubstate extends MusicBeatSubstate
 {
-
-	/**
-	 * For positioning the DJ on wide displays.
-	 */
 	public static final DJ_POS_MULTI:Float = 0.44;
 
 	public static var instance:FreeplayEditSubstate;

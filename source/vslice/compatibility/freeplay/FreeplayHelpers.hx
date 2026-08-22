@@ -157,9 +157,11 @@ class FreeplayHelpers
 
 	public static function loadDiffsFromWeek(songData:FreeplaySongData)
 	{
-		Mods.currentModDirectory = songData.folder;
-		PlayState.storyWeek = songData.levelId; // TODO
-		Difficulty.loadFromWeek();
+		Mods.useSongFolder(songData.folder, function()
+		{
+			PlayState.storyWeek = songData.levelId; // TODO
+			Difficulty.loadFromWeek();
+		});
 	}
 
 	public static function getDifficultyName()

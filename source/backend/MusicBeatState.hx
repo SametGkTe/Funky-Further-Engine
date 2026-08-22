@@ -274,7 +274,9 @@ class MusicBeatState extends FlxState
 	}
 
 	public static function getState():MusicBeatState {
-		return cast (FlxG.state, MusicBeatState);
+		if (FlxG.state != null && Std.isOfType(FlxG.state, MusicBeatState))
+			return cast FlxG.state;
+		return null;
 	}
 
 	public function stepHit():Void

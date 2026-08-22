@@ -90,19 +90,29 @@ class TouchPad extends MobileInputManager implements FMobileControls
 		if (DPad != "NONE")
 		{
 			if (!MobileConfig.dpadModes.exists(DPad))
-				throw Language.getPhrase('touchpad_dpadmode_missing', 'The touchPad dpadMode "{1}" doesn\'t exist.', [DPad]);
+				MobileConfig.ensureBuiltinDpadModes();
 
-			for (buttonData in MobileConfig.dpadModes.get(DPad).buttons)
-				addButtonFromData(buttonData);
+			if (MobileConfig.dpadModes.exists(DPad))
+			{
+				for (buttonData in MobileConfig.dpadModes.get(DPad).buttons)
+					addButtonFromData(buttonData);
+			}
 		}
 
 		if (Action != "NONE")
 		{
 			if (!MobileConfig.actionModes.exists(Action))
-				throw Language.getPhrase('touchpad_actionmode_missing', 'The touchPad actionMode "{1}" doesn\'t exist.', [Action]);
+				MobileConfig.ensureBuiltinActionModes();
 
-			for (buttonData in MobileConfig.actionModes.get(Action).buttons)
-				addButtonFromData(buttonData);
+			if (!MobileConfig.actionModes.exists(Action) && Action == MobileConfig.FREEPLAY_ACTION_MODE
+				&& MobileConfig.actionModes.exists('A_B_C_X_Y_Z'))
+				Action = 'A_B_C_X_Y_Z';
+
+			if (MobileConfig.actionModes.exists(Action))
+			{
+				for (buttonData in MobileConfig.actionModes.get(Action).buttons)
+					addButtonFromData(buttonData);
+			}
 		}
 
 		switch (Extra)

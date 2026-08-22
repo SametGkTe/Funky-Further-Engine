@@ -256,4 +256,27 @@ class Mods
 				if (!isBlocked(folder)) { Mods.currentModDirectory = folder; break; }
 		#end
 	}
+
+	/** Hover/UI menüleri motor varlıklarını kullansın — şarkı klasörünü bırakma. */
+	public static function clearMenuMod():Void
+	{
+		currentModDirectory = '';
+	}
+
+	/** Chart / ikon / preview için klasörü geçici aç, sonra eski haline dön. */
+	public static function useSongFolder(folder:String, action:Void->Void):Void
+	{
+		var prev:String = currentModDirectory;
+		currentModDirectory = (folder != null) ? folder : '';
+		try
+		{
+			action();
+		}
+		catch (e:Dynamic)
+		{
+			currentModDirectory = prev;
+			throw e;
+		}
+		currentModDirectory = prev;
+	}
 }

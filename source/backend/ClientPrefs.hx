@@ -54,6 +54,9 @@ import states.TitleState;
 	public var hitboxHint:Bool = false;
 	public var showTouches:Bool = false;
 	public var ogGameControls:Bool = false;
+	public var pinnedNotes:Bool = false;
+	public var pinnedHud:Bool = false;
+	public var ogAutoPinDone:Bool = false;
 	public var vSliceSpacing:Float = 0.1;
 	// Normalize edilmiş V-Slice dokunma alanları (0..1).
 	public var vSliceCustomX:Bool = false;
@@ -89,7 +92,7 @@ import states.TitleState;
 	public var cacheOnGPU:Bool = #if !switch false #else true #end; // GPU Caching made by Raltyro
 	// NovaFlare'ın kontrollü preload yaklaşımından uyarlanmıştır. Çok fazla thread
 	// özellikle Android'de RAM baskısını ve native kapanma riskini artırır.
-	public var loadThreads:Int = #if mobile 1 #else 4 #end;
+	public var loadThreads:Int = #if mobile 2 #else 4 #end;
 	public var framerate:Int = 60;
 	public var camZooms:Bool = true;
 	public var hideHud:Bool = false;
@@ -281,6 +284,11 @@ class ClientPrefs {
 		for (key in Reflect.fields(data))
 			if (key != 'gameplaySettings' && Reflect.hasField(FlxG.save.data, key))
 				Reflect.setField(data, key, Reflect.field(FlxG.save.data, key));
+
+		#if mobile
+		if (data.loadThreads < 2) data.loadThreads = 2;
+		if (data.loadThreads > 2) data.loadThreads = 2;
+		#end
 		
 		if(Main.fpsVar != null)
 			Main.fpsVar.visible = data.showFPS;

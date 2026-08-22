@@ -343,6 +343,9 @@ class PlayState extends MusicBeatState
 	override public function create()
 	{
 		//trace('Playback Rate: ' + playbackRate);
+		#if MODS_ALLOWED
+		Song.restoreModDirectory();
+		#end
 		_lastLoadedModDirectory = Mods.currentModDirectory;
 		Paths.clearStoredMemory();
 		if(nextReloadAll)
@@ -1367,27 +1370,42 @@ class PlayState extends MusicBeatState
 
 	function startSong():Void
 	{
-		// Inst eksik/bozuksa şarkı anında 'bitmiş' sayılıyordu (eksik dosya → 1 sn'lik
-		// bip çalıyor → onComplete tetikleniyor → şarkı biter). Bunun yerine oyuncuya
-		// açıkla ve menüye güvenle dön.
-		if (inst == null || inst.length < 3000)
-		{
-			trace('INST EKSIK/BOZUK: $songName (uzunluk=${inst != null ? inst.length : -1}ms)');
-			FlxG.log.error('Inst eksik veya bozuk: $songName');
-			AlertMsg.show('Şarkı Müziği Yüklenemedi',
-				'"$songName" şarkısının Inst dosyası eksik veya bozuk.\nModu Mağaza\'dan kaldırıp yeniden kurmayı dene.',
-				8, AlertMsg.COLOR_ERROR);
+		startingSong = false;
 
-			// Menüye dön (pause menüsündeki çıkış yoluyla aynı)
-			FlxG.sound.playMusic(Paths.music('freakyMenu'));
-			if (isStoryMode)
-				MusicBeatState.switchState(new StoryMenuState());
-			else
-				MusicBeatState.switchState(new FreeplayState());
-			return;
+		@:privateAccess
+		if (inst == null || inst._sound == null)
+		{
+			try
+			{
+			#if MODS_ALLOWED
+			Song.restoreModDirectory();
+			#end
+			if ((Mods.currentModDirectory == null || Mods.currentModDirectory.length < 1)
+				&& _lastLoadedModDirectory != null && _lastLoadedModDirectory.length > 0)
+				Mods.currentModDirectory = _lastLoadedModDirectory;
+			var snd = Paths.inst(SONG != null ? SONG.song : songName);
+				if (snd != null)
+				{
+					if (inst == null) inst = new FlxSound();
+					inst.loadEmbedded(snd);
+					if (!FlxG.sound.list.members.contains(inst))
+						FlxG.sound.list.add(inst);
+				}
+			}
+			catch (e:Dynamic) {}
 		}
 
-		startingSong = false;
+		@:privateAccess
+		if (inst == null || inst._sound == null)
+		{
+			AlertMsg.show(
+				Language.getPhrase('inst_missing_title', 'Şarkı Müziği Yüklenemedi'),
+				Language.getPhrase('inst_missing_body', '"{1}" şarkısının Inst dosyası bulunamadı.', [songName]),
+				8,
+				AlertMsg.COLOR_ERROR
+			);
+			return;
+		}
 
 		@:privateAccess
 		FlxG.sound.playMusic(inst._sound, 1, false);
@@ -1471,7 +1489,15 @@ class PlayState extends MusicBeatState
 		inst = new FlxSound();
 		try
 		{
-			inst.loadEmbedded(Paths.inst(songData.song));
+			#if MODS_ALLOWED
+			Song.restoreModDirectory();
+			#end
+			if ((Mods.currentModDirectory == null || Mods.currentModDirectory.length < 1)
+				&& _lastLoadedModDirectory != null && _lastLoadedModDirectory.length > 0)
+				Mods.currentModDirectory = _lastLoadedModDirectory;
+			var loadedInst = Paths.inst(songData.song);
+			if (loadedInst != null)
+				inst.loadEmbedded(loadedInst);
 		}
 		catch (e:Dynamic) {}
 		FlxG.sound.list.add(inst);

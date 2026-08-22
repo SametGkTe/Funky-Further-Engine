@@ -594,7 +594,7 @@ class SongMenuItem extends FlxSpriteGroup
 		newText.setVisibility(false);
 		updateBPM(0);
 		updateDifficultyRating(-1);
-		updateWeekText(songData.collapsed ? 'KAPALI' : '');
+		updateWeekText('');
 		updateSelected();
 	}
 

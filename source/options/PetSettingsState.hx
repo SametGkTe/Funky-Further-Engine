@@ -55,7 +55,7 @@ class PetSettingsState extends BaseOptionsMenu
 
 		option = new Option(
 			'Introyu Kapat',
-			'Aktif edildiğinde, oyunun başlangıcında oynatılan intro videosu devre dışı bırakılır.',
+			'Aktif edildiğinde, oyun başındaki intro resmi gösterilmez.',
 			'disableIntroVideo',
 			BOOL,
 			null,

@@ -21,9 +21,6 @@ import backend.modpack.zip.IZipExtractor;
 import backend.modpack.zip.ZipExtractorFactory;
 import backend.modpack.zip.ZipTypes;
 
-/**
- * Shared-ZIP installer: big pack.png, VCR name, fat progress bar.
- */
 class ModImportState extends MusicBeatState
 {
 	var zipPath:String;
