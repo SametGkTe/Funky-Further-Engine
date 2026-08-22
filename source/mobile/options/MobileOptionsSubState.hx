@@ -1,6 +1,7 @@
 package mobile.options;
 
 import flixel.input.keyboard.FlxKey;
+import backend.ClientPrefs;
 import options.BaseOptionsMenu;
 import options.Option;
 
@@ -128,15 +129,24 @@ class MobileOptionsSubState extends BaseOptionsMenu
 		);
 		addOption(option);
 
-		option = new Option(
-			'V-Slice Kontrolleri',
-			'Etkinleştirildiğinde kontroller orijinal FNF gibi çalışır.\n(UYARI: Bu seçenek nota hareketleri gibi bazı mekanikleri bozabilir. Lütfen yalnızca temel modlarda kullanın.)',
-			'ogGameControls',
-			BOOL,
-			null,
-			'v_slice_controls'
-		);
-		addOption(option);
+	option = new Option(
+		'V-Slice Kontrolleri',
+		'Etkinleştirildiğinde kontroller orijinal FNF gibi çalışır.\n(UYARI: Bu seçenek nota hareketleri gibi bazı mekanikleri bozabilir. Lütfen yalnızca temel modlarda kullanın.)',
+		'ogGameControls',
+		BOOL,
+		null,
+		'v_slice_controls'
+	);
+	option.onChange = function():Void {
+		if (ClientPrefs.data.ogGameControls) {
+			// V-Slice açılınca Sabitlenmiş Notalar otomatik açılır (oyuncu istersen kapatabilir)
+			ClientPrefs.data.pinnedNotes = true;
+			ClientPrefs.data.ogAutoPinDone = true;
+		} else {
+			ClientPrefs.data.ogAutoPinDone = false; // tekrar açılırsa yine otomatik açılsın
+		}
+	};
+	addOption(option);
 
 		option = new Option(
 			'V-Slice Kontrol Aralığı',

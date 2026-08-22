@@ -78,8 +78,13 @@ class Paths
 		}
 
 		// clear all sounds that are cached
+		// KORUMA: şu an ÇALAN müziğin sesini asla temizleme (inst ölümü / anında biten şarkı)
+		var playingSound:Sound = null;
+		if (FlxG.sound.music != null)
+			playingSound = @:privateAccess FlxG.sound.music._sound;
 		for (key => asset in currentTrackedSounds)
 		{
+			if (asset != null && asset == playingSound) continue;
 			if (!localTrackedAssets.contains(key) && !dumpExclusions.contains(key) && asset != null)
 			{
 				Assets.cache.clear(key);
@@ -312,10 +317,20 @@ class Paths
 		#if sys
 		if (FileSystem.exists(file) && !currentTrackedSounds.exists(file))
 			currentTrackedSounds.set(file, Sound.fromFile(file));
-		if (currentTrackedSounds.exists(file)) return currentTrackedSounds.get(file);
+		if (currentTrackedSounds.exists(file))
+		{
+			// KRİTİK: stok returnSound gibi bunu da 'yerel' işaretle.
+			// İşaretlenmezse clearUnusedMemory bu sesi 'kullanılmıyor' sanıp
+			// şarkı ÇALARKEN cache'ten siliyordu → inst ölüyordu → şarkı anında bitiyordu.
+			localTrackedAssets.push(file);
+			return currentTrackedSounds.get(file);
+		}
 		#else
 		if (OpenFlAssets.exists(file, SOUND))
+		{
+			localTrackedAssets.push(file);
 			return OpenFlAssets.getSound(file);
+		}
 		#end
 		return FlxAssets.getSound('flixel/sounds/beep');
 	}

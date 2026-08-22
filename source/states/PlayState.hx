@@ -7,6 +7,7 @@ import backend.WeekData;
 import backend.Song;
 import backend.Rating;
 import backend.LeaderboardAPI;
+import backend.PinnedNotes;
 
 import vslice.menus.results.ResultState;
 import vslice.menus.results.Tallies.SaveScoreData;
@@ -43,6 +44,7 @@ import shaders.ErrorHandledShader;
 
 import objects.VideoSprite;
 import objects.Note.EventNote;
+import objects.AlertMgr.AlertMsg;
 import objects.*;
 import states.stages.*;
 import states.stages.objects.*;
@@ -349,6 +351,10 @@ class PlayState extends MusicBeatState
 			Language.reloadPhrases();
 		}
 		nextReloadAll = false;
+
+		// Sabitlenmiş Notalar: modlar dokunmadan prefs'i kaydet + izin diyalogunu hazırla
+		PinnedNotes.snapshotPrefs();
+		PinnedNotes.onSongStart(this);
 
 		startCallback = startCountdown;
 		endCallback = endSong;
@@ -1100,7 +1106,12 @@ class PlayState extends MusicBeatState
 				//if(ClientPrefs.data.middleScroll) opponentStrums.members[i].visible = false;
 			}
 
-			if (ClientPrefs.data.ogGameControls) enableVSliceControls();
+				if (ClientPrefs.data.ogGameControls) enableVSliceControls();
+
+				// Sabitlenmiş Notalar: dizilim (V-Slice dahil) son halini aldı, değerleri sabitle
+				PinnedNotes.capture(this);
+				// Sabitlenmiş HUD: HUD parçalarının konumunu yakala
+				PinnedNotes.captureHud(this);
 
 			startedCountdown = true;
 			Conductor.songPosition = -Conductor.crochet * 5 + Conductor.offset;
@@ -1356,6 +1367,26 @@ class PlayState extends MusicBeatState
 
 	function startSong():Void
 	{
+		// Inst eksik/bozuksa şarkı anında 'bitmiş' sayılıyordu (eksik dosya → 1 sn'lik
+		// bip çalıyor → onComplete tetikleniyor → şarkı biter). Bunun yerine oyuncuya
+		// açıkla ve menüye güvenle dön.
+		if (inst == null || inst.length < 3000)
+		{
+			trace('INST EKSIK/BOZUK: $songName (uzunluk=${inst != null ? inst.length : -1}ms)');
+			FlxG.log.error('Inst eksik veya bozuk: $songName');
+			AlertMsg.show('Şarkı Müziği Yüklenemedi',
+				'"$songName" şarkısının Inst dosyası eksik veya bozuk.\nModu Mağaza\'dan kaldırıp yeniden kurmayı dene.',
+				8, AlertMsg.COLOR_ERROR);
+
+			// Menüye dön (pause menüsündeki çıkış yoluyla aynı)
+			FlxG.sound.playMusic(Paths.music('freakyMenu'));
+			if (isStoryMode)
+				MusicBeatState.switchState(new StoryMenuState());
+			else
+				MusicBeatState.switchState(new FreeplayState());
+			return;
+		}
+
 		startingSong = false;
 
 		@:privateAccess
@@ -2135,6 +2166,15 @@ class PlayState extends MusicBeatState
 
 		setOnScripts('botPlay', cpuControlled);
 		callOnScripts('onUpdatePost', [elapsed]);
+
+		// Sabitlenmiş Notalar: karenin EN SONUNDA uygula — modlar onUpdatePost'ta
+		// ne yazdıysa üzerine yazıp strum'ları, notaları ve prefs'i geri koyar
+		if (PinnedNotes.active)
+			PinnedNotes.enforce(this, (60 / SONG.bpm) * 1000, songSpeed / playbackRate);
+
+		// Sabitlenmiş HUD: modun taşıdığı HUD parçalarını geri koy (bağımsız ayar)
+		if (PinnedNotes.hudActive())
+			PinnedNotes.enforceHud(this);
 	}
 
 	public dynamic function updateIconsScale(elapsed:Float)
@@ -3684,6 +3724,10 @@ class PlayState extends MusicBeatState
 	}
 
 	override function destroy() {
+		// Sabitlenmiş Notalar: prefs'i orijinal değerlerine döndür ve temizle
+		PinnedNotes.restorePrefs();
+		PinnedNotes.clear();
+
 		if (psychlua.CustomSubstate.instance != null)
 		{
 			closeSubState();

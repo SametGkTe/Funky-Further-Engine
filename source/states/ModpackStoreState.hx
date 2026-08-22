@@ -379,7 +379,6 @@ class ModpackStoreState extends MusicBeatState {
 			else
 				card.showFallback("GÖRSEL YOK");
 
-			// İndirme sayısı (MediafireStats)
 			var mfUrl:Null<String> = ModpackLinkHelper.getMediafireUrl(mp);
 			var catDownloads:Int = ModpackLinkHelper.getCatalogDownloads(mp);
 			MediafireStats.getDownloadCount(Std.string(mp.id), mfUrl != null ? mfUrl : "", catDownloads, function(count:Int, source:String) {
@@ -649,6 +648,10 @@ class ModpackStoreState extends MusicBeatState {
 
 		var mfUrl:Null<String> = ModpackLinkHelper.getMediafireUrl(mp);
 		var ghUrl:Null<String> = ModpackLinkHelper.getGithubUrl(mp);
+		
+		var deltaUrl:String = mp.contentCatalogUrl != null ? Std.string(mp.contentCatalogUrl) : "";
+		if (ghUrl == null && deltaUrl.length > 0)
+			ghUrl = deltaUrl;
 
 		setLinkRow(0, mfUrl, "MediaFire");
 		setLinkRow(1, ghUrl, "GitHub");

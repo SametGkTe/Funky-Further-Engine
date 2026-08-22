@@ -335,9 +335,44 @@ class Song
 			// Paths.mods() Android'de dış depolama kökünü verir (relative 'mods/' değil!)
 			var base:String = Paths.mods(m + '/data/songs/$songPath/');
 			var chart:String = base + songPath + '-chart.json';
+			if (!FileSystem.exists(chart))
+			{
+				// PSYCH 1.0 / diğer düzenler: klasördeki dosya <song>.json,
+				// <song>-<diff>.json gibi isimlerde olabilir. Klasörü tarayıp
+				// en uygun adayı seç (metadata/events dosyalarını atla).
+				try
+				{
+					if (FileSystem.exists(base) && FileSystem.isDirectory(base))
+					{
+						var songLower:String = song.toLowerCase();
+						var alt:Null<String> = null;
+						for (f in FileSystem.readDirectory(base))
+						{
+							var fl:String = f.toLowerCase();
+							if (!fl.endsWith('.json')) continue;
+							if (fl.endsWith('-metadata.json') || fl.endsWith('-events.json')) continue;
+							if (fl == songLower + '.json') { alt = base + f; break; } // istenen diff dahil tam isim
+							if (fl == songPath + '.json') { alt = base + f; continue; } // düz <song>.json
+							if (alt == null && fl.startsWith(songPath + '-')) alt = base + f; // herhangi bir diff
+						}
+						if (alt != null) chart = alt;
+					}
+				}
+				catch (e:Dynamic) {}
+			}
 			if (FileSystem.exists(chart))
 			{
 				var meta:String = base + songPath + '-metadata.json';
+				if (!FileSystem.exists(meta))
+				{
+					// Metadata ismi de farklı olabilir (ör. büyük/küçük harf): tara
+					try
+					{
+						if (FileSystem.exists(base)) for (f in FileSystem.readDirectory(base))
+							if (f.toLowerCase().endsWith('-metadata.json')) { meta = base + f; break; }
+					}
+					catch (e:Dynamic) {}
+				}
 				var metaContent:String = FileSystem.exists(meta) ? File.getContent(meta) : null;
 				var chartContent:String = File.getContent(chart);
 				var metaJson:Dynamic = (metaContent != null && metaContent.length > 0) ? try Json.parse(metaContent) catch(e:Dynamic) null : null;

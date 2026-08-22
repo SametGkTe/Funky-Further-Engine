@@ -55,7 +55,7 @@ class SongCapsuleGroup extends FlxTypedGroup<SongMenuItem> {
 			{
 				if (songCapsule == null)
 					continue;
-				if (songCapsule.songData != null)
+				if (songCapsule.songData != null && !songCapsule.isCategoryHeader && !songCapsule.songData.isCategoryHeader)
 				{
 					songCapsule.songData.currentDifficulty = currentDifficulty;
 					songCapsule.refreshDisplayDifficulty();
@@ -97,8 +97,8 @@ class SongCapsuleGroup extends FlxTypedGroup<SongMenuItem> {
 			if (tempSong == null)
 				continue;
 
-			//? Update difficulty as part of difficulty change action;
-			tempSong.currentDifficulty = currentDifficulty;
+			if (!tempSong.isCategoryHeader)
+				tempSong.currentDifficulty = currentDifficulty;
 
 			var funnyMenu:SongMenuItem = recycledSongCards.get(tempSong);
 			if(funnyMenu == null){
@@ -106,12 +106,18 @@ class SongCapsuleGroup extends FlxTypedGroup<SongMenuItem> {
 					return new SongMenuItem(FlxG.width,0,styleData);
 				});
 				funnyMenu.initPosition(FlxG.width,0);
-				funnyMenu.applySongData(tempSong);
+				if (tempSong.isCategoryHeader)
+					funnyMenu.applyHeader(tempSong);
+				else
+					funnyMenu.applySongData(tempSong);
 				// This actually protects from adding the card twice!
 				add(funnyMenu); 
 			}
 			else{
-				funnyMenu.refreshDisplayDifficulty();
+				if (tempSong.isCategoryHeader)
+					funnyMenu.applyHeader(tempSong);
+				else
+					funnyMenu.refreshDisplayDifficulty();
 			}
 			funnyMenu.onConfirm = function()
 			{

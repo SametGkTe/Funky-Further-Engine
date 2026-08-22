@@ -294,8 +294,14 @@ class DownloadManager {
 				body.add(buffer.sub(0, bytesRead).toString());
 				totalRead += bytesRead;
 
-				if (totalRead >= maxRead) break;
-				if (contentLength > 0 && totalRead >= contentLength) break;
+			if (totalRead >= maxRead) break;
+			if (contentLength > 0 && totalRead >= contentLength) break;
+			}
+
+			// Bağlantı koparsa eksik metni 'tam' sayma (katalog JSON'u yarım gelmesin)
+			if (contentLength > 0 && totalRead < contentLength) {
+				closeSocket(socket);
+				return null;
 			}
 
 			closeSocket(socket);
@@ -376,6 +382,10 @@ class DownloadManager {
 			finishError(callbacks, 'Çok fazla yönlendirme ($MAX_REDIRECTS). İndirme durduruldu.');
 			return;
 		}
+
+		// Önce geçici .part dosyasına yazılır — indirme yarım kalırsa
+		// nihai konumda BOZUK dosya kalmaz (şarkı inst'leri bozulmasın diye)
+		var tmpPath:String = savePath + '.part';
 
 		if (_cancelled) {
 			finishCancel(callbacks);
@@ -470,7 +480,8 @@ class DownloadManager {
 				return;
 			}
 
-			fileOutput = File.write(savePath, true);
+			// Önce geçici dosyaya yaz — indirme yarım kalırsa bozuk dosya kalmasın
+			fileOutput = File.write(tmpPath, true);
 
 			var downloadedBytes:Float = 0;
 			var startTime:Float = Sys.time();
@@ -481,7 +492,7 @@ class DownloadManager {
 				if (_cancelled) {
 					closeFileOutput(fileOutput);
 					closeSocket(socket);
-					deleteFileSafe(savePath);
+					deleteFileSafe(tmpPath);
 					finishCancel(callbacks);
 					return;
 				}
@@ -523,24 +534,44 @@ class DownloadManager {
 			closeFileOutput(fileOutput);
 			closeSocket(socket);
 
-			if (!FileSystem.exists(savePath)) {
+			// Bağlantı ortasında koptuysa eksik dosyayı 'başarı' SAYMA
+			// (eski kodda okuma hatası 'akış bitti' sanılıyordu → kesik ZIP kuruluyordu)
+			if (contentLength > 0 && downloadedBytes < contentLength) {
+				deleteFileSafe(tmpPath);
+				finishError(callbacks, 'İndirme tamamlanamadı (bağlantı kesildi): $fileName — ${Std.int(downloadedBytes)}/${Std.int(contentLength)} bayt');
+				return;
+			}
+
+			if (!FileSystem.exists(tmpPath)) {
 				finishError(callbacks, 'Dosya kaydedilemedi: $savePath');
 				return;
 			}
 
-			var stat = FileSystem.stat(savePath);
+			var stat = FileSystem.stat(tmpPath);
 			if (stat.size <= 0) {
-				deleteFileSafe(savePath);
+				deleteFileSafe(tmpPath);
 				finishError(callbacks, 'İndirilen dosya boş.');
 				return;
 			}
 
-			if (looksLikeHtml(savePath)) {
-				deleteFileSafe(savePath);
+			if (looksLikeHtml(tmpPath)) {
+				deleteFileSafe(tmpPath);
 				finishError(callbacks,
 					'Sunucu ZIP yerine HTML sayfa döndürdü. ' +
 					'Bu link direkt indirme linki değil.');
 				return;
+			}
+
+			// Tüm doğrulamalar geçti: geçici dosyayı gerçek adına taşı.
+			// savePath'e yazma ancak bu noktadan sonra olur → her zaman TAM dosya.
+			try {
+				if (FileSystem.exists(savePath))
+					FileSystem.deleteFile(savePath);
+				FileSystem.rename(tmpPath, savePath);
+			} catch (e:Dynamic) {
+				// rename başarısızsa (aygıt sınırı vb.) kopyala
+				File.saveBytes(savePath, File.getBytes(tmpPath));
+				deleteFileSafe(tmpPath);
 			}
 
 			var elapsed = Sys.time() - startTime;
@@ -564,7 +595,9 @@ class DownloadManager {
 		} catch (e:Dynamic) {
 			closeFileOutput(fileOutput);
 			closeSocket(socket);
-			deleteFileSafe(savePath);
+			// Sadece bu denemenin .part dosyasını sil — savePath'teki eski
+			// İYİ dosyaya (varsa) dokunma
+			deleteFileSafe(savePath + '.part');
 			finishError(callbacks, 'İndirme hatası: ${Std.string(e)}');
 		}
 	}

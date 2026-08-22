@@ -222,6 +222,8 @@ class ModpackInstaller {
 
 		trace('[ModpackInstaller] ✓ Kaldırma tamamlandı: ${manifest.packId}');
 
+		backend.freeplay.FreeplayCatalog.invalidate();
+
 		if (callbacks != null && callbacks.onComplete != null)
 			callbacks.onComplete(manifest);
 	}
@@ -614,6 +616,8 @@ class ModpackInstaller {
 		);
 
 		trace('[ModpackInstaller] ✓ Kurulum başarılı: ${manifest.packId} v${manifest.version}');
+
+		backend.freeplay.FreeplayCatalog.invalidate();
 
 		if (callbacks != null && callbacks.onComplete != null)
 			callbacks.onComplete(manifest);

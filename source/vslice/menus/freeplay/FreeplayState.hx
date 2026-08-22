@@ -47,8 +47,11 @@ import vslice.funkin.IntervalShake;
 import vslice.menus.StickerSubState;
 import vslice.funkin.Scoring.ScoringRank;
 import flixel.addons.transition.FlxTransitionableState;
+import flixel.FlxBasic;
 import flixel.FlxCamera;
+import flixel.FlxObject;
 import flixel.FlxSprite;
+import flixel.FlxSubState;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.group.FlxSpriteGroup.FlxTypedSpriteGroup;
 import flixel.math.FlxPoint;
@@ -149,6 +152,7 @@ class FreeplayState extends MusicBeatSubstate
 
 	var funnyCam:FunkinCamera;
 	var rankCamera:FunkinCamera;
+	var overlayCam:FunkinCamera;
 	var rankBg:FunkinSprite;
 	var rankVignette:FlxSprite;
 	var backingCard:Null<BackingCard> = null;
@@ -206,7 +210,7 @@ class FreeplayState extends MusicBeatSubstate
 
 	function addFreeplayTouchPad(?skipAnim:Bool):Void
 	{
-		addTouchPad('LEFT_FULL', 'A_B_C_X_Y_Z');
+		addTouchPad('LEFT_FULL', 'A_B_C_P_X_Y_Z');
 		addTouchPadCamera();
 
 		if (skipAnim == true)
@@ -382,7 +386,7 @@ class FreeplayState extends MusicBeatSubstate
 		PlayState.isStoryMode = false;
 		for (sngCard in FreeplayHelpers.loadSongs())
 		{
-			if (currentCharacter.shouldShowUnownedChars())
+			if (currentCharacter.shouldShowUnownedChars() || ClientPrefs.data.quickFreeplay)
 			{
 				if (sngCard.songPlayer != '' && sngCard.songPlayer != currentCharacterId)
 					continue;
@@ -780,6 +784,10 @@ class FreeplayState extends MusicBeatSubstate
 		FlxG.cameras.add(rankCamera, false);
 		rankBg.cameras = [rankCamera];
 		rankBg.alpha = 0;
+
+		overlayCam = new FunkinCamera('freeplayOverlay', 0, 0, FlxG.width, FlxG.height);
+		overlayCam.bgColor = FlxColor.TRANSPARENT;
+		FlxG.cameras.add(overlayCam, false);
 
 		if (prepForNewRank)
 		{
@@ -1586,11 +1594,13 @@ class FreeplayState extends MusicBeatSubstate
 		{
 			tempSongs = tempSongs.filter(song ->
 			{
-				if (song == null)
+				if (song == null || song.isCategoryHeader)
 					return true;
 				return song.songDifficulties.contains(currentDifficulty);
 			});
 		}
+
+		tempSongs = FreeplayHelpers.withCategoryHeaders(tempSongs, searchString);
 
 		if (onlyIfChanged)
 		{
@@ -1598,10 +1608,9 @@ class FreeplayState extends MusicBeatSubstate
 				return;
 		}
 
-		if (grpCapsules == null || grpCapsules.activeSongItems == null || grpCapsules.activeSongItems.length == 0)
-			rememberedSongId = rememberedSongId;
-		else
-		rememberedSongId = curCapsule?.songData?.songId ?? rememberedSongId;
+		if (grpCapsules != null && curCapsule != null && curCapsule.songData != null
+			&& !curCapsule.isCategoryHeader && !curCapsule.songData.isCategoryHeader)
+			rememberedSongId = curCapsule.songData.songId ?? rememberedSongId;
 
 		currentFilter = filterStuff;
 		currentFilteredSongs = tempSongs;
@@ -1667,11 +1676,12 @@ class FreeplayState extends MusicBeatSubstate
 				songsToFilter.sort(filterAlphabetically);
 
 			case STARTSWITH:
+				var term:String = (songFilter.filterData ?? '').toLowerCase().replace('-', ' ');
 				songsToFilter = songsToFilter.filter(str ->
 				{
-					if (str == null)
+					if (str == null || str.isCategoryHeader)
 						return true;
-					return str.songName.toLowerCase().startsWith(songFilter.filterData ?? '');
+					return str.songName.toLowerCase().replace('-', ' ').contains(term);
 				});
 
 			case ALL:
@@ -1977,6 +1987,7 @@ class FreeplayState extends MusicBeatSubstate
 
 	override function closeSubState()
 	{
+		restoreOverlayCameras();
 		controls.isInSubstate = true;
 		super.closeSubState();
 
@@ -1993,6 +2004,132 @@ class FreeplayState extends MusicBeatSubstate
 		addFreeplayTouchPad(true);
 		addTouchPadCamera();
 		#end
+
+		if (backend.freeplay.FreeplayCatalog.consumePendingApply())
+			reloadFreeplayListing();
+	}
+
+	function reloadFreeplayListing():Void
+	{
+		var keepId:String = rememberedSongId;
+		songs = [null];
+		for (sngCard in FreeplayHelpers.loadSongs())
+		{
+			if (currentCharacter.shouldShowUnownedChars() || ClientPrefs.data.quickFreeplay)
+			{
+				if (sngCard.songPlayer != '' && sngCard.songPlayer != currentCharacterId)
+					continue;
+			}
+			else
+			{
+				if (sngCard.songPlayer == '' || sngCard.songPlayer != currentCharacterId)
+					continue;
+			}
+			songs.push(sngCard);
+		}
+		rememberedSongId = keepId;
+		generateSongList(currentFilter, true, false);
+	}
+
+	function toggleCategoryHeader(cap:SongMenuItem):Void
+	{
+		if (cap == null || cap.songData == null)
+			return;
+		var id:String = cap.songData.categoryId;
+		backend.freeplay.FreeplayCatalog.toggleCollapsed(id);
+		FunkinSound.playOnce(Paths.sound('scrollMenu'), 0.4);
+		generateSongList(currentFilter, true, false);
+		for (i in 0...grpCapsules.activeSongItems.length)
+		{
+			var item = grpCapsules.activeSongItems[i];
+			if (item != null && item.songData != null && item.songData.isCategoryHeader && item.songData.categoryId == id)
+			{
+				curSelected = i;
+				curSelectedFractal = i;
+				break;
+			}
+		}
+		changeSelection(0);
+	}
+
+	public function openOverlaySubState(sub:FlxSubState):Void
+	{
+		if (sub == null)
+			return;
+
+		if (funnyCam != null)
+			funnyCam.visible = false;
+		if (rankCamera != null)
+			rankCamera.visible = false;
+
+		if (overlayCam != null)
+		{
+			overlayCam.visible = true;
+			overlayCam.scroll.set();
+			sub.cameras = [overlayCam];
+		}
+
+		openSubState(sub);
+
+		if (sub.members != null)
+		{
+			for (member in sub.members)
+				assignOverlayCamera(member);
+		}
+	}
+
+	function assignOverlayCamera(obj:FlxBasic):Void
+	{
+		if (obj == null || overlayCam == null)
+			return;
+
+		if (Std.isOfType(obj, FlxObject))
+		{
+			var spr:FlxObject = cast obj;
+			var cams = spr.cameras;
+			if (cams != null && cams.length == 1)
+			{
+				var cam = cams[0];
+				if (cam != null && cam != FlxG.camera && cam != funnyCam && cam != rankCamera && cam != overlayCam)
+					return;
+			}
+			spr.cameras = [overlayCam];
+		}
+
+		var members:Array<Dynamic> = Reflect.field(obj, 'members');
+		if (members != null)
+		{
+			for (child in members)
+			{
+				if (Std.isOfType(child, FlxBasic))
+					assignOverlayCamera(cast child);
+			}
+		}
+	}
+
+	function restoreOverlayCameras():Void
+	{
+		if (funnyCam != null)
+			funnyCam.visible = true;
+		if (rankCamera != null)
+			rankCamera.visible = true;
+		if (overlayCam != null)
+		{
+			overlayCam.scroll.set();
+			overlayCam.visible = true;
+		}
+	}
+
+	function openFreeplaySettings():Void
+	{
+		if (busy || searchOpen)
+			return;
+		persistentUpdate = false;
+		busy = true;
+		#if TOUCH_CONTROLS_ALLOWED
+		removeTouchPad();
+		#end
+		openOverlaySubState(new options.FreeplaySettingsSubState());
 	}
 
 	function tryOpenCharSelect():Void
@@ -2265,7 +2402,11 @@ class FreeplayState extends MusicBeatSubstate
 
 		if (!busy)
 		{
-			if (FunkinControls.FREEPLAY_CHAR #if TOUCH_CONTROLS_ALLOWED || touchPad?.buttonZ.justPressed #end)
+			if (!searchOpen && (FlxG.keys.justPressed.ALT #if TOUCH_CONTROLS_ALLOWED || touchPad?.buttonP.justPressed #end))
+			{
+				openFreeplaySettings();
+			}
+			else if (FunkinControls.FREEPLAY_CHAR #if TOUCH_CONTROLS_ALLOWED || touchPad?.buttonZ.justPressed #end)
 			{
 				tryOpenCharSelect();
 			}
@@ -2276,9 +2417,10 @@ class FreeplayState extends MusicBeatSubstate
 				#if TOUCH_CONTROLS_ALLOWED
 				removeTouchPad();
 				#end
-				openSubState(new GameplayChangersSubstate());
+				openOverlaySubState(new GameplayChangersSubstate());
 			}
-			else if ((controls.RESET #if TOUCH_CONTROLS_ALLOWED || touchPad?.buttonY.justPressed #end) && curSelected != 0)
+			else if ((controls.RESET #if TOUCH_CONTROLS_ALLOWED || touchPad?.buttonY.justPressed #end) && curSelected != 0
+				&& curCapsule != null && curCapsule.songData != null && !curCapsule.isCategoryHeader && !curCapsule.songData.isCategoryHeader)
 			{
 				persistentUpdate = false;
 				var curSng = curCapsule;
@@ -2309,7 +2451,7 @@ class FreeplayState extends MusicBeatSubstate
 		if ((controls.FAVORITE #if TOUCH_CONTROLS_ALLOWED || touchPad?.buttonF.justPressed #end) && !busy)
 		{
 			var targetSong = curCapsule?.songData;
-			if (targetSong != null)
+			if (targetSong != null && !targetSong.isCategoryHeader && (curCapsule == null || !curCapsule.isCategoryHeader))
 			{
 				var realShit:Int = curSelected;
 				var isFav = targetSong.toggleFavorite();
@@ -2646,6 +2788,7 @@ class FreeplayState extends MusicBeatSubstate
 		var daSong:Null<FreeplaySongData> = (curSelected >= 0 && curSelected < currentFilteredSongs.length) ? currentFilteredSongs[curSelected] : null;
 		var camToRemove:FunkinCamera = funnyCam;
 		var rankCamToRemove:FunkinCamera = rankCamera;
+		var overlayCamToRemove:FunkinCamera = overlayCam;
 
 		instance = null;
 
@@ -2659,6 +2802,8 @@ class FreeplayState extends MusicBeatSubstate
 			FlxG.cameras.remove(camToRemove);
 		if (rankCamToRemove != null)
 			FlxG.cameras.remove(rankCamToRemove);
+		if (overlayCamToRemove != null)
+			FlxG.cameras.remove(overlayCamToRemove);
 	}
 
 	var difficultyLastChange:Int = 0;
@@ -2716,7 +2861,9 @@ class FreeplayState extends MusicBeatSubstate
 
 		var source:Array<String> = null;
 
-		if (curCapsule != null && curCapsule.songData != null && curCapsule.songData.songDifficulties != null && curCapsule.songData.songDifficulties.length > 0)
+		if (curCapsule != null && curCapsule.songData != null && !curCapsule.isCategoryHeader
+			&& !curCapsule.songData.isCategoryHeader
+			&& curCapsule.songData.songDifficulties != null && curCapsule.songData.songDifficulties.length > 0)
 			source = curCapsule.songData.songDifficulties.copy();
 		else
 			source = diffIdsTotal.copy();
@@ -2857,11 +3004,12 @@ class FreeplayState extends MusicBeatSubstate
 		{
 			tempSongs = tempSongs.filter(song ->
 			{
-				if (song == null)
+				if (song == null || song.isCategoryHeader)
 					return true;
 				return song.songDifficulties.contains(currentDifficulty);
 			});
 		}
+		tempSongs = FreeplayHelpers.withCategoryHeaders(tempSongs, searchString);
 		var areSongsTheSame = tempSongs.isEqualUnordered(currentFilteredSongs);
 
 		if (areSongsTheSame)
@@ -2953,7 +3101,7 @@ class FreeplayState extends MusicBeatSubstate
 
 		var availableSongCapsules:Array<SongMenuItem> = grpCapsules.activeSongItems.filter(function(cap:SongMenuItem)
 		{
-			return cap.alive && cap.songData != null;
+			return cap.alive && cap.songData != null && !cap.songData.isCategoryHeader && !cap.isCategoryHeader;
 		});
 
 		if (availableSongCapsules.length == 0)
@@ -2976,7 +3124,14 @@ class FreeplayState extends MusicBeatSubstate
 
 	function capsuleOnOpenDefault(cap:SongMenuItem):Void
 	{
-		if (cap.songData.instVariants.length > 0 && cap.songData.instVariants[0] != "")
+		if (cap == null)
+			return;
+		if (cap.isCategoryHeader || (cap.songData != null && cap.songData.isCategoryHeader))
+		{
+			toggleCategoryHeader(cap);
+			return;
+		}
+		if (cap.songData != null && cap.songData.instVariants != null && cap.songData.instVariants.length > 0 && cap.songData.instVariants[0] != "")
 		{
 			var instrumentalIds = ["default"].concat(cap.songData.instVariants);
 			openInstrumentalList(cap, instrumentalIds);
@@ -3027,11 +3182,23 @@ class FreeplayState extends MusicBeatSubstate
 
 		PlayState.isStoryMode = false;
 
-		var targetSong = cap.songData;
-		if (targetSong == null)
+		var targetSong = cap != null ? cap.songData : null;
+		if (cap == null || cap.isCategoryHeader || targetSong == null || targetSong.isCategoryHeader)
 		{
-			FlxG.log.warn('WARN: could not find song with id (${cap.songData.songId})');
+			busy = false;
+			letterSort.inputEnabled = true;
 			return;
+		}
+
+		if (targetSong.hydrateChartsIfNeeded())
+		{
+			cap.refreshDisplayDifficulty();
+			if (targetSong.songDifficulties != null && targetSong.songDifficulties.length > 0
+				&& !targetSong.songDifficulties.contains(currentDifficulty))
+			{
+				currentDifficulty = targetSong.songDifficulties[0];
+				rememberedDifficulty = currentDifficulty;
+			}
 		}
 
 		addToRecentlyPlayed(targetSong.songName);
@@ -3077,7 +3244,7 @@ class FreeplayState extends MusicBeatSubstate
 		{
 			curSelected = currentFilteredSongs.findIndex(function(song)
 			{
-				if (song == null)
+				if (song == null || song.isCategoryHeader)
 					return false;
 				return song.songId == rememberedSongId;
 			});
@@ -3158,8 +3325,10 @@ class FreeplayState extends MusicBeatSubstate
 		}
 
 		var daSongCapsule:SongMenuItem = curCapsule;
-		if (daSongCapsule.songData != null)
+		if (daSongCapsule != null && daSongCapsule.songData != null && !daSongCapsule.songData.isCategoryHeader && !daSongCapsule.isCategoryHeader)
 		{
+			if (daSongCapsule.songData.hydrateChartsIfNeeded())
+				daSongCapsule.refreshDisplayDifficulty();
 			diffIdsCurrent = daSongCapsule.songData.songDifficulties;
 			rememberedSongId = daSongCapsule.songData.songId;
 			changeDiff();
@@ -3178,7 +3347,7 @@ class FreeplayState extends MusicBeatSubstate
 
 		if (totalSongs > 0 && !prepForNewRank)
 		{
-			if (daSongCapsule.songData != null)
+			if (daSongCapsule != null && daSongCapsule.songData != null && !daSongCapsule.isCategoryHeader && !daSongCapsule.songData.isCategoryHeader)
 				FreeplayHelpers.loadDiffsFromWeek(daSongCapsule.songData);
 			if (FlxG.sound.music != null)
 				FlxG.sound.music.pause();
@@ -3209,7 +3378,7 @@ class FreeplayState extends MusicBeatSubstate
 		if (busy || rankAnimPlaying)
 			return;
 
-		if (curSelected == 0 || daSongCapsule.songData == null)
+		if (curSelected == 0 || daSongCapsule.songData == null || daSongCapsule.isCategoryHeader || daSongCapsule.songData.isCategoryHeader)
 		{
 			FunkinSound.playMusic('freeplayRandom', {
 				startingVolume: 0.0,
@@ -3299,3 +3468,4 @@ typedef MoveData =
 	var ?speed:Float;
 	var ?wait:Float;
 }
+

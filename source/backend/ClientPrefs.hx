@@ -32,6 +32,10 @@ import states.TitleState;
 	public var vibrating:Bool = false;
 	public var lastFreeplayMod:String = '||bf';
 	public var favSongIds:Array<String> = [];
+	public var quickFreeplay:Bool = true;
+	public var freeplayListing:String = 'original';
+	public var freeplayHideOtherMods:Bool = false;
+	public var freeplayCollapsedCategories:Array<String> = [];
 	
 	// Mobile and Mobile Controls Releated
 	public var extraButtons:String = "NONE"; // mobile extra button option

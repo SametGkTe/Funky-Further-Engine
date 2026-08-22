@@ -48,6 +48,9 @@ abstract class SngCapsuleData{
 	public var instVariants:Array<String>;
 
 	public var scoringRank:Null<ScoringRank> = null;
+	public var skipMetaUpdate:Bool = false;
+
+	public static var constructingLight:Bool = false;
 
 	function set_currentDifficulty(value:String):String
 	{
@@ -64,10 +67,11 @@ abstract class SngCapsuleData{
 		this.songCharacter = songCharacter;
 		this.color = color;
 		this.songId = songId;
-		updateMeta();
-		updateValues();
-
-		
+		if (!constructingLight)
+		{
+			updateMeta();
+			updateValues();
+		}
 	}
 
 	/**
@@ -78,6 +82,8 @@ abstract class SngCapsuleData{
 
 	function updateMeta()
 	{
+		if (skipMetaUpdate || constructingLight)
+			return;
 		var potentiallyErect:String = (allowErect && (currentDifficulty == "erect") || (currentDifficulty == "nightmare")) ? "-erect" : "";
 		var newSngId = songId + potentiallyErect;
 		if (metaSngId == newSngId)

@@ -2,6 +2,9 @@ package backend;
 
 import openfl.utils.Assets;
 import lime.utils.Assets as LimeAssets;
+import flixel.FlxG;
+import objects.AlertMgr.AlertMgr;
+import objects.AlertMgr.AlertMsg;
 
 #if cpp
 @:cppFileCode('#include <thread>')
@@ -208,6 +211,24 @@ class CoolUtil
 			return;
 		} catch (e:Dynamic) {}
 		#end
+
+		// Önce oyun-içi bildirimi dene — native window.alert TAM EKRANDA oyunu kilitliyor
+		// (Lua hatası diyalogu arkada kalıyor, OK basılamıyor). AlertMgr yoksa alta düşeriz.
+		try {
+			if (AlertMgr.instance != null) {
+				AlertMsg.show(title, message, 8, AlertMsg.COLOR_ERROR);
+				return;
+			}
+		} catch (e:Dynamic) {}
+
+		// Native yol: tam ekrandan çık ve pencereye odak ver, yoksa alert yine arkanızda kalır
+		try {
+			if (FlxG.fullscreen) {
+				FlxG.fullscreen = false;
+				if (FlxG.stage != null && FlxG.stage.window != null)
+					FlxG.stage.window.focus();
+			}
+		} catch (e:Dynamic) {}
 
 		try {
 			if (openfl.Lib.current != null && openfl.Lib.current.stage != null && openfl.Lib.current.stage.window != null) {

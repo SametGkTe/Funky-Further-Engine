@@ -832,6 +832,7 @@ class ModsMenuState extends MusicBeatState
 		File.saveContent(path, fileStr);
 		Mods.parseList();
 		Mods.loadTopMod();
+		backend.freeplay.FreeplayCatalog.invalidate();
 	}
 }
 

@@ -425,6 +425,13 @@ class BaseOptionsMenu extends MusicBeatSubstate
 	}
 
 	// ========== STANDARD ==========
+	function getMenuCamera():FlxCamera
+	{
+		if (cameras != null && cameras.length > 0 && cameras[0] != null)
+			return cameras[0];
+		return FlxG.camera;
+	}
+
 	public function addOption(option:Option) {
 		if(optionsArray == null || optionsArray.length < 1) optionsArray = [];
 		optionsArray.push(option);
@@ -454,7 +461,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 		if (blockAfterClose > 0)
 		{
 			blockAfterClose--;
-			FlxG.camera.scroll.y = FlxMath.lerp(FlxG.camera.scroll.y, camTargetY, 0.14);
+			getMenuCamera().scroll.y = FlxMath.lerp(getMenuCamera().scroll.y, camTargetY, 0.14);
 			return;
 		}
 
@@ -504,7 +511,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 				closeDropdownInline();
 			}
 
-			FlxG.camera.scroll.y = FlxMath.lerp(FlxG.camera.scroll.y, camTargetY, 0.14);
+			getMenuCamera().scroll.y = FlxMath.lerp(getMenuCamera().scroll.y, camTargetY, 0.14);
 			return;
 		}
 
@@ -689,7 +696,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 
 		if(nextAccept > 0) nextAccept -= 1;
 
-		FlxG.camera.scroll.y = FlxMath.lerp(FlxG.camera.scroll.y, camTargetY, 0.14);
+		getMenuCamera().scroll.y = FlxMath.lerp(getMenuCamera().scroll.y, camTargetY, 0.14);
 	}
 
 	function bindingKeyUpdate(elapsed:Float)

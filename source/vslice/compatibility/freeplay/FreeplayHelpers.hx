@@ -31,36 +31,92 @@ class FreeplayHelpers
 		return Conductor.bpm;
 	}
 
+	public static function withCategoryHeaders(list:Array<Null<FreeplaySongData>>, ?search:String):Array<Null<FreeplaySongData>>
+	{
+		if (list == null)
+			return [];
+		if (!backend.freeplay.FreeplayCatalog.isGrouped())
+		{
+			var stripped:Array<Null<FreeplaySongData>> = [];
+			for (item in list)
+			{
+				if (item != null && item.isCategoryHeader)
+					continue;
+				if (item != null && backend.freeplay.FreeplayCatalog.shouldHideFolder(item.folder))
+					continue;
+				stripped.push(item);
+			}
+			return stripped;
+		}
+
+		var leading:Array<Null<FreeplaySongData>> = [];
+		var rest:Array<FreeplaySongData> = [];
+		var sawSong:Bool = false;
+		for (item in list)
+		{
+			if (item != null && item.isCategoryHeader)
+				continue;
+			if (!sawSong && item == null)
+			{
+				leading.push(item);
+				continue;
+			}
+			sawSong = true;
+			if (item != null)
+				rest.push(item);
+		}
+
+		var sources:Array<backend.freeplay.FreeplayRowSource> = [];
+		for (i in 0...rest.length)
+			sources.push({index: i, name: rest[i].songName, folder: rest[i].folder});
+
+		var rows = backend.freeplay.FreeplayCatalog.buildRows(sources, search != null ? search : '');
+		var out:Array<Null<FreeplaySongData>> = leading.copy();
+		for (row in rows)
+		{
+			if (row.isHeader)
+				out.push(FreeplaySongData.makeHeader(row.categoryId, row.categoryLabel, row.collapsed));
+			else
+				out.push(rest[row.sourceIndex]);
+		}
+		return out;
+	}
+
 	public static function loadSongs():Array<FreeplaySongData>
 	{
 		var songs = [];
-		WeekData.reloadWeekFiles(false);
-		// programmatically adds the songs via LevelRegistry and SongRegistry
-		for (i in 0...WeekData.weeksList.length)
+		var catalogEntries = backend.freeplay.FreeplayCatalog.ensureLoaded();
+		var hydrated = false;
+
+		for (entry in catalogEntries)
 		{
-			if (weekIsLocked(WeekData.weeksList[i]))
+			if (backend.freeplay.FreeplayCatalog.shouldHideFolder(entry.folder))
 				continue;
 
-			var leWeek:WeekData = WeekData.weeksLoaded.get(WeekData.weeksList[i]); // TODO tweak this
-			if (leWeek == null)
-				continue;
-
-			WeekData.setDirectoryFromWeek(leWeek);
-			for (song in leWeek.songs)
+			var sngCard = FreeplaySongData.fromEntry(entry);
+			if (!ClientPrefs.data.quickFreeplay)
 			{
-				// trace("pushing "+song);
-				var colors:Array<Int> = song[2];
-				if (colors == null || colors.length < 3)
-				{
-					colors = [146, 113, 253];
-				}
-				var sngCard = new FreeplaySongData(i, song[0], song[1], FlxColor.fromRGB(colors[0], colors[1], colors[2]));
-				if (sngCard.songDifficulties.length == 0)
-					continue;
-
-				songs.push(sngCard);
+				// Full resolve already ran inside the constructor (light flag off).
+				backend.freeplay.FreeplayCatalog.captureFromHydrated(
+					entry,
+					sngCard.songDifficulties,
+					sngCard.songPlayer,
+					sngCard.albumId,
+					sngCard.difficultyRating,
+					sngCard.allowErect,
+					sngCard.songStartingBpm,
+					sngCard.levelName
+				);
+				hydrated = true;
 			}
+			if (sngCard.songDifficulties.length == 0)
+				continue;
+			songs.push(sngCard);
 		}
+
+		if (hydrated)
+			backend.freeplay.FreeplayCatalog.saveAfterHydrate();
+
 		return songs;
 	}
 
@@ -91,12 +147,12 @@ class FreeplayHelpers
 
 	public inline static function openResetScoreState(state:FreeplayState, sng:FreeplaySongData, onScoreReset:() -> Void = null)
 	{
-		state.openSubState(new ResetScoreSubState(sng.songName, sng.loadAndGetDiffId(), sng.songCharacter, -1));
+		state.openOverlaySubState(new ResetScoreSubState(sng.songName, sng.loadAndGetDiffId(), sng.songCharacter, -1));
 	}
 
 	public inline static function openGameplayChanges(state:FreeplayState)
 	{
-		state.openSubState(new GameplayChangersSubstate());
+		state.openOverlaySubState(new GameplayChangersSubstate());
 	}
 
 	public static function loadDiffsFromWeek(songData:FreeplaySongData)

@@ -65,7 +65,7 @@ images/go: "images/en-US/ratings/go"
 images/sick: "images/en-US/ratings/sick"
 images/good: "images/en-US/ratings/good"
 images/bad: "images/en-US/ratings/bad"
-images/sick: "images/en-US/ratings/shit"
+images/shit: "images/en-US/ratings/shit"
 
 // PİXEL
 

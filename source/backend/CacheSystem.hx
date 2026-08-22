@@ -1,6 +1,7 @@
 package backend;
 
 import openfl.utils.AssetCache;
+import flixel.FlxG;
 import flixel.util.FlxStringUtil;
 import flixel.system.FlxAssets;
 import openfl.media.Sound;
@@ -47,6 +48,11 @@ class CacheSystem
 
 		for (key => asset in currentTrackedSounds)
 		{
+			// KORUMA: şu an çalan müziğin sesini temizleme (şarkı çalarken inst ölmesin)
+			var playingSound:openfl.media.Sound = null;
+			if (FlxG.sound.music != null)
+				playingSound = @:privateAccess FlxG.sound.music._sound;
+			if (asset != null && asset == playingSound) continue;
 			if (!localTrackedAssets.contains(key) && !dumpExclusions.contains(key) && asset != null)
 			{
 				Assets.cache.clear(key);
@@ -149,8 +155,13 @@ class CacheSystem
 
 		#if mobile
 		// Mobile'da sadece ses cache'ini temizle, grafiklere dokunma
+		// KORUMA: şu an çalan müziğin sesini temizleme
+		var playingSound:openfl.media.Sound = null;
+		if (FlxG.sound.music != null)
+			playingSound = @:privateAccess FlxG.sound.music._sound;
 		for (key => asset in currentTrackedSounds)
 		{
+			if (asset != null && asset == playingSound) continue;
 			if (!dumpExclusions.contains(key) && asset != null)
 			{
 				Assets.cache.clear(key);

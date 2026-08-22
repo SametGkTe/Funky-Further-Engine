@@ -132,6 +132,7 @@ class MobileControlSelectSubState extends MusicBeatSubstate
 			}
 			MobileData.mode = curOption;
 			ClientPrefs.data.ogGameControls = false;
+			ClientPrefs.data.ogAutoPinDone = false; // V-Slice tekrar açılırsa Sabitlenmiş Notalar yine otomatik açılsın
 			ClientPrefs.saveSettings();
 			if (options[curOption] == 'Pad-Custom')
 				MobileData.setTouchPadCustom(control.touchPad);

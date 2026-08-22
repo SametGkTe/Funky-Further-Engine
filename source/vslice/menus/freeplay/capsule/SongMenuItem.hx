@@ -34,6 +34,7 @@ class SongMenuItem extends FlxSpriteGroup
 	 * If `null`, assume this SongMenuItem is for the "Random Song" option.
 	 */
 	public var songData(default, null):Null<FreeplaySongData> = null;
+	public var isCategoryHeader:Bool = false;
 
 	public var selected(default, set):Bool;
 
@@ -574,8 +575,27 @@ class SongMenuItem extends FlxSpriteGroup
 
 	public function applySongData(songData:Null<FreeplaySongData>)
 	{
+		this.isCategoryHeader = false;
 		this.songData = songData;
 		refreshDisplayFull();
+	}
+
+	public function applyHeader(songData:FreeplaySongData)
+	{
+		this.isCategoryHeader = true;
+		this.songData = songData;
+		var label:String = backend.freeplay.FreeplayCatalog.formatHeaderLabel(songData.categoryLabel, songData.collapsed);
+		songText.text = label;
+		pixelIcon.visible = false;
+		ranking.visible = false;
+		blurredRanking.visible = false;
+		favIcon.visible = false;
+		favIconBlurred.visible = false;
+		newText.setVisibility(false);
+		updateBPM(0);
+		updateDifficultyRating(-1);
+		updateWeekText(songData.collapsed ? 'KAPALI' : '');
+		updateSelected();
 	}
 
 	/**

@@ -4,6 +4,7 @@ import backend.WeekData;
 import backend.Highscore;
 import backend.Song;
 import backend.Language;
+import backend.freeplay.FreeplayCatalog;
 
 import objects.HealthIcon;
 import objects.MusicPlayer;
@@ -33,7 +34,10 @@ class FreeplayState extends MusicBeatState
 {
 	var songs:Array<SongMetadata> = [];
 	var initSongs:Array<SongMetadata> = [];
-	var initSongItems:Array<Array<Dynamic>> = [];
+	var songAlphabets:Array<Alphabet> = [];
+	var songIcons:Array<HealthIcon> = [];
+	var headerAlphabets:Map<String, Alphabet> = new Map();
+	var displayIcons:Array<HealthIcon> = [];
 
 	var selector:FlxText;
 	private static var curSelected:Int = 0;
@@ -154,31 +158,7 @@ class FreeplayState extends MusicBeatState
 			return;
 		}
 
-		for (i in 0...WeekData.weeksList.length)
-		{
-			if (weekIsLocked(WeekData.weeksList[i]))
-				continue;
-
-			var leWeek:WeekData = WeekData.weeksLoaded.get(WeekData.weeksList[i]);
-			var leSongs:Array<String> = [];
-			var leChars:Array<String> = [];
-
-			for (j in 0...leWeek.songs.length)
-			{
-				leSongs.push(leWeek.songs[j][0]);
-				leChars.push(leWeek.songs[j][1]);
-			}
-
-			WeekData.setDirectoryFromWeek(leWeek);
-			for (song in leWeek.songs)
-			{
-				var colors:Array<Int> = song[2];
-				if (colors == null || colors.length < 3)
-					colors = [146, 113, 253];
-				addSong(song[0], i, song[1], FlxColor.fromRGB(colors[0], colors[1], colors[2]));
-			}
-		}
-		Mods.loadTopMod();
+		loadInitFromCatalog();
 
 		bg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
 		bg.antialiasing = ClientPrefs.data.antialiasing;
@@ -200,24 +180,6 @@ class FreeplayState extends MusicBeatState
 		randomIcon = new HealthIcon('bf');
 		randomIcon.sprTracker = randomText;
 		add(randomIcon);
-
-		for (i in 0...initSongs.length)
-		{
-			var songText:Alphabet = new Alphabet(90, 320, initSongs[i].songName, true);
-			songText.targetY = i;
-			songText.scaleX = Math.min(1, 980 / songText.width);
-			songText.snapToPosition();
-
-			Mods.currentModDirectory = initSongs[i].folder;
-			var icon:HealthIcon = new HealthIcon(initSongs[i].songCharacter);
-			icon.sprTracker = songText;
-
-			songText.visible = songText.active = songText.isMenuItem = false;
-			icon.visible = icon.active = false;
-
-			initSongItems.push([songText, icon]);
-		}
-		WeekData.setDirectoryFromWeek();
 
 		search(true);
 
@@ -291,7 +253,7 @@ class FreeplayState extends MusicBeatState
 		changeSelection();
 		updateTexts();
 
-		addTouchPad('LEFT_FULL', 'A_B_C_X_Y_Z');
+		addTouchPad('LEFT_FULL', 'A_B_C_P_X_Y_Z');
 
 		FlxG.stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyDown);
 
@@ -346,7 +308,7 @@ class FreeplayState extends MusicBeatState
 
 	function getCurrentSongRank():Null<ScoringRank>
 	{
-		if (curSelected < 0 || curSelected >= songs.length)
+		if (!isSongSelected())
 			return null;
 
 		var formatted:String = Highscore.formatSong(songs[curSelected].songName, curDifficulty);
@@ -407,7 +369,7 @@ class FreeplayState extends MusicBeatState
 
 		for (i in 0...songs.length)
 		{
-			if (Paths.formatToSongPath(songs[i].songName) == targetSongId)
+			if (!songs[i].isCategoryHeader && Paths.formatToSongPath(songs[i].songName) == targetSongId)
 			{
 				curSelected = i;
 				break;
@@ -535,12 +497,12 @@ class FreeplayState extends MusicBeatState
 		if (controls.mobileC)
 		{
 			return Language.getPhrase("freeplay_tip_mobile",
-				"Dinlemek için {1} / Değiştiriciler için {2} / Sıfırlamak için {3} / Aramak için Tıklayın",
+				"Dinlemek için {1} / Değiştiriciler için {2} / Sıfırlamak için {3} / Aramak için Tıklayın / Ayarlar için P",
 				[space, control, reset]);
 		}
 
 		return Language.getPhrase("freeplay_tip_pc",
-			"Dinlemek için {1} / Değiştiriciler için {2} / Sıfırlamak için {3} / Aramak için C / Favori için F",
+			"Dinlemek için {1} / Değiştiriciler için {2} / Sıfırlamak için {3} / Aramak için C / Favori için F / Ayarlar için ALT",
 			[space, control, reset]);
 	}
 
@@ -755,7 +717,7 @@ class FreeplayState extends MusicBeatState
 		}
 		else
 		{
-			var searchLower:String = searchString.toLowerCase();
+			var searchLower:String = searchString.toLowerCase().replace('-', ' ');
 			var resultCount:Int = 0;
 
 			dropdownItems.push({
@@ -1030,7 +992,7 @@ class FreeplayState extends MusicBeatState
 
 	function toggleFavorite()
 	{
-		if (songs.length < 1 || curSelected < 0 || curSelected == -1)
+		if (!isSongSelected())
 			return;
 
 		var songName:String = songs[curSelected].songName.toLowerCase();
@@ -1104,7 +1066,16 @@ class FreeplayState extends MusicBeatState
 		if (songs.length < 1)
 			return;
 
-		var randomSel:Int = FlxG.random.int(0, songs.length - 1);
+		var playable:Array<Int> = [];
+		for (i in 0...songs.length)
+		{
+			if (songs[i] != null && !songs[i].isCategoryHeader)
+				playable.push(i);
+		}
+		if (playable.length < 1)
+			return;
+
+		var randomSel:Int = playable[FlxG.random.int(0, playable.length - 1)];
 		curSelected = randomSel;
 		changeSelection();
 		lerpSelected = curSelected;
@@ -1113,11 +1084,14 @@ class FreeplayState extends MusicBeatState
 
 	override function closeSubState()
 	{
-		changeSelection(0, false);
+		if (FreeplayCatalog.consumePendingApply())
+			reloadFromCatalog();
+		else
+			changeSelection(0, false);
 		persistentUpdate = true;
 		super.closeSubState();
 		removeTouchPad();
-		addTouchPad('LEFT_FULL', 'A_B_C_X_Y_Z');
+		addTouchPad('LEFT_FULL', 'A_B_C_P_X_Y_Z');
 
 		if (pendingRankAnim && !rankAnimDone)
 		{
@@ -1125,9 +1099,158 @@ class FreeplayState extends MusicBeatState
 		}
 	}
 
+	function loadInitFromCatalog():Void
+	{
+		initSongs = [];
+		songAlphabets = [];
+		songIcons = [];
+		headerAlphabets = new Map();
+		var catalog = FreeplayCatalog.ensureLoaded();
+		for (entry in catalog)
+		{
+			if (FreeplayCatalog.shouldHideFolder(entry.folder))
+				continue;
+			var meta = SongMetadata.fromEntry(entry);
+			meta.sourceIndex = initSongs.length;
+			initSongs.push(meta);
+			songAlphabets.push(null);
+			songIcons.push(null);
+		}
+		Mods.loadTopMod();
+	}
+
+	function getSongAlphabet(index:Int):Alphabet
+	{
+		if (index < 0 || index >= initSongs.length)
+			return null;
+		if (songAlphabets[index] == null)
+		{
+			var songText = new Alphabet(90, 320, initSongs[index].songName, true);
+			songText.scaleX = Math.min(1, 980 / songText.width);
+			songText.snapToPosition();
+			songText.visible = songText.active = songText.isMenuItem = false;
+			songAlphabets[index] = songText;
+		}
+		return songAlphabets[index];
+	}
+
+	function getHeaderAlphabet(id:String, label:String, collapsed:Bool):Alphabet
+	{
+		var display:String = FreeplayCatalog.formatHeaderLabel(label, collapsed);
+		var text = headerAlphabets.get(id);
+		if (text == null)
+		{
+			text = new Alphabet(90, 320, display, true);
+			text.scaleX = Math.min(1, 980 / text.width);
+			text.snapToPosition();
+			headerAlphabets.set(id, text);
+		}
+		else if (text.text != display)
+		{
+			text.text = display;
+			text.scaleX = Math.min(1, 980 / text.width);
+		}
+		text.visible = text.active = text.isMenuItem = false;
+		return text;
+	}
+
+	function ensureSongIcon(index:Int, tracker:Alphabet):HealthIcon
+	{
+		if (index < 0 || index >= initSongs.length || tracker == null)
+			return null;
+		if (songIcons[index] != null)
+		{
+			songIcons[index].sprTracker = tracker;
+			return songIcons[index];
+		}
+		Mods.currentModDirectory = initSongs[index].folder;
+		var icon = new HealthIcon(initSongs[index].songCharacter);
+		icon.sprTracker = tracker;
+		icon.visible = icon.active = false;
+		songIcons[index] = icon;
+		return icon;
+	}
+
+	inline function isSongSelected():Bool
+	{
+		return curSelected >= 0 && curSelected < songs.length && songs[curSelected] != null && !songs[curSelected].isCategoryHeader;
+	}
+
+	inline function isHeaderSelected():Bool
+	{
+		return curSelected >= 0 && curSelected < songs.length && songs[curSelected] != null && songs[curSelected].isCategoryHeader;
+	}
+
+	function toggleCategoryHeader():Void
+	{
+		if (!isHeaderSelected())
+			return;
+		var id:String = songs[curSelected].categoryId;
+		FreeplayCatalog.toggleCollapsed(id);
+		search();
+		for (i in 0...songs.length)
+		{
+			if (songs[i].isCategoryHeader && songs[i].categoryId == id)
+			{
+				curSelected = i;
+				break;
+			}
+		}
+		changeSelection(0, false);
+		lerpSelected = curSelected;
+	}
+
+	function openFreeplaySettings():Void
+	{
+		if (player != null && player.playingMusic)
+			return;
+		if (searchOpen)
+			return;
+		persistentUpdate = false;
+		openSubState(new options.FreeplaySettingsSubState());
+		removeTouchPad();
+	}
+
+	function reloadFromCatalog():Void
+	{
+		var keepName:String = isSongSelected() ? songs[curSelected].songName : null;
+		var keepFolder:String = isSongSelected() ? songs[curSelected].folder : null;
+		var keepHeader:String = isHeaderSelected() ? songs[curSelected].categoryId : null;
+		loadInitFromCatalog();
+		search();
+		if (keepName != null)
+		{
+			for (i in 0...songs.length)
+			{
+				if (!songs[i].isCategoryHeader && songs[i].songName == keepName && songs[i].folder == keepFolder)
+				{
+					curSelected = i;
+					break;
+				}
+			}
+		}
+		else if (keepHeader != null)
+		{
+			for (i in 0...songs.length)
+			{
+				if (songs[i].isCategoryHeader && songs[i].categoryId == keepHeader)
+				{
+					curSelected = i;
+					break;
+				}
+			}
+		}
+		changeSelection(0, false);
+		lerpSelected = curSelected;
+	}
+
 	public function addSong(songName:String, weekNum:Int, songCharacter:String, color:Int)
 	{
-		initSongs.push(new SongMetadata(songName, weekNum, songCharacter, color));
+		var meta = new SongMetadata(songName, weekNum, songCharacter, color);
+		meta.sourceIndex = initSongs.length;
+		initSongs.push(meta);
+		songAlphabets.push(null);
+		songIcons.push(null);
 	}
 
 	function weekIsLocked(name:String):Bool
@@ -1231,6 +1354,8 @@ class FreeplayState extends MusicBeatState
 		{
 			if (curSelected == -1)
 				scoreText.text = Language.getPhrase("freeplay_random_hint", "RASTGELE ŞARKI SEÇMEK İÇİN SEÇİN!");
+			else if (isHeaderSelected())
+				scoreText.text = songs[curSelected].songName;
 			else
 				scoreText.text = Language.getPhrase('personal_best', 'EN İYİ SKOR: {1} (%{2})', [lerpScore, ratingSplit.join('.')]);
 
@@ -1279,7 +1404,7 @@ class FreeplayState extends MusicBeatState
 				}
 			}
 
-			if (curSelected != -1)
+			if (isSongSelected())
 			{
 				if (controls.UI_LEFT_P)
 				{
@@ -1294,12 +1419,18 @@ class FreeplayState extends MusicBeatState
 			}
 		}
 
+		if ((FlxG.keys.justPressed.ALT || (touchPad != null && touchPad.buttonP != null && touchPad.buttonP.justPressed))
+			&& !player.playingMusic && !searchOpen)
+		{
+			openFreeplaySettings();
+		}
+
 		if (FlxG.keys.justPressed.C && !player.playingMusic && !searchOpen)
 		{
 			openSearchBar();
 		}
 
-		if (FlxG.keys.justPressed.F && !player.playingMusic && !searchOpen && curSelected != -1 && songs.length > 0)
+		if (FlxG.keys.justPressed.F && !player.playingMusic && !searchOpen && isSongSelected())
 		{
 			toggleFavorite();
 		}
@@ -1338,13 +1469,13 @@ class FreeplayState extends MusicBeatState
 			}
 		}
 
-		if ((FlxG.keys.justPressed.CONTROL || touchPad.buttonC.justPressed) && !player.playingMusic && curSelected != -1)
+		if ((FlxG.keys.justPressed.CONTROL || touchPad.buttonC.justPressed) && !player.playingMusic && isSongSelected())
 		{
 			persistentUpdate = false;
 			openSubState(new GameplayChangersSubstate());
 			removeTouchPad();
 		}
-		else if ((FlxG.keys.justPressed.SPACE || touchPad.buttonX.justPressed) && curSelected != -1)
+		else if ((FlxG.keys.justPressed.SPACE || touchPad.buttonX.justPressed) && isSongSelected())
 		{
 			if (songs.length < 1)
 			{
@@ -1434,7 +1565,11 @@ class FreeplayState extends MusicBeatState
 			{
 				pickRandomSong();
 			}
-			else if (songs.length > 0)
+			else if (isHeaderSelected())
+			{
+				toggleCategoryHeader();
+			}
+			else if (isSongSelected())
 			{
 				persistentUpdate = false;
 				var songLowercase:String = Paths.formatToSongPath(songs[curSelected].songName);
@@ -1489,7 +1624,7 @@ class FreeplayState extends MusicBeatState
 				#end
 			}
 		}
-		else if ((controls.RESET || touchPad.buttonY.justPressed) && !player.playingMusic && curSelected != -1)
+		else if ((controls.RESET || touchPad.buttonY.justPressed) && !player.playingMusic && isSongSelected())
 		{
 			if (songs.length < 1)
 			{
@@ -1566,7 +1701,7 @@ class FreeplayState extends MusicBeatState
 
 		curDifficulty = FlxMath.wrap(curDifficulty + change, 0, Difficulty.list.length - 1);
 
-		if (songs.length > 0 && curSelected >= 0)
+		if (isSongSelected())
 		{
 			#if !switch
 			intendedScore = Highscore.getScore(songs[curSelected].songName, curDifficulty);
@@ -1624,14 +1759,14 @@ class FreeplayState extends MusicBeatState
 		for (num => item in grpSongs.members)
 		{
 			item.alpha = 0.6;
-			if (num < grpIcons.members.length && grpIcons.members[num] != null)
-				grpIcons.members[num].alpha = 0.6;
+			if (num < displayIcons.length && displayIcons[num] != null)
+				displayIcons[num].alpha = 0.6;
 
 			if (item.targetY == curSelected)
 			{
 				item.alpha = 1;
-				if (num < grpIcons.members.length && grpIcons.members[num] != null)
-					grpIcons.members[num].alpha = 1;
+				if (num < displayIcons.length && displayIcons[num] != null)
+					displayIcons[num].alpha = 1;
 			}
 		}
 
@@ -1646,13 +1781,41 @@ class FreeplayState extends MusicBeatState
 			randomIcon.alpha = 0.6;
 		}
 
-		if (curSelected >= 0)
+		if (isHeaderSelected())
+		{
+			diffText.text = "";
+			intendedScore = 0;
+			intendedRating = 0;
+		}
+		else if (curSelected >= 0)
 		{
 			_updateSongLastDifficulty();
 
 			Mods.currentModDirectory = songs[curSelected].folder;
 			PlayState.storyWeek = songs[curSelected].week;
-			Difficulty.loadFromWeek();
+			var week:WeekData = null;
+			if (songs[curSelected].week >= 0 && songs[curSelected].week < WeekData.weeksList.length)
+			{
+				var weekFile:String = WeekData.weeksList[songs[curSelected].week];
+				week = WeekData.weeksLoaded.get(weekFile);
+			}
+			if (ClientPrefs.data.quickFreeplay)
+			{
+				var meta = songs[curSelected];
+				if (!meta.chartsHydrated)
+				{
+					Difficulty.loadFromSong(meta.songName, week);
+					meta.difficulties = Difficulty.list.copy();
+					meta.chartsHydrated = true;
+					FreeplayCatalog.updateHydratedSong(meta.songName, meta.folder, meta.difficulties, 0);
+				}
+				else if (meta.difficulties != null && meta.difficulties.length > 0)
+					Difficulty.copyFrom(meta.difficulties);
+				else
+					Difficulty.loadFromSong(meta.songName, week);
+			}
+			else
+				Difficulty.loadFromWeek(week);
 
 			var savedDiff:String = songs[curSelected].lastDifficulty;
 			var lastDiff:Int = Difficulty.list.indexOf(lastDifficultyName);
@@ -1680,7 +1843,7 @@ class FreeplayState extends MusicBeatState
 
 	inline private function _updateSongLastDifficulty()
 	{
-		if (songs.length > 0 && curSelected >= 0 && curSelected < songs.length)
+		if (isSongSelected())
 			songs[curSelected].lastDifficulty = Difficulty.getString(curDifficulty, false);
 	}
 
@@ -1717,38 +1880,61 @@ class FreeplayState extends MusicBeatState
 		grpIcons.clear();
 		_lastVisibles = [];
 		songs = [];
+		displayIcons = [];
 
 		if (!init)
 			instPlaying = -1;
 
-		var i:Int = 0;
+		var filtered:Array<SongMetadata> = [];
+		var sources:Array<backend.freeplay.FreeplayRowSource> = [];
 		for (songID in 0...initSongs.length)
 		{
 			var song:SongMetadata = initSongs[songID];
-			if (song == null)
+			if (song == null || song.isCategoryHeader)
 				continue;
 
-			if (searchString.length > 0)
+			song.sourceIndex = songID;
+			sources.push({index: filtered.length, name: song.songName, folder: song.folder});
+			filtered.push(song);
+		}
+
+		var rows = FreeplayCatalog.buildRows(sources, searchString);
+		var i:Int = 0;
+		for (row in rows)
+		{
+			if (row.isHeader)
 			{
-				var songNameLower = song.songName.toLowerCase().replace('-', ' ');
-				var searchLower = searchString.toLowerCase();
-				if (!songNameLower.contains(searchLower))
-					continue;
+				var header = SongMetadata.makeHeader(row.categoryId, row.categoryLabel, row.collapsed);
+				var songText = getHeaderAlphabet(row.categoryId, row.categoryLabel, row.collapsed);
+				songText.targetY = i;
+				songText.snapToPosition();
+				songText.visible = songText.active = songText.isMenuItem = false;
+				grpSongs.add(songText);
+				displayIcons.push(null);
+				songs.push(header);
 			}
+			else
+			{
+				var song = filtered[row.sourceIndex];
+				var songText = getSongAlphabet(song.sourceIndex);
+				songText.targetY = i;
+				songText.snapToPosition();
+				songText.visible = songText.active = songText.isMenuItem = false;
 
-			var arr = initSongItems[songID];
-			var songText:Alphabet = arr[0];
-			var icon:HealthIcon = arr[1];
+				var icon:HealthIcon = songIcons[song.sourceIndex];
+				if (icon == null && !ClientPrefs.data.quickFreeplay)
+					icon = ensureSongIcon(song.sourceIndex, songText);
+				if (icon != null)
+				{
+					icon.sprTracker = songText;
+					icon.visible = icon.active = false;
+					grpIcons.add(icon);
+				}
 
-			songText.targetY = i;
-			songText.snapToPosition();
-			songText.visible = songText.active = songText.isMenuItem = false;
-			icon.visible = icon.active = false;
-
-			grpSongs.add(songText);
-			grpIcons.add(icon);
-			songs.push(song);
-
+				grpSongs.add(songText);
+				displayIcons.push(icon);
+				songs.push(song);
+			}
 			i++;
 		}
 
@@ -1843,8 +2029,8 @@ class FreeplayState extends MusicBeatState
 		{
 			if (i < grpSongs.members.length)
 				grpSongs.members[i].visible = grpSongs.members[i].active = false;
-			if (i < grpIcons.members.length && grpIcons.members[i] != null)
-				grpIcons.members[i].visible = grpIcons.members[i].active = false;
+			if (i < displayIcons.length && displayIcons[i] != null)
+				displayIcons[i].visible = displayIcons[i].active = false;
 		}
 		_lastVisibles = [];
 
@@ -1862,10 +2048,20 @@ class FreeplayState extends MusicBeatState
 			item.x = ((item.targetY - lerpSelected) * item.distancePerItem.x) + item.startPosition.x;
 			item.y = ((item.targetY - lerpSelected) * 1.3 * item.distancePerItem.y) + item.startPosition.y;
 
-			if (i < grpIcons.members.length && grpIcons.members[i] != null)
+			var icon:HealthIcon = (i < displayIcons.length) ? displayIcons[i] : null;
+			if (icon == null && i < songs.length && songs[i] != null && !songs[i].isCategoryHeader)
 			{
-				var icon:HealthIcon = grpIcons.members[i];
+				icon = ensureSongIcon(songs[i].sourceIndex, item);
+				if (i < displayIcons.length)
+					displayIcons[i] = icon;
+				if (icon != null)
+					grpIcons.add(icon);
+			}
+			if (icon != null)
+			{
+				icon.sprTracker = item;
 				icon.visible = icon.active = true;
+				icon.alpha = (i == curSelected) ? 1 : 0.6;
 			}
 			_lastVisibles.push(i);
 		}
@@ -1915,6 +2111,7 @@ enum DropdownItemType
 	SONG;
 }
 
+
 class SongMetadata
 {
 	public var songName:String = "";
@@ -1923,6 +2120,12 @@ class SongMetadata
 	public var color:Int = -7179779;
 	public var folder:String = "";
 	public var lastDifficulty:String = null;
+	public var difficulties:Array<String> = null;
+	public var chartsHydrated:Bool = false;
+	public var isCategoryHeader:Bool = false;
+	public var categoryId:String = "";
+	public var collapsed:Bool = false;
+	public var sourceIndex:Int = -1;
 
 	public function new(song:String, week:Int, songCharacter:String, color:Int)
 	{
@@ -1933,5 +2136,24 @@ class SongMetadata
 		this.folder = Mods.currentModDirectory;
 		if (this.folder == null)
 			this.folder = '';
+	}
+
+	public static function fromEntry(entry:backend.freeplay.FreeplayEntry):SongMetadata
+	{
+		var s = new SongMetadata(entry.songName, entry.weekIndex, entry.songCharacter, entry.color);
+		s.folder = entry.folder != null ? entry.folder : '';
+		if (entry.difficulties != null && entry.difficulties.length > 0)
+			s.difficulties = entry.difficulties.copy();
+		return s;
+	}
+
+	public static function makeHeader(id:String, label:String, collapsed:Bool):SongMetadata
+	{
+		var s = new SongMetadata(backend.freeplay.FreeplayCatalog.formatHeaderLabel(label, collapsed), 0, 'face', 0xFFFFD54A);
+		s.isCategoryHeader = true;
+		s.categoryId = id;
+		s.collapsed = collapsed;
+		s.folder = '';
+		return s;
 	}
 }

@@ -20,6 +20,18 @@ class GameplaySettingsSubState extends BaseOptionsMenu
 			BOOL);
 		addOption(option);
 
+		var option:Option = new Option('Sabitlenmiş Notalar',
+			'Modların notaların konumunu, açısını, boyutunu ve gidiş yönünü değiştirmesini engeller. Downscroll, Orta Oklar, Rakip Okları, Ghost Tapping ve HUD gizleme ayarları da korunur. Not kontrolü isteyen bir mod şarkı başında izin ister. V-Slice Kontrolleri açıldığında bu ayar otomatik açılır; istersen V-Slice açıkken kapatabilirsin, modlar o şarkıda notları serbestçe yönetir.',
+			'pinnedNotes',
+			BOOL);
+		addOption(option);
+
+		var option:Option = new Option('Sabitlenmiş HUD',
+			'Modların sağlık çubuğunu, süre çubuğunu, skor yazısını ve ikonların konumunu değiştirmesini engeller. HUD\'un okların üzerine gelmesini istemiyorsan aç. Sabitlenmiş Notalar\'dan bağımsız çalışır.',
+			'pinnedHud',
+			BOOL);
+		addOption(option);
+
 		var option:Option = new Option('Rakip Okları',
 			'Devre dışı bırakıldığında, rakibin notaları gizlenir.',
 			'opponentStrums',

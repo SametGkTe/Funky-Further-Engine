@@ -737,6 +737,8 @@ class GalleryState extends MusicBeatState {
 		if (galleryPad.buttonQ != null) galleryPad.buttonQ.visible = showImageBtns;
 		if (galleryPad.buttonE != null) galleryPad.buttonE.visible = showImageBtns;
 		if (galleryPad.buttonR != null) galleryPad.buttonR.visible = showImageBtns;
+		// X (kategori) yalnızca grid'de işe yarar — diğer görünümlerde gizle
+		if (galleryPad.buttonX != null) galleryPad.buttonX.visible = (viewMode == GALLERY_GRID);
 	}
 
 	function onMobileButtonA():Void {
@@ -781,7 +783,33 @@ class GalleryState extends MusicBeatState {
 	}
 
 	function onMobileButtonX():Void {
-		currentCategory = (currentCategory + 1) % categories.length;
+		// Kategori değiştirme yalnızca grid görünümünde; tek görünümde
+		// boş kategoriye (ör. Favorites) geçip listeyi boşaltıyordu →
+		// slideshow açılınca "Mod by 0" çökmesi.
+		if (viewMode != GALLERY_GRID) { FlxG.sound.play(Paths.sound('scrollMenu')); return; }
+		cycleCategory(1);
+	}
+
+	/** Boş kategorileri atlayarak kategori değiştirir. */
+	function cycleCategory(dir:Int):Void {
+		if (categories.length <= 1) return;
+		var tries = 0;
+		var idx = currentCategory;
+		do {
+			idx = (idx + dir + categories.length) % categories.length;
+			tries++;
+			var count:Int = 0;
+			var cat = categories[idx];
+			if (cat == "All") count = galleryItems.length;
+			else if (cat == "Favorites") {
+				for (i in galleryItems) if (i.favorited == true) count++;
+			} else {
+				for (i in galleryItems) if (i.category == cat) count++;
+			}
+			if (count > 0) break;
+		} while (tries < categories.length);
+		if (tries >= categories.length) return; // dolu kategori yok, dokunma
+		currentCategory = idx;
 		filterByCategory();
 		FlxG.sound.play(Paths.sound('scrollMenu'));
 	}
@@ -978,9 +1006,9 @@ class GalleryState extends MusicBeatState {
 		}
 
 		if (FlxG.keys.justPressed.TAB) {
-			currentCategory = (currentCategory + 1) % categories.length;
-			filterByCategory();
-			FlxG.sound.play(Paths.sound('scrollMenu'));
+			// Masaüstü TAB da aynı kural: yalnızca grid'de, boş kategorileri atla
+			if (viewMode == GALLERY_GRID) cycleCategory(1);
+			else FlxG.sound.play(Paths.sound('scrollMenu'));
 		}
 
 		if (FlxG.keys.justPressed.F && filteredItems.length > 0) {
@@ -1553,6 +1581,8 @@ class GalleryState extends MusicBeatState {
 	}
 
 	function slideshowNext() {
+		// Boş listede modulo'ya bölme hatası (Mod by 0) çöküyordu
+		if (filteredItems.length == 0) { stopSlideshow(); return; }
 		var next = curSelected;
 		var tries = 0;
 		do { next = (next + 1) % filteredItems.length; tries++; }
@@ -1565,6 +1595,7 @@ class GalleryState extends MusicBeatState {
 	}
 
 	function slideshowPrev() {
+		if (filteredItems.length == 0) return;
 		var prev = curSelected;
 		var tries = 0;
 		do { prev = (prev - 1 + filteredItems.length) % filteredItems.length; tries++; }
@@ -1633,6 +1664,7 @@ class GalleryState extends MusicBeatState {
 	}
 
 	function changeItem(change:Int) {
+		if (filteredItems.length == 0) return; // boş listeye girme (curSelected -1 oluyordu)
 		cancelImageIntroTween();
 		imageTweenToken++;
 		curSelected += change;

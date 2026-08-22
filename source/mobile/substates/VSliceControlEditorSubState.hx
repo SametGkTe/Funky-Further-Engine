@@ -263,7 +263,11 @@ class VSliceControlEditorSubState extends MusicBeatSubstate
 		if (xChanged) ClientPrefs.data.vSliceCustomX = true;
 		if (zonesChanged) ClientPrefs.data.vSliceCustomZones = true;
 		if (widthChanged) ClientPrefs.data.vSliceCustomWidth = true;
-		ClientPrefs.data.ogGameControls = true; ClientPrefs.saveSettings();
+			ClientPrefs.data.ogGameControls = true;
+			// V-Slice açılınca Sabitlenmiş Notalar otomatik açılır (oyuncu istersen kapatabilir)
+			ClientPrefs.data.pinnedNotes = true;
+			ClientPrefs.data.ogAutoPinDone = true;
+			ClientPrefs.saveSettings();
 	}
 
 	function saveAndClose():Void { saveValues(); closeEditor(); }
