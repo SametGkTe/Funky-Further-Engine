@@ -14,7 +14,7 @@ import flixel.util.FlxTimer;
 class HelloState extends MusicBeatState
 {
 	public static var ENABLED:Bool = true;
-	public static var PERSON_NAME:String = "Eternal Sugar";
+	public static var PERSON_NAME:String = "Eternal Sugar"; // igilybtnsmt really
 	public static var SHOW_EVERY_LAUNCH:Bool = false;
 
 	static final MESSAGE_TR:String =
@@ -108,7 +108,7 @@ class HelloState extends MusicBeatState
 		add(continueButton);
 
 		hintText = new FlxText(0, FlxG.height - 86, FlxG.width,
-			controls.mobileC ? "[A] Devam Et" : "[A] Devam Et");
+			controls.mobileC ? "[ENTER] Devam Et" : "[A] Devam Et");
 		hintText.setFormat(Paths.font(FONT_PATH), FONT_SIZE_HINT, 0xFFBFBFBF, CENTER);
 		add(hintText);
 	}

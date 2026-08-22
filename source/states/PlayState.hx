@@ -1000,7 +1000,7 @@ class PlayState extends MusicBeatState
 		else FlxG.log.error("Video not found: " + fileName);
 		#end
 		#else
-		FlxG.log.warn('Platform not supported!');
+		FlxG.log.warn('Platform desteklenmiyor!');
 		startAndEnd();
 		#end
 		return null;
@@ -1042,7 +1042,7 @@ class PlayState extends MusicBeatState
 			psychDialogue.cameras = [camHUD];
 			add(psychDialogue);
 		} else {
-			FlxG.log.warn('Your dialogue file is badly formatted!');
+			FlxG.log.warn('Your diyalog dosyasının formatı yanlış!');
 			startAndEnd();
 		}
 	}
@@ -3865,6 +3865,8 @@ class PlayState extends MusicBeatState
 				logoPath += 'V2U';
 			case 'ONLINE':
 				logoPath += 'online';
+			case 'FURTHER': // Fuh yeah baby
+				logoPath += 'further';
 			default: // ONLINE
 				logoPath += 'varsayilan';
 		}
@@ -3878,10 +3880,10 @@ class PlayState extends MusicBeatState
 			petLogo.cameras = [camHUD];
 			add(petLogo);
 		} catch (e:Dynamic) {
-			trace("LOGO YÜKLEME HATASI: " + e);
+			trace("PET LOGO HATASI: " + e);
 			return;
 		}
-		try {
+		try {	// Yedek
 			petText = new FlxText(-200, 35, 0, "Psych Engine Türkiye");
 			petText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
 			petText.borderSize = 2;
@@ -4267,14 +4269,14 @@ class PlayState extends MusicBeatState
 
 		if(!runtimeShaders.exists(shaderName) && !initLuaShader(shaderName))
 		{
-			FlxG.log.warn('Shader $shaderName is missing!');
+			FlxG.log.warn('Shader $shaderName kayıp!');
 			return new ErrorHandledRuntimeShader(shaderName);
 		}
 
 		var arr:Array<String> = runtimeShaders.get(shaderName);
 		return new ErrorHandledRuntimeShader(shaderName, arr[0], arr[1]);
 		#else
-		FlxG.log.warn("Platform unsupported for Runtime Shaders!");
+		FlxG.log.warn("Platform Shader Desteklemiyor!");
 		return null;
 		#end
 	}
@@ -4487,8 +4489,6 @@ class PlayState extends MusicBeatState
 
 		if (totalColumns <= 4)
 		{
-			// 4K: orijinal FNF Mobile dizilimi (oklar ortada, rakip üstte/küçük)
-			// vSliceSpacing: 0 = orijinal aralık, 1 = tam ekran yayılımı
 			var orig:Array<Float> = [-360, -140, 140, 360];
 			for (i in 0...4) {
 				var strum = playerStrums.members[i];
@@ -4618,7 +4618,7 @@ class PlayState extends MusicBeatState
 		}
 	}
 
-	// Yeni sistemin buton ID'lerini (String) eski keyPressed/keyReleased sistemine çevirir
+	// New Mobile Transport
 	function mobileKeyFromIDs(ids:Array<String>, pressed:Bool):Void
 	{
 		if (ids == null || ids.length == 0) return;

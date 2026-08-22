@@ -66,7 +66,7 @@ class CopyState extends MusicBeatState
 			return;
 		}
 
-		CoolUtil.showPopUp("oyun için gerekli olan BAZI dosyalar bulunamadı\nDevam etmek için OK basın", Language.getPhrase('mobile_notice', 'Dikkat!'));
+		CoolUtil.showPopUp("Gerekli olan Tüm dosyalara izin ver izinini verin (Klasör Oluşturmak için), yoksa oyun açılmayacaktır.", Language.getPhrase('mobile_notice', 'Uyarı!'));
 
 		shouldCopy = true;
 

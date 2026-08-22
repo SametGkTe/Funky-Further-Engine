@@ -2,9 +2,27 @@ name: Android Only
 on:
   workflow_dispatch
 
+permissions:
+  contents: write
+
+env:
+  PROJECT_NAME: FurtherEngine
+
 jobs:
+  get-commit-hash:
+    runs-on: ubuntu-latest
+    outputs:
+      commit_hash: ${{ steps.get_commit_hash.outputs.COMMIT_HASH }}
+    steps:
+      - name: Get Latest Commit Hash
+        id: get_commit_hash
+        run: |
+          commit_hash=${GITHUB_SHA::7}
+          echo "COMMIT_HASH=$commit_hash" >> $GITHUB_OUTPUT
+
   build-android:
     name: Android
+    needs: get-commit-hash
     uses: ./.github/workflows/build.yml
     with:
       name: Android
@@ -13,3 +31,26 @@ jobs:
       buildArgs: "android -ONLY_ARM64"
       artifactName: androidBuild
       artifactPath: "export/release/android/bin/app/build/outputs/apk/release/*.apk"
+
+  Releaser:
+    needs: [get-commit-hash, build-android]
+    runs-on: ubuntu-latest
+    permissions: write-all
+    steps:
+      - name: Download Android Build
+        uses: actions/download-artifact@v4
+        with:
+          name: androidBuild
+          path: /home/runner/artifacts/android
+
+      - name: Move Android APK
+        run: mv /home/runner/artifacts/android/*.apk /home/runner/${{ env.PROJECT_NAME }}-Android.apk
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Android ${{ needs.get-commit-hash.outputs.commit_hash }}"
+          tag_name: "android-${{ needs.get-commit-hash.outputs.commit_hash }}"
+          prerelease: true
+          files: |
+            /home/runner/${{ env.PROJECT_NAME }}-Android.apk

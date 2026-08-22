@@ -3,17 +3,55 @@ name: Android Legacy ARMv7
 on:
   workflow_dispatch:
 
-# Eski 32-bit Android cihazlar için isteğe bağlı build.
-# Ana release workflow'u hızlı ve modern ARM64 olarak kalır.
+permissions:
+  contents: write
+
+env:
+  PROJECT_NAME: FurtherEngine
+
 jobs:
+  get-commit-hash:
+    runs-on: ubuntu-latest
+    outputs:
+      commit_hash: ${{ steps.get_commit_hash.outputs.COMMIT_HASH }}
+    steps:
+      - name: Get Latest Commit Hash
+        id: get_commit_hash
+        run: |
+          commit_hash=${GITHUB_SHA::7}
+          echo "COMMIT_HASH=$commit_hash" >> $GITHUB_OUTPUT
+
   build-android-armv7:
     name: Android Legacy ARMv7
+    needs: get-commit-hash
     uses: ./.github/workflows/build.yml
     with:
-      # Reusable build.yml Android SDK/NDK ve signing adımlarını bu değerle açar.
       name: Android
       os: macos-15
       setupCommand: sh ./setup/unix.sh
       buildArgs: "android -ONLY_ARMV7"
       artifactName: Further-Engine-Android-ARMv7
       artifactPath: "export/release/android/bin/app/build/outputs/apk/release/*.apk"
+
+  Releaser:
+    needs: [get-commit-hash, build-android-armv7]
+    runs-on: ubuntu-latest
+    permissions: write-all
+    steps:
+      - name: Download Android ARMv7 Build
+        uses: actions/download-artifact@v4
+        with:
+          name: Further-Engine-Android-ARMv7
+          path: /home/runner/artifacts/android
+
+      - name: Move Android APK
+        run: mv /home/runner/artifacts/android/*.apk /home/runner/${{ env.PROJECT_NAME }}-Android-ARMv7.apk
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Android ARMv7 ${{ needs.get-commit-hash.outputs.commit_hash }}"
+          tag_name: "android-armv7-${{ needs.get-commit-hash.outputs.commit_hash }}"
+          prerelease: true
+          files: |
+            /home/runner/${{ env.PROJECT_NAME }}-Android-ARMv7.apk
