@@ -7,7 +7,6 @@ import flixel.text.FlxText;
 import flixel.text.FlxText.FlxTextAlign;
 import flixel.util.FlxColor;
 
-/** Ana menülerde güvenli modun açık olduğunu kalıcı olarak gösterir. */
 class SafeModeBadge extends FlxSpriteGroup
 {
 	public static function addTo(state:flixel.FlxState):SafeModeBadge

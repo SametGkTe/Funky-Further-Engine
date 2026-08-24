@@ -1,4 +1,4 @@
-name: Android Only
+name: Android ARM64
 on:
   workflow_dispatch
 
@@ -20,37 +20,37 @@ jobs:
           commit_hash=${GITHUB_SHA::7}
           echo "COMMIT_HASH=$commit_hash" >> $GITHUB_OUTPUT
 
-  build-android:
-    name: Android
+  build-android-arm64:
+    name: Android ARM64
     needs: get-commit-hash
     uses: ./.github/workflows/build.yml
     with:
       name: Android
       os: macos-15
       setupCommand: sh ./setup/unix.sh
-      buildArgs: "android"
-      artifactName: androidBuild
+      buildArgs: "android -ONLY_ARM64"
+      artifactName: androidBuild-arm64
       artifactPath: "export/release/android/bin/app/build/outputs/apk/release/*.apk"
 
   Releaser:
-    needs: [get-commit-hash, build-android]
+    needs: [get-commit-hash, build-android-arm64]
     runs-on: ubuntu-latest
     permissions: write-all
     steps:
-      - name: Download Android Build
+      - name: Download Android ARM64 Build
         uses: actions/download-artifact@v4
         with:
-          name: androidBuild
+          name: androidBuild-arm64
           path: /home/runner/artifacts/android
 
       - name: Move Android APK
-        run: mv /home/runner/artifacts/android/*.apk /home/runner/${{ env.PROJECT_NAME }}-Android.apk
+        run: mv /home/runner/artifacts/android/*.apk /home/runner/${{ env.PROJECT_NAME }}-Android-ARM64.apk
 
       - name: Publish Release
         uses: softprops/action-gh-release@v2
         with:
-          name: "Android ${{ needs.get-commit-hash.outputs.commit_hash }}"
-          tag_name: "android-${{ needs.get-commit-hash.outputs.commit_hash }}"
+          name: "Android ARM64 ${{ needs.get-commit-hash.outputs.commit_hash }}"
+          tag_name: "android-arm64-${{ needs.get-commit-hash.outputs.commit_hash }}"
           prerelease: true
           files: |
-            /home/runner/${{ env.PROJECT_NAME }}-Android.apk
+            /home/runner/${{ env.PROJECT_NAME }}-Android-ARM64.apk

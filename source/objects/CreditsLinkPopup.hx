@@ -71,7 +71,7 @@ class CreditsLinkPopup extends FlxSpriteGroup
         "newgrounds" => 0xFFFFA500,
         "bsky" => 0xFF0085FF,
         "spotify" => 0xFF1DB954,
-        "soundcloud" => 0xFFFF5500,
+        "soundcloud" => 0xFFFF5500, // Bulamadım amk rengini
         "bandcamp" => 0xFF629AA9,
         "patreon" => 0xFFF96854,
         "link" => 0xFFCCCCCC

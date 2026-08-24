@@ -54,7 +54,7 @@ jobs:
 
           - name: Android
             os: macos-15
-            buildArgs: "android -ONLY_ARM64"
+            buildArgs: "android"
             setupCommand: sh ./setup/unix.sh
             artifactName: androidBuild
             artifactPath: "export/release/android/bin/app/build/outputs/apk/release/*.apk"

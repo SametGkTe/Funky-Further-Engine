@@ -30,7 +30,7 @@ jobs:
     name: Build
     runs-on: ${{ inputs.os }}
     # Android takılırsa GitHub'ın 6 saatlik üst sınırını bekleme.
-    timeout-minutes: ${{ inputs.name == 'Android' && 150 || 360 }}
+    timeout-minutes: ${{ inputs.name == 'Android' && 210 || 360 }}
 
     steps:
       - name: Checkout

@@ -802,30 +802,6 @@ class GalleryState extends MusicBeatState {
 		cycleCategory(1);
 	}
 
-	/** Boş kategorileri atlayarak kategori değiştirir. */
-	function cycleCategory(dir:Int):Void {
-		if (categories.length <= 1) return;
-		var tries = 0;
-		var idx = currentCategory;
-		do {
-			idx = (idx + dir + categories.length) % categories.length;
-			tries++;
-			var count:Int = 0;
-			var cat = categories[idx];
-			if (cat == "All") count = galleryItems.length;
-			else if (cat == "Favorites") {
-				for (i in galleryItems) if (i.favorited == true) count++;
-			} else {
-				for (i in galleryItems) if (i.category == cat) count++;
-			}
-			if (count > 0) break;
-		} while (tries < categories.length);
-		if (tries >= categories.length) return; // dolu kategori yok, dokunma
-		currentCategory = idx;
-		filterByCategory();
-		FlxG.sound.play(Paths.sound('scrollMenu'));
-	}
-
 	function onMobileButtonP():Void {
 		if (viewMode == GALLERY_GRID) {
 			showingInfo = !showingInfo;
@@ -978,6 +954,29 @@ class GalleryState extends MusicBeatState {
 		}
 	}
 	#end
+
+	function cycleCategory(dir:Int):Void {
+		if (categories.length <= 1) return;
+		var tries = 0;
+		var idx = currentCategory;
+		do {
+			idx = (idx + dir + categories.length) % categories.length;
+			tries++;
+			var count:Int = 0;
+			var cat = categories[idx];
+			if (cat == "All") count = galleryItems.length;
+			else if (cat == "Favorites") {
+				for (i in galleryItems) if (i.favorited == true) count++;
+			} else {
+				for (i in galleryItems) if (i.category == cat) count++;
+			}
+			if (count > 0) break;
+		} while (tries < categories.length);
+		if (tries >= categories.length) return;
+		currentCategory = idx;
+		filterByCategory();
+		FlxG.sound.play(Paths.sound('scrollMenu'));
+	}
 
 	override function update(elapsed:Float) {
 		if (daSound != null && daSound.playing)

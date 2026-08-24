@@ -14,7 +14,7 @@ import flixel.util.FlxTimer;
 class HelloState extends MusicBeatState
 {
 	public static var ENABLED:Bool = true;
-	public static var PERSON_NAME:String = "Eternal Sugar"; // igilybtnsmt really
+	public static var PERSON_NAME:String = "Eternal Sugar"; // ilyigintft yeah yeah.
 	public static var SHOW_EVERY_LAUNCH:Bool = false;
 
 	static final MESSAGE_TR:String =
