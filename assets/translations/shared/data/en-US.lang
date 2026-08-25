@@ -23,6 +23,7 @@ rating_perfect: "Perfect!!"
 
 // Dialogues
 dialogue_skip: "Press BACK to Skip"
+dialogue_skip_mobile: "Press A to Skip"
 
 // Pause Menu
 pause_resume: "Resume"

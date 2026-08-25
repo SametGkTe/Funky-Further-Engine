@@ -1,5 +1,7 @@
 package backend.ui;
 
+import backend.ui.PsychUIButton;
+
 typedef UIStyleData = {
 	var bgColor:FlxColor;
 	var textColor:FlxColor;
@@ -20,20 +22,21 @@ class PsychUIBox extends FlxSpriteGroup
 
 	public var bg:FlxSprite;
 
+	// MODERN PALET: seçili tab mavi vurgu, pasif tab koyu slate
 	public var selectedStyle:UIStyleData = {
-		bgColor: FlxColor.WHITE,
-		textColor: FlxColor.BLACK,
+		bgColor: PsychUIButton.ACCENT,
+		textColor: FlxColor.WHITE,
 		bgAlpha: 1
 	};
 	public var hoverStyle:UIStyleData = {
-		bgColor: FlxColor.WHITE,
-		textColor: FlxColor.BLACK,
-		bgAlpha: 0.6
+		bgColor: 0xFF3A3C46,
+		textColor: FlxColor.WHITE,
+		bgAlpha: 0.95
 	};
 	public var unselectedStyle:UIStyleData = {
-		bgColor: FlxColor.BLACK,
-		textColor: FlxColor.WHITE,
-		bgAlpha: 0.6
+		bgColor: PsychUIButton.SURFACE,
+		textColor: 0xFFB9BCC6,
+		bgAlpha: 0.92
 	};
 
 	public var canMove:Bool = true;
@@ -46,8 +49,8 @@ class PsychUIBox extends FlxSpriteGroup
 		super(x, y);
 		
 		bg = new FlxSprite().makeGraphic(1, 1, FlxColor.WHITE);
-		bg.color = FlxColor.BLACK;
-		bg.alpha = 0.6;
+		bg.color = 0xFF14151A;
+		bg.alpha = 0.78;
 		add(bg);
 
 		if(tabs != null)
@@ -132,7 +135,6 @@ class PsychUIBox extends FlxSpriteGroup
 						_ignoreTabUpdate = true;
 						isMinimized = !isMinimized;
 						_lastClick = 0;
-						//trace('do minimize: $isMinimized');
 					}
 					
 					if(FlxG.mouse.justPressed)

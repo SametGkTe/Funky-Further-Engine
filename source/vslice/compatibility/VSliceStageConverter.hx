@@ -6,32 +6,6 @@ import sys.FileSystem;
 #end
 import haxe.Json;
 
-/**
- * VSliceStageConverter — V-Slice (FunkinCrew/Funkin 0.8) stage JSON'unu
- * Psych (Further-Engine) `StageFile` formatına runtime'da çevirir.
- *
- * FORMAT FARKLARI:
- *   V-Slice stage:                          Psych StageFile:
- *   -----------------------------------      ---------------------------------
- *   props[].name                            objects[].name
- *   props[].assetPath ("stageback")         objects[].image ("stageback")
- *   props[].position [x,y]                  objects[].x / objects[].y
- *   props[].scale [x,y]                     objects[].scale
- *   props[].scroll [x,y]                    objects[].scrollFactor
- *   props[].animations[...]                 objects[].animations[...]
- *   props[].zIndex                          (kısmi: layer sırası)
- *   characters.bf.position                  boyfriend [x,y]
- *   characters.dad.position                 opponent [x,y]
- *   characters.gf.position                  girlfriend [x,y]
- *   characters.*.cameraOffsets              camera_boyfriend / camera_opponent / camera_girlfriend
- *   cameraZoom                              defaultZoom
- *   directory                               directory
- *
- * Bu converter, V-Slice modundaki `data/stages/<stage>.json` dosyasını okuyup
- * Psych'in `StageData.getStageFile()`'in beklediği `StageFile`'a çevirir.
- * Böylece Psych asset sistemi (dosya sistemi) üzerinden V-Slice sahneleri de
- * çözülür; Polymod/FLIXEL yükü yoktur, performans düşmez.
- */
 class VSliceStageConverter
 {
 	/**
@@ -50,6 +24,8 @@ class VSliceStageConverter
 		{
 			var o:Dynamic = {};
 			o.name = Reflect.field(p, 'name') != null ? Std.string(Reflect.field(p, 'name')) : 'prop';
+			// Psych stage nesneleri filters alanı olmadan çizilmez (LOW|HIGH = 3).
+			o.filters = 3;
 			var asset:Dynamic = Reflect.field(p, 'assetPath');
 			if (asset != null && Std.string(asset).length > 0)
 				o.image = Std.string(asset);
@@ -67,7 +43,7 @@ class VSliceStageConverter
 
 			var scroll:Array<Dynamic> = cast Reflect.field(p, 'scroll');
 			if (scroll != null && scroll.length >= 2)
-				o.scrollFactor = [Std.parseFloat(Std.string(scroll[0])), Std.parseFloat(Std.string(scroll[1]))];
+				o.scroll = [Std.parseFloat(Std.string(scroll[0])), Std.parseFloat(Std.string(scroll[1]))];
 
 			var isPixel:Dynamic = Reflect.field(p, 'isPixel');
 			if (isPixel != null) o.antialiasing = (isPixel == true) ? false : true;
@@ -90,7 +66,11 @@ class VSliceStageConverter
 					outAnims.push(pa);
 				}
 				o.animations = outAnims;
+				o.type = 'animatedSprite';
+				o.firstAnimation = outAnims.length > 0 ? outAnims[0].anim : null;
 			}
+			else
+				o.type = 'sprite';
 			objects.push(o);
 		}
 
@@ -139,6 +119,12 @@ class VSliceStageConverter
 		var dir:Dynamic = Reflect.field(vslice, 'directory');
 		if (dir != null) directory = Std.string(dir);
 
+		// Karakterler sahne nesne listesine eklenmezse PlayState onları
+		// 'objects' modunda sahneye hiç eklemez (gruplar add edilmez).
+		objects.push({type: 'gf'});
+		objects.push({type: 'dad'});
+		objects.push({type: 'boyfriend'});
+
 		return {
 			directory: directory,
 			defaultZoom: zoom,
@@ -157,7 +143,7 @@ class VSliceStageConverter
 
 	/**
 	 * V-Slice modundaki `data/stages/<stage>.json` dosyasını okuyup Psych StageFile
-	 * JSON string olarak döndürür. Bulunamazsa null.
+	 * döndürür. Bulunamazsa null.
 	 */
 	public static function convertFromMod(modDir:String, stageId:String):Dynamic
 	{
@@ -170,11 +156,13 @@ class VSliceStageConverter
 		{
 			if (FileSystem.exists(path))
 			{
+				trace('[VSliceStage] "$stageId" bulundu: $path');
 				var raw:String = File.getContent(path);
 				var json:Dynamic = try Json.parse(raw) catch(e:Dynamic) null;
 				if (json != null) return convert(json, stageId);
 			}
 		}
+		trace('[VSliceStage] "$stageId" mod "$modDir" içinde bulunamadı');
 		#end
 		return null;
 	}

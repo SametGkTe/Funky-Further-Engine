@@ -81,6 +81,15 @@ class MainMenuState extends MusicBeatState
 		#end
 		Mods.loadTopMod();
 
+		// MÜZİK GARANTİSİ: Bazı state'lerden (editörler vb.) gelirken menü müziği
+		// çalmıyor olabilir; music null iken update'teki volume ramp'ı çöküyordu.
+		if (FlxG.sound.music == null)
+		{
+			var menuMusic:String = TitleState.getMenuMusicName();
+			if (menuMusic != null)
+				FlxG.sound.playMusic(Paths.music(menuMusic), 0);
+		}
+
 		#if DISCORD_ALLOWED
 		DiscordClient.changePresence("In the Menus", null);
 		#end
@@ -331,7 +340,7 @@ class MainMenuState extends MusicBeatState
 			}
 		}
 
-		if (FlxG.sound.music.volume < 0.8)
+		if (FlxG.sound.music != null && FlxG.sound.music.volume < 0.8)
 			FlxG.sound.music.volume = Math.min(FlxG.sound.music.volume + 0.5 * elapsed, 0.8);
 
 		if (!selectedSomethin)

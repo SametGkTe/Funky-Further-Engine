@@ -246,7 +246,7 @@ class LoadingState extends MusicBeatState
 			if (!finishedLoading && checkLoaded())
 			{
 				if (ClientPrefs.data.shaders)
-					loadStatus = 'Shaderlar yükleniyor';
+					loadStatus = 'Gölgeler yükleniyor';
 				else
 					loadStatus = 'Tamamlanıyor...';
 				if(stateChangeDelay <= 0)
@@ -672,7 +672,7 @@ class LoadingState extends MusicBeatState
 								imgs.push(sprite.image);
 					}
 				}
-				prepare(imgs, snds, mscs, 'Sahne yükleniyor');
+				prepare(imgs, snds, mscs, 'Stage yükleniyor');
 			}
 
 			loadStatus = 'Karakterler yükleniyor';

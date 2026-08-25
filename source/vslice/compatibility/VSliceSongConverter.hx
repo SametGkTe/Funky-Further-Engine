@@ -134,10 +134,56 @@ class VSliceSongConverter
 			if (st != null && Std.string(st) != 'null' && Std.string(st).length > 0) stage = Std.string(st);
 		}
 
+		// ---- V-SLICE EVENTLERİ ----
+		// {t, e: "İsim", v: veri} -> Psych [time, [[isim, v1, v2]]]
+		var psychEvents:Array<Dynamic> = [];
+		if (Reflect.hasField(chart, 'events') && Std.isOfType(Reflect.field(chart, 'events'), Array))
+		{
+			for (ev in (Reflect.field(chart, 'events') : Array<Dynamic>))
+			{
+				if (ev == null) continue;
+				var evName:String = Reflect.field(ev, 'e') != null ? Std.string(Reflect.field(ev, 'e')) : '';
+				if (evName.length < 1) continue;
+				var evTime:Float = Reflect.field(ev, 't') != null ? Reflect.field(ev, 't') : 0;
+				var v:Dynamic = Reflect.field(ev, 'v');
+				var v1:Dynamic = '';
+				var v2:Dynamic = '';
+				if (v != null)
+				{
+					if (Std.isOfType(v, Array))
+					{
+						var varr:Array<Dynamic> = cast v;
+						if (varr.length > 0) v1 = varr[0];
+						if (varr.length > 1) v2 = varr[1];
+					}
+					else if (Reflect.isObject(v))
+						v1 = Json.stringify(v);
+					else
+						v1 = v;
+				}
+				var evArr:Array<Dynamic> = [evTime, [[evName, v1, v2]]];
+				psychEvents.push(evArr);
+			}
+		}
+
+		// ---- BPM DEĞİŞİMLERİ ----
+		// Her section'ın gerçek başlangıç ms'sine göre bpm + changeBPM işlenir.
+		var accMs:Float = 0;
+		var prevBpm:Null<Float> = null;
+		for (sec in sections)
+		{
+			var secBpm:Float = bpmAtMs(accMs, timeChanges);
+			if (prevBpm != null && Math.abs(secBpm - prevBpm) > 0.001)
+				sec.changeBPM = true;
+			sec.bpm = secBpm;
+			accMs += sec.sectionBeats * (60000.0 / secBpm);
+			prevBpm = secBpm;
+		}
+
 		return {
 			song: songName,
 			notes: sections,
-			events: [],
+			events: psychEvents,
 			bpm: bpm,
 			needsVoices: true,
 			speed: speed,
@@ -240,19 +286,39 @@ class VSliceSongConverter
 		};
 	}
 
-	/** V-Slice timeChanges'ından verilen step'teki bpm'i bulur. */
-	static function bpmAt(step:Float, timeChanges:Array<Dynamic>):Float
+	/** Verilen ms anındaki bpm'i timeChanges listesinden bulur. */
+	public static function bpmAtMs(ms:Float, timeChanges:Array<Dynamic>):Float
 	{
-		var bpm:Float = 120;
-		// step'i yaklaşık ms'e çevir (ilk bpm üzerinden); kesin hesap için
-		// msToStep'in tersi gerekir ama section bpm'i yalnızca bilgi amaçlıdır.
-		for (tc in timeChanges)
+		if (timeChanges == null || timeChanges.length == 0) return 120;
+		var tcs:Array<Dynamic> = timeChanges.copy();
+		tcs.sort(function(a, b)
 		{
-			var t:Float = Reflect.field(tc, 't');
+			var ta:Float = Reflect.field(a, 't') != null ? Reflect.field(a, 't') : 0;
+			var tb:Float = Reflect.field(b, 't') != null ? Reflect.field(b, 't') : 0;
+			return ta < tb ? -1 : (ta > tb ? 1 : 0);
+		});
+		var bpm:Float = 120;
+		var first:Bool = true;
+		for (tc in tcs)
+		{
+			var t:Float = Reflect.field(tc, 't') != null ? Reflect.field(tc, 't') : 0;
 			var b:Dynamic = Reflect.field(tc, 'bpm');
-			if (b != null) bpm = Std.parseFloat(Std.string(b));
+			if (b == null) continue;
+			if (first)
+			{
+				bpm = Std.parseFloat(Std.string(b));
+				first = false;
+			}
+			if (ms >= t - 0.001) bpm = Std.parseFloat(Std.string(b));
+			else break;
 		}
 		return bpm;
+	}
+
+	/** (Kullanılmıyor — bpmAtMs tercih edilir; geriye uyum için tutulur.) */
+	static function bpmAt(step:Float, timeChanges:Array<Dynamic>):Float
+	{
+		return bpmAtMs(step, timeChanges);
 	}
 
 	/** ms'yi step indeksine çevirir (BPM değişimlerini kümülatif hesaba katar). */

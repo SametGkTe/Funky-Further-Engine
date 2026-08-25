@@ -24,10 +24,23 @@ class HealthIcon extends FlxSprite
 
 	private var iconOffsets:Array<Float> = [0, 0];
 	public function changeIcon(char:String, ?allowGPU:Bool = true) {
+		#if MODS_ALLOWED
+		// CODENAME ENGINE KÖPRÜSÜ: CNE karakter XML'indeki icon attribute'u
+		// karakter adından farklı olabiliyor; varsa onu kullan.
+		var cneIcon:String = cne.compatibility.CNECharacterConverter.resolveIconName(char);
+		if (cneIcon != null && cneIcon.length > 0) char = cneIcon;
+		#end
 		if(this.char != char) {
 			var name:String = 'icons/' + char;
 			if(!Paths.fileExists('images/' + name + '.png', IMAGE)) name = 'icons/icon-' + char; //Older versions of psych engine's support
-			if(!Paths.fileExists('images/' + name + '.png', IMAGE)) name = 'icons/icon-face'; //Prevents crash from missing icon
+			// CODENAME ENGINE KÖPRÜSÜ: CNE ikonları klasör düzeninde tutar:
+			// images/icons/<icon>/icon.png (veya ikon0/ikon1).
+			if(!Paths.fileExists('images/' + name + '.png', IMAGE) && Paths.fileExists('images/icons/$char/icon.png', IMAGE))
+				name = 'icons/$char/icon';
+			if(!Paths.fileExists('images/' + name + '.png', IMAGE)) {
+				trace('[HealthIcon] "$char" için ikon bulunamadı, face kullanılacak');
+				name = 'icons/icon-face'; //Prevents crash from missing icon
+			}
 			
 			var graphic = Paths.image(name, allowGPU);
 			var iSize:Float = Math.round(graphic.width / graphic.height);

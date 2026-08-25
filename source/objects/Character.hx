@@ -120,23 +120,34 @@ class Character extends FlxSprite
 		if (!Assets.exists(path))
 		#end
 		{
+			// CODENAME ENGINE KÖPRÜSÜ: Psych karakter JSON'u yoksa CNE
+			// karakter XML'ini (assets/data/characters/<char>.xml) okuyup
+			// Psych formatına çevir.
+			#if MODS_ALLOWED
+			var cneJson:Dynamic = cne.compatibility.CNECharacterConverter.convertFromMods(character);
+			if (cneJson != null)
+			{
+				loadCharacterFile(cneJson);
+				loadedVSlice = true; // dönüştürülmüş veri yüklendi, dosya okuma adımı atlanır
+				missingCharacter = false;
+			}
+
 			// V-SLICE KÖPRÜSÜ: Psych karakter JSON'u yoksa V-Slice modundaki
 			// data/characters/<id>.json dosyasını okuyup Psych formatına çevir.
-			#if MODS_ALLOWED
 			var vsliceJson:Dynamic = null;
-			if (Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0)
+			if (cneJson == null && Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0)
 				vsliceJson = VSliceCharacterConverter.convertFromMod(Mods.currentModDirectory, character);
-			if (vsliceJson == null)
+			if (cneJson == null && vsliceJson == null)
 				for (mod in Mods.getGlobalMods())
 					if (vsliceJson == null) vsliceJson = VSliceCharacterConverter.convertFromMod(mod, character);
 
-			if (vsliceJson != null)
+			if (cneJson == null && vsliceJson != null)
 			{
 				loadCharacterFile(vsliceJson);
 				loadedVSlice = true;
 				missingCharacter = false;
 			}
-			else
+			else if (cneJson == null)
 			#end
 			{
 				path = Paths.getSharedPath('characters/' + DEFAULT_CHARACTER + '.json'); //If a character couldn't be found, change him to BF just to prevent a crash
@@ -213,9 +224,11 @@ class Character extends FlxSprite
 			updateHitbox();
 		}
 
-		// positioning
+		// positioning (eksik/bozuk veri çökmesin: V-Slice/CNE dönüştürücü köprüleri)
 		positionArray = json.position;
+		if (positionArray == null || positionArray.length < 2) positionArray = [0, 0];
 		cameraPosition = json.camera_position;
+		if (cameraPosition == null || cameraPosition.length < 2) cameraPosition = [0, 0];
 
 		// data
 		healthIcon = json.healthicon;

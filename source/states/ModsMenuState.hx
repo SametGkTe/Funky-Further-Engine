@@ -17,7 +17,6 @@ import lime.utils.Assets;
 
 import states.TitleState;
 import vslice.menus.freeplay.FreeplayState;
-import vslice.menus.states.MainMenuState;
 
 class ModsMenuState extends MusicBeatState
 {
@@ -366,7 +365,7 @@ class ModsMenuState extends MusicBeatState
 				}
 				FlxG.camera.fade(FlxColor.BLACK, 0.5, false, FlxG.resetGame, false);
 			}
-			else MusicBeatState.switchState(new MainMenuState());
+			else MenuStyleRouter.goToMainMenu();
 
 			persistentUpdate = false;
 			FlxG.autoPause = ClientPrefs.data.autoPause;
@@ -924,6 +923,11 @@ class ModItem extends FlxSpriteGroup
 											  pack.color[2] != null ? pack.color[2] : 255);
 			}
 			this.mustRestart = (pack.restart == true);
+		}
+		// CODENAME ENGINE KÖPRÜSÜ: pack.json'u olmayan CNE modlarını etiketle.
+		else if (cne.compatibility.CNECompat.isCNEMod(folder))
+		{
+			this.desc = 'Codename Engine mod';
 		}
 		text.text = this.name;
 

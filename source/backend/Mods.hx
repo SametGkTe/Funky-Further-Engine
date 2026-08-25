@@ -126,6 +126,9 @@ class Mods
 			{
 				var folder:String = Paths.mods(mod + '/' + fileToFind);
 				if(FileSystem.exists(folder) && !foldersToCheck.contains(folder)) foldersToCheck.push(folder);
+				// CODENAME ENGINE KÖPRÜSÜ: CNE modları asset'lerini 'assets/' altında tutar.
+				var cneFolder:String = cne.compatibility.CNECompat.cneFile(mod, fileToFind);
+				if(cneFolder != null && !foldersToCheck.contains(cneFolder)) foldersToCheck.push(cneFolder);
 			}
 
 			// Then "PsychEngine/mods/" main folder
@@ -137,6 +140,9 @@ class Mods
 			{
 				var folder:String = Paths.mods(Mods.currentModDirectory + '/' + fileToFind);
 				if(FileSystem.exists(folder) && !foldersToCheck.contains(folder)) foldersToCheck.push(folder);
+				// CODENAME ENGINE KÖPRÜSÜ
+				var cneFolder:String = cne.compatibility.CNECompat.cneFile(Mods.currentModDirectory, fileToFind);
+				if(cneFolder != null && !foldersToCheck.contains(cneFolder)) foldersToCheck.push(cneFolder);
 			}
 		}
 		#end
@@ -199,6 +205,8 @@ class Mods
 	
 	private static function updateModList()
 	{
+		// CODENAME ENGINE KÖPRÜSÜ: mod klasörleri değişmiş olabilir, tespiti tazele.
+		cne.compatibility.CNECompat.invalidate();
 		#if MODS_ALLOWED
 		// Find all that are already ordered
 		var list:Array<Array<Dynamic>> = [];

@@ -224,6 +224,9 @@
 
 	<!-- Allow Access to Engine Files in iOS / Android Files sidebar -->
 	<haxedef name="SHARE_MOBILE_FILES" if="ios || android" />
+	
+	<haxeflag name="--macro" value="include('cne.compatibility')" />
+	<haxeflag name="--macro" value="include('vslice.compatibility', false)" />
 
 	<!-- Official FNF-style DocumentsProvider (Files app sidebar) -->
 	<section if="android">

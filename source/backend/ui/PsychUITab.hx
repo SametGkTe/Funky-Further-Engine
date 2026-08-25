@@ -13,11 +13,13 @@ class PsychUITab extends FlxSprite
 	{
 		super();
 		makeGraphic(1, 1, FlxColor.WHITE);
-		color = FlxColor.BLACK;
-		alpha = 0.6;
+		color = 0xFF26272E;
+		alpha = 0.92;
 
 		@:bypassAccessor this.name = name;
 		text = new FlxText(0, 0, 100, name);
+		text.setFormat(Paths.font('vcr.ttf'), 13, FlxColor.WHITE, CENTER);
+		text.bold = true;
 		text.alignment = CENTER;
 	}
 

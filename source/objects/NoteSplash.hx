@@ -223,6 +223,7 @@ class NoteSplash extends FlxSprite
 		var tempShader:RGBPalette = null;
 		if (config.allowRGB && ClientPrefs.data.shaders)
 		{
+			color = FlxColor.WHITE; // renklendirme shader üzerinden yapılır
 			Note.initializeGlobalRGBShader(noteData % Note.colArray.length);
 			if (inEditor || (note == null || note.noteSplashData.useRGBShader) && (PlayState.SONG == null || !PlayState.SONG.disableNoteRGB))
 			{
@@ -280,6 +281,14 @@ class NoteSplash extends FlxSprite
 				else tempShader.copyValues(Note.globalRgbShaders[noteData % Note.colArray.length]);
 			}
 		}
+		else if (config.allowRGB)
+		{
+			// SHADER KAPALI: GPU maliyeti olmadan basit tint ile renklendirme.
+			// Splash texture'ı beyaz taban olduğu için color çarpımı renk verir.
+			color = splashTintColor(note);
+		}
+		else
+			color = FlxColor.WHITE;
 		rgbShader.copyValues(tempShader);
 		if (!config.allowPixel) rgbShader.pixelAmount = 1;
 		else if (PlayState.isPixelStage) rgbShader.pixelAmount = 6;
@@ -323,6 +332,21 @@ class NoteSplash extends FlxSprite
 		spawned = true;
 	}
 	
+	/** Shader kapalıyken uygulanacak hafif tint rengi (lane rengi). */
+	function splashTintColor(?note:Note):FlxColor
+	{
+		var arr:Array<FlxColor> = ClientPrefs.data.arrowRGB[noteData % Note.colArray.length];
+		if (PlayState.isPixelStage) arr = ClientPrefs.data.arrowRGBPixel[noteData % Note.colArray.length];
+		var tint:FlxColor = arr[0];
+		if (note != null)
+		{
+			if (note.noteSplashData.r != -1) tint = note.noteSplashData.r;
+			else if (note.noteSplashData.g != -1) tint = note.noteSplashData.g;
+			else if (note.noteSplashData.b != -1) tint = note.noteSplashData.b;
+		}
+		return tint;
+	}
+
 	public function playDefaultAnim()
 	{
 		var anim:String = noteDataMap.get(noteData);

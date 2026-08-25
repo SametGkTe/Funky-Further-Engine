@@ -657,7 +657,12 @@ class PlayState extends MusicBeatState
 		for (notetype in noteTypes)
 			startLuasNamed('custom_notetypes/' + notetype + '.lua');
 		for (event in eventsPushed)
-			startLuasNamed('custom_events/' + event + '.lua');
+		{
+			// V-SLICE KÖPRÜSÜ: custom_events/ altında yoksa V-Slice modlarının
+			// doğal konumu olan scripts/events/<Event>.lua da denenir.
+			if (!startLuasNamed('custom_events/' + event + '.lua'))
+				startLuasNamed('scripts/events/' + event + '.lua');
+		}
 		#end
 
 		#if HSCRIPT_ALLOWED
@@ -687,6 +692,39 @@ class PlayState extends MusicBeatState
 					initHScript(folder + file);
 				#end
 			}
+
+		#if (LUA_ALLOWED && MODS_ALLOWED)
+		// V-SLICE KÖPRÜSÜ: scripts/songs/<şarkı>.lua — mod kökündeki doğal konum.
+		// CODENAME KÖPRÜSÜ: songs/<şarkı>/scripts/*.lua — CNE kökündeki doğal konum.
+		var nativeSearchMods:Array<String> = [];
+		if (Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0)
+			nativeSearchMods.push(Mods.currentModDirectory);
+		for (g in Mods.getGlobalMods())
+			if (!nativeSearchMods.contains(g)) nativeSearchMods.push(g);
+		function pushNativeLua(pth:String):Void
+		{
+			for (script in luaArray)
+				if (script.scriptName == pth) return;
+			pushFunkinLua(pth);
+		}
+		for (nativeMod in nativeSearchMods)
+		{
+			var vsSongLua:String = Paths.mods(nativeMod + '/scripts/songs/$songName.lua');
+			if (FileSystem.exists(vsSongLua)) pushNativeLua(vsSongLua);
+
+			var cneSongDir:String = cne.compatibility.CNECompat.songDir(nativeMod, songName);
+			if (cneSongDir != null)
+			{
+				var cneScripts:String = cneSongDir + '/scripts/';
+				if (FileSystem.exists(cneScripts) && FileSystem.isDirectory(cneScripts))
+				{
+					for (file in Paths.readDirectory(cneScripts))
+						if (StringTools.endsWith(file.toLowerCase(), '.lua'))
+							pushNativeLua(cneScripts + file);
+				}
+			}
+		}
+		#end
 		#end
 		addMobileControls();
 		if (mobileControls != null)

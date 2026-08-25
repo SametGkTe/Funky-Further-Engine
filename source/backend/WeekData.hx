@@ -148,6 +148,31 @@ class WeekData {
 				}
 			}
 		}
+		// CODENAME ENGINE KÖPRÜSÜ: CNE hafta XML'lerini ve haftasız CNE şarkılarını
+		// week sistemine ekle. Modül döngüsünü kırmak için reflection ile çağrılır
+		// (WeekData, cne.compatibility paketini derleme zamanında import etmez).
+		try
+		{
+			var cneWeeks:Class<Dynamic> = cast Type.resolveClass('cne.compatibility.CNEWeekConverter');
+			if (cneWeeks != null)
+			{
+				var fnAdd:Dynamic = Reflect.field(cneWeeks, 'addAllFromMods');
+				if (fnAdd != null) Reflect.callMethod(cneWeeks, fnAdd, []);
+			}
+			else trace('[WeekData][CNE] CNEWeekConverter sınıfı bulunamadı — Project.xml include makrosu eksik olabilir!');
+
+			// V-SLICE KÖPRÜSÜ: level'ı olmayan V-Slice şarkı modları için sentetik hafta.
+			var vsliceLoose:Class<Dynamic> = cast Type.resolveClass('vslice.compatibility.VSliceLooseSongs');
+			if (vsliceLoose != null)
+			{
+				var fnLoose:Dynamic = Reflect.field(vsliceLoose, 'addAllFromMods');
+				if (fnLoose != null) Reflect.callMethod(vsliceLoose, fnLoose, []);
+			}
+		}
+		catch (e:Dynamic)
+		{
+			trace('[WeekData] CNE hafta taraması hatası: $e');
+		}
 		#end
 	}
 
@@ -165,11 +190,7 @@ class WeekData {
 				if (s == null) continue;
 				var songName:String = Std.isOfType(s, String) ? Std.string(s) : (Reflect.hasField(s, 'name') ? Std.string(s.name) : '');
 				if (songName.length < 1) continue;
-				psychSongs.push({
-					name: songName,
-					color: [146, 113, 253],
-					icon: extractPlayerIcon(directory, songName)
-				});
+				psychSongs.push([songName, extractPlayerIcon(directory, songName), [146, 113, 253]]); // Fucking Fix
 			}
 			if (psychSongs.length < 1) return;
 

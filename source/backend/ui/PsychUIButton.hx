@@ -14,20 +14,25 @@ class PsychUIButton extends FlxSpriteGroup
 	public var onChangeState:String->Void;
 	public var onClick:Void->Void;
 	
+	// MODERN PALET: koyu slate taban + mavi vurgu
+	public static inline var ACCENT:Int = 0xFF4D7DFB;
+	public static inline var ACCENT_LIGHT:Int = 0xFF7FA6FF;
+	public static inline var SURFACE:Int = 0xFF26272E;
+
 	public var clickStyle:UIStyleData = {
-		bgColor: FlxColor.BLACK,
+		bgColor: ACCENT_LIGHT,
 		textColor: FlxColor.WHITE,
 		bgAlpha: 1
 	};
 	public var hoverStyle:UIStyleData = {
-		bgColor: FlxColor.WHITE,
-		textColor: FlxColor.BLACK,
+		bgColor: ACCENT,
+		textColor: FlxColor.WHITE,
 		bgAlpha: 1
 	};
 	public var normalStyle:UIStyleData = {
-		bgColor: 0xFFAAAAAA,
-		textColor: FlxColor.BLACK,
-		bgAlpha: 1
+		bgColor: SURFACE,
+		textColor: FlxColor.WHITE,
+		bgAlpha: 0.92
 	};
 
 	public function new(x:Float = 0, y:Float = 0, label:String = '', ?onClick:Void->Void = null, ?wid:Int = 80, ?hei:Int = 20)
@@ -35,10 +40,12 @@ class PsychUIButton extends FlxSpriteGroup
 		super(x, y);
 		bg = new FlxSprite().makeGraphic(1, 1, FlxColor.WHITE);
 		add(bg);
-		bg.color = 0xFFAAAAAA;
-		bg.alpha = 0.6;
+		bg.color = SURFACE;
+		bg.alpha = 0.92;
 
 		text = new FlxText(0, 0, 1, '');
+		text.setFormat(Paths.font('vcr.ttf'), 9, FlxColor.WHITE, CENTER);
+		text.bold = true;
 		text.alignment = CENTER;
 		add(text);
 		resize(wid, hei);

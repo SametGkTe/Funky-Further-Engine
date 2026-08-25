@@ -128,7 +128,7 @@ class StoryMenuState extends MusicBeatState
 			{
 				loadedWeeks.push(weekFile);
 				WeekData.setDirectoryFromWeek(weekFile);
-				var weekThing:MenuItem = new MenuItem(0, bgSprite.y + 396, WeekData.weeksList[i]);
+				var weekThing:MenuItem = new MenuItem(0, bgSprite.y + 396, WeekData.weeksList[i], weekBannerKey(WeekData.weeksList[i], weekFile));
 				weekThing.y += ((weekThing.height + 20) * num);
 				weekThing.ID = num;
 				weekThing.targetY = itemTargetY;
@@ -222,6 +222,20 @@ class StoryMenuState extends MusicBeatState
 		super.closeSubState();
 		removeTouchPad();
 		addTouchPad('LEFT_FULL', 'A_B_X_Y');
+	}
+	
+	function weekBannerKey(weekId:String, weekFile:WeekData):String
+	{
+		var base:String = 'storymenu/' + weekId;
+		if(Paths.fileExists('images/' + base + '.png', IMAGE)) return base;
+		var alt:String = 'storymenu/titles/' + weekId;
+		if(Paths.fileExists('images/' + alt + '.png', IMAGE)) return alt;
+		if(weekFile != null && weekFile.storyName != null && weekFile.storyName.length > 0)
+		{
+			alt = 'storymenu/titles/' + weekFile.storyName;
+			if(Paths.fileExists('images/' + alt + '.png', IMAGE)) return alt;
+		}
+		return base;
 	}
 
 	override function update(elapsed:Float)

@@ -402,7 +402,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		if(chartEditorSave.data.infoBoxPosition != null && chartEditorSave.data.infoBoxPosition.length > 1)
 			infoBox.setPosition(chartEditorSave.data.infoBoxPosition[0], chartEditorSave.data.infoBoxPosition[1]);
 
-		upperBox = new PsychUIBox(40, 40, 330, 300, ['File', 'Edit', 'View']);
+		upperBox = new PsychUIBox(40, 40, 330, 470, ['File', 'Edit', 'View']);
 		upperBox.scrollFactor.set();
 		upperBox.isMinimized = true;
 		upperBox.minimizeOnFocusLost = true;
@@ -2057,6 +2057,49 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	var cachedSectionTimes:Array<Float>;
 	var cachedSectionCrochets:Array<Float>;
 	var cachedSectionBPMs:Array<Float>;
+	#if MODS_ALLOWED
+	/** Chart Editor'da açılan dosya bir CNE chart'ı ise Psych chart'ına çevirir. */
+	function tryLoadCNEChart(rawData:String, filePath:String):SwagSong
+	{
+		try
+		{
+			var dyn:Dynamic = haxe.Json.parse(rawData);
+			if (dyn == null || dyn.codenameChart != true) return null;
+
+			// Şarkı adını yoldan türet: .../songs/<Şarkı>/charts/...
+			var songName:String = null;
+			var sIdx:Int = filePath.lastIndexOf('/songs/');
+			if (sIdx >= 0)
+			{
+				var songRest:String = filePath.substr(sIdx + 7);
+				var songCut:Int = songRest.indexOf('/');
+				if (songCut > 0) songName = songRest.substr(0, songCut);
+			}
+
+			// Mod bağlamını kur: .../mods/<Mod>/...
+			var mIdx:Int = filePath.indexOf('/mods/');
+			if (mIdx >= 0)
+			{
+				var modRest:String = filePath.substr(mIdx + 6);
+				var modCut:Int = modRest.indexOf('/');
+				if (modCut > 0)
+				{
+					var modFolder:String = modRest.substr(0, modCut);
+					if (cne.compatibility.CNECompat.isCNEMod(modFolder))
+						Mods.currentModDirectory = modFolder;
+				}
+			}
+
+			return cast cne.compatibility.CNESongConverter.convertRaw(dyn, songName);
+		}
+		catch (e:Dynamic)
+		{
+			trace('[CNE] Chart çevrilemedi: $e');
+			return null;
+		}
+	}
+	#end
+
 	function loadChart(song:SwagSong)
 	{
 		PlayState.SONG = song;
@@ -3609,11 +3652,13 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			if(!ignoreProgressCheckBox.checked) openSubState(new Prompt('Are you sure you want to start over?', func));
 			else func();
 		}, btnWid);
+		btn.resize(btnWid, 26);
+		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 
 		btnY++;
-		btnY += 20;
+		btnY += 28;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Open Chart...', function()
 		{
 			if(!fileDialog.completed) return;
@@ -3625,7 +3670,14 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				try
 				{
 					var filePath:String = fileDialog.path.replace('\\', '/');
-					var loadedChart:SwagSong = Song.parseJSON(fileDialog.data, filePath.substr(filePath.lastIndexOf('/')));
+					// CODENAME ENGINE KÖPRÜSÜ: CNE chart'ı ise şarkı adı/mod bağlamı
+					// dosya yolundan türetilip Psych formatına çevrilir.
+					var loadedChart:SwagSong = null;
+					#if MODS_ALLOWED
+					loadedChart = tryLoadCNEChart(fileDialog.data, filePath);
+					#end
+					if(loadedChart == null)
+						loadedChart = Song.parseJSON(fileDialog.data, filePath.substr(filePath.lastIndexOf('/')));
 					if(loadedChart == null || !Reflect.hasField(loadedChart, 'song')) //Check if chart is ACTUALLY a chart and valid
 					{
 						showOutput('Error: File loaded is not a Psych Engine/FNF 0.2.x.x chart.', true);
@@ -3651,10 +3703,12 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				}
 			});
 		}, btnWid);
+		btn.resize(btnWid, 26);
+		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 
-		btnY += 20;
+		btnY += 28;
 		#end
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Open Autosave...', function()
 		{
@@ -3742,13 +3796,15 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				}
 			));
 		}, btnWid);
+		btn.resize(btnWid, 26);
+		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 
 		#if !mobile
 		if(SHOW_EVENT_COLUMN)
 		{
-			btnY += 20;
+			btnY += 28;
 			var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Open Events...', function()
 			{
 				if(!fileDialog.completed) return;
@@ -3833,13 +3889,15 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 					}
 				});
 			}, btnWid);
-			btn.text.alignment = LEFT;
+		btn.resize(btnWid, 26);
+		btn.text.size = 12;
+		btn.text.alignment = LEFT;
 			tab_group.add(btn);
 		}
 		#end
 
 		btnY++;
-		btnY += 20;
+		btnY += 28;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Save', function()
 		{
 			if(!fileDialog.completed) return;
@@ -3848,11 +3906,13 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 			saveChart();
 		}, btnWid);
+		btn.resize(btnWid, 26);
+		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 
 		#if !mobile
-		btnY += 20;
+		btnY += 28;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Save as...', function()
 		{
 			if(!fileDialog.completed) return;
@@ -3861,13 +3921,15 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 			saveChart(false);
 		},btnWid);
+		btn.resize(btnWid, 26);
+		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 		#end
 
 		if(SHOW_EVENT_COLUMN)
 		{
-			btnY += 20;
+			btnY += 28;
 			var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Save Events...', function()
 			{
 				if(!fileDialog.completed) return;
@@ -3882,12 +3944,14 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 					function() showOutput('Error on saving events!', true));
 				#end
 			}, btnWid);
-			btn.text.alignment = LEFT;
+		btn.resize(btnWid, 26);
+		btn.text.size = 12;
+		btn.text.alignment = LEFT;
 			tab_group.add(btn);
 		}
 
 		btnY++;
-		btnY += 20;
+		btnY += 28;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Reload Chart', function()
 		{
 			var func:Void->Void = function()
@@ -3920,11 +3984,13 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			if(!ignoreProgressCheckBox.checked) openSubState(new Prompt('Warning: Any unsaved progress will be lost', func));
 			else func();
 		}, btnWid);
+				btn.resize(btnWid, 26);
+		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 		#if !mobile
 		btnY++;
-		btnY += 20;
+		btnY += 28;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Save (V-Slice)...', function()
 		{
 			if(!fileDialog.completed) return;
@@ -4006,10 +4072,12 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				}
 			});
 		},btnWid);
+				btn.resize(btnWid, 26);
+		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 
-		btnY += 20;
+		btnY += 28;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Psych to V-Slice...', function()
 		{
 			if(!fileDialog.completed) return;
@@ -4170,10 +4238,12 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				));
 			});
 		},btnWid);
+				btn.resize(btnWid, 26);
+		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 
-		btnY += 20;
+		btnY += 28;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  V-Slice to Psych...', function()
 		{
 			if(!fileDialog.completed) return;
@@ -4252,10 +4322,12 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				});
 			});
 		},btnWid);
+				btn.resize(btnWid, 26);
+		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 		
-		btnY += 20;
+		btnY += 28;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Update (Legacy)...', function()
 		{
 			if(!fileDialog.completed) return;
@@ -4297,23 +4369,29 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				}
 			});
 		}, btnWid);
+				btn.resize(btnWid, 26);
+		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 		#end
 
 		btnY++;
-		btnY += 20;
+		btnY += 28;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Preview (${(controls.mobileC) ? 'C' : 'F12'})', openEditorPlayState, btnWid);
+				btn.resize(btnWid, 26);
+		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 		
-		btnY += 20;
+		btnY += 28;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Playtest (${(controls.mobileC) ? 'A' : 'ENTER'})', goToPlayState, btnWid);
+				btn.resize(btnWid, 26);
+		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 
 		btnY++;
-		btnY += 20;
+		btnY += 28;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Exit', function()
 		{
 			PlayState.chartingMode = false;
@@ -4321,6 +4399,8 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			FlxG.sound.playMusic(Paths.music('freakyMenu'));
 			FlxG.mouse.visible = false;
 		}, btnWid);
+				btn.resize(btnWid, 26);
+		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 	}
@@ -4335,16 +4415,20 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		var btnWid = Std.int(tab.width);
 
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Undo', undo, btnWid);
+				btn.resize(btnWid, 26);
+		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 
-		btnY += 20;
+		btnY += 28;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Redo', redo, btnWid);
+				btn.resize(btnWid, 26);
+		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 
 		btnY++;
-		btnY += 20;
+		btnY += 28;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Select All', function()
 		{
 			var sel = selectedNotes;
@@ -4353,13 +4437,15 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			onSelectNote();
 			trace('Notes selected: ' + selectedNotes.length);
 		}, btnWid);
+				btn.resize(btnWid, 26);
+		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 
 		if(SHOW_EVENT_COLUMN)
 		{
 			btnY++;
-			btnY += 20;
+			btnY += 28;
 			var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Lock Events', btnWid);
 			btn.onClick = function()
 			{
@@ -4379,12 +4465,14 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				}
 				softReloadNotes();
 			};
-			btn.text.alignment = LEFT;
+					btn.resize(btnWid, 26);
+		btn.text.size = 12;
+		btn.text.alignment = LEFT;
 			tab_group.add(btn);
 		}
 		
 		btnY++;
-		btnY += 20;
+		btnY += 28;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Autosave Settings...', btnWid);
 		btn.onClick = function()
 		{
@@ -4437,11 +4525,13 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			));
 
 		};
+				btn.resize(btnWid, 26);
+		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 
 		btnY++;
-		btnY += 20;
+		btnY += 28;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Clear All Notes', function()
 		{
 			var func:Void->Void = function()
@@ -4457,12 +4547,14 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		}, btnWid);
 		btn.normalStyle.bgColor = FlxColor.RED;
 		btn.normalStyle.textColor = FlxColor.WHITE;
+				btn.resize(btnWid, 26);
+		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 
 		if(SHOW_EVENT_COLUMN)
 		{
-			btnY += 20;
+			btnY += 28;
 			var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Clear All Events', function()
 			{
 				var func:Void->Void = function()
@@ -4478,7 +4570,9 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			}, btnWid);
 			btn.normalStyle.bgColor = FlxColor.RED;
 			btn.normalStyle.textColor = FlxColor.WHITE;
-			btn.text.alignment = LEFT;
+					btn.resize(btnWid, 26);
+		btn.text.size = 12;
+		btn.text.alignment = LEFT;
 			tab_group.add(btn);
 		}
 	}
@@ -4510,7 +4604,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		showLastGridButton.text.alignment = LEFT;
 		tab_group.add(showLastGridButton);
 
-		btnY += 20;
+		btnY += 28;
 		showNextGridButton = new PsychUIButton(btnX, btnY, '', function()
 		{
 			showNextSection = !showNextSection;
@@ -4520,7 +4614,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		tab_group.add(showNextGridButton);
 
 		btnY++;
-		btnY += 20;
+		btnY += 28;
 		noteTypeLabelsButton = new PsychUIButton(btnX, btnY, '', function()
 		{
 			showNoteTypeLabels = !showNoteTypeLabels;
@@ -4530,7 +4624,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		tab_group.add(noteTypeLabelsButton);
 
 		btnY++;
-		btnY += 20;
+		btnY += 28;
 		vortexEditorButton = new PsychUIButton(btnX, btnY, vortexEnabled ? '  Vortex Editor ON' : '  Vortex Editor OFF', function()
 		{
 			vortexEnabled = !vortexEnabled;
@@ -4549,7 +4643,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		tab_group.add(vortexEditorButton);
 		
 		btnY++;
-		btnY += 20;
+		btnY += 28;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Waveform...', function()
 		{
 			ClientPrefs.toggleVolumeKeys(false);
@@ -4605,10 +4699,12 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				}
 			));
 		}, btnWid);
+				btn.resize(btnWid, 26);
+		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 
-		btnY += 20;
+		btnY += 28;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Go to...', function()
 		{
 			upperBox.isMinimized = true;
@@ -4684,11 +4780,13 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				}
 			));
 		}, btnWid);
+				btn.resize(btnWid, 26);
+		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 
 		btnY++;
-		btnY += 20;
+		btnY += 28;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Theme...', function()
 		{
 			if(!fileDialog.completed) return;
@@ -4830,16 +4928,20 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				}
 			));
 		}, btnWid);
+				btn.resize(btnWid, 26);
+		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 
-		btnY += 20;
+		btnY += 28;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Reset UI Boxes', function()
 		{
 			mainBox.setPosition(mainBoxPosition.x, mainBoxPosition.y);
 			infoBox.setPosition(infoBoxPosition.x, infoBoxPosition.y);
 			UIEvent(PsychUIBox.DROP_EVENT, btn); //to force a save
 		}, btnWid);
+				btn.resize(btnWid, 26);
+		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 	}

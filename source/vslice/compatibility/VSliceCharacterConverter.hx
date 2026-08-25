@@ -64,19 +64,34 @@ class VSliceCharacterConverter
 		out.scale = (Reflect.field(vslice, 'scale') != null) ? Reflect.field(vslice, 'scale') : 1.0;
 		out.sing_duration = (Reflect.field(vslice, 'singTime') != null) ? Reflect.field(vslice, 'singTime') : 4.0;
 
-		// healthIcon
+		// healthIcon — V-Slice biçimi: "iconAdı" veya {id: "...", scale, flipX, ...}
+		// (Funkin kaynağı: healthIcon.id; yoksa karakterin kendi id'si varsayılır)
 		var hicon:Dynamic = Reflect.field(vslice, 'healthIcon');
-		var hiconStr:String = 'bf';
+		var hiconStr:String = null;
 		if (hicon != null)
 		{
 			if (Std.isOfType(hicon, String)) hiconStr = Std.string(hicon);
 			else
 			{
-				var hp:Dynamic = Reflect.field(hicon, 'assetPath');
-				if (hp != null && Std.string(hp).length > 0) hiconStr = Std.string(hp);
+				for (field in ['id', 'assetPath'])
+				{
+					var hv:Dynamic = Reflect.field(hicon, field);
+					if (hv != null && Std.string(hv).length > 0)
+					{
+						hiconStr = Std.string(hv);
+						break;
+					}
+				}
 			}
 		}
+		if (hiconStr == null) hiconStr = charId;
 		out.healthicon = hiconStr;
+
+		// position <- position (V-Slice [x, y]; eksikse [0, 0] — Psych bunu şart koşar)
+		var posArr:Array<Dynamic> = cast Reflect.field(vslice, 'position');
+		out.position = (posArr != null && posArr.length >= 2)
+			? [Std.parseFloat(Std.string(posArr[0])), Std.parseFloat(Std.string(posArr[1]))]
+			: [0, 0];
 
 		// camera_position <- cameraOffsets
 		var cam:Array<Dynamic> = cast Reflect.field(vslice, 'cameraOffsets');
@@ -87,6 +102,10 @@ class VSliceCharacterConverter
 		out.flip_x = (Reflect.field(vslice, 'flipX') == true);
 		out.healthbar_colors = [161, 161, 161];
 		out.no_antialiasing = (Reflect.field(vslice, 'isPixel') == true);
+		// V-Slice vokalleri Voices-<karakter-id>.ogg diye adlandırılır.
+		out.vocals_file = charId;
+		out.is_player = (Reflect.field(vslice, 'isPlayer') == true);
+		out._editor_isPlayer = out.is_player;
 
 		// animasyonlar
 		var anims:Array<Dynamic> = cast Reflect.field(vslice, 'animations');

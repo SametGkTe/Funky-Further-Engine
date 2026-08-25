@@ -259,6 +259,9 @@ class Paths
 		// bulunamazsa V-Slice ses yolunu case-insensitive bul.
 		var found:String = findVSliceAudio('songs', formatToSongPath(song), 'Inst');
 		if (found != null) return returnSoundFromPath(found);
+		// CODENAME ENGINE KÖPRÜSÜ: CNE sesleri assets/songs/<song>/song/ altındadır.
+		var cneFound:String = cne.compatibility.CNECompat.findSongAudio(song, 'Inst');
+		if (cneFound != null) return returnSoundFromPath(cneFound);
 		#end
 		return returnSound('${formatToSongPath(song)}/Inst', 'songs', modsAllowed);
 	}
@@ -272,14 +275,17 @@ class Paths
 		// V-SLICE KÖPRÜSÜ: V-Slice modları çift vokal kullanır (Voices-Bf.ogg +
 		// Voices-Zardy.ogg). Psych tek Voices.ogg bekler; önce normal yolu dene,
 		// bulunamazsa Voices-Bf.ogg'u Voices olarak kullan (case-insensitive).
-		var found:String = findVSliceAudio('songs', formatToSongPath(song), 'Voices');
+		var found:String = findVSliceAudio('songs', formatToSongPath(song), 'Voices', postfix);
 		if (found != null) return returnSoundFromPath(found);
+		// CODENAME ENGINE KÖPRÜSÜ: CNE sesleri assets/songs/<song>/song/ altındadır.
+		var cneFound:String = cne.compatibility.CNECompat.findSongAudio(song, 'Voices');
+		if (cneFound != null) return returnSoundFromPath(cneFound);
 		#end
 		return returnSound(songKey, 'songs', modsAllowed, false);
 	}
 
 	/** V-Slice modundaki ses dosyasını case-insensitive olarak bulur (yol döner). */
-	static function findVSliceAudio(lib:String, song:String, name:String):String
+	static function findVSliceAudio(lib:String, song:String, name:String, ?postfix:String):String
 	{
 		#if (MODS_ALLOWED && sys)
 		var searchDirs:Array<String> = [];
@@ -287,6 +293,10 @@ class Paths
 			searchDirs.push(Mods.currentModDirectory);
 		for (mod in Mods.getGlobalMods())
 			if (!searchDirs.contains(mod)) searchDirs.push(mod);
+
+		// Postfix (karakter id / 'Player' / 'Opponent') dosya adına birebir
+		// eşleşme olarak denenir; jenerik isimler yedek olarak kalır.
+		var pf:String = (postfix != null && postfix.length > 0) ? postfix.toLowerCase() : null;
 
 		for (mod in searchDirs)
 		{
@@ -298,13 +308,33 @@ class Paths
 				if (dir.toLowerCase() != song.toLowerCase()) continue;
 				var sdir:String = base + dir + '/';
 				if (!FileSystem.isDirectory(sdir)) continue;
-				// Inst.ogg / Voices-Bf.ogg / Voices.ogg ara
-				for (f in FileSystem.readDirectory(sdir))
+				// V-Slice sesleri: Voices.ogg / Voices-<karakter>.ogg /
+				// Voices-bf.ogg / ilk Voices-* — öncelik sırasıyla tara.
+				var files:Array<String> = FileSystem.readDirectory(sdir);
+				var want:String = name.toLowerCase();
+				function findExact(suffix:String):String
 				{
-					var fl:String = f.toLowerCase();
-					if (fl == name.toLowerCase() + '.ogg') return sdir + f;
-					if (fl == name.toLowerCase() + '-bf.ogg') return sdir + f;
+					for (ext in ['.ogg', '.mp3'])
+						for (f in files)
+							if (f.toLowerCase() == want + suffix + ext) return sdir + f;
+					return null;
 				}
+				var hit:String = findExact('');
+				if (hit != null) return hit;
+				if (pf != null)
+				{
+					hit = findExact('-' + pf);
+					if (hit != null) return hit;
+				}
+				hit = findExact('-bf');
+				if (hit != null) return hit;
+				for (ext in ['.ogg', '.mp3'])
+					for (f in files)
+					{
+						var fl:String = f.toLowerCase();
+						if (StringTools.startsWith(fl, want + '-') && StringTools.endsWith(fl, ext))
+							return sdir + f;
+					}
 			}
 		}
 		#end
@@ -424,12 +454,16 @@ class Paths
 			for(mod in Mods.getGlobalMods())
 				if (FileSystem.exists(mods('$mod/$modKey')))
 					return true;
+				// CODENAME ENGINE KÖPRÜSÜ
+				else if (cne.compatibility.CNECompat.cneFile(mod, modKey) != null)
+					return true;
 				#if linux
 				else if (FileSystem.exists(findFile('$mod/$modKey')))
 					return true;
 				#end
 
-			if (FileSystem.exists(mods(Mods.currentModDirectory + '/' + modKey)) || FileSystem.exists(mods(modKey)))
+			if (FileSystem.exists(mods(Mods.currentModDirectory + '/' + modKey)) || FileSystem.exists(mods(modKey))
+				|| cne.compatibility.CNECompat.cneFile(Mods.currentModDirectory, modKey) != null)
 				return true;
 			#if linux
 			else if (FileSystem.exists(findFile(modKey)))
@@ -612,6 +646,10 @@ class Paths
 			var fileToCheck:String = mods(Mods.currentModDirectory + '/' + key);
 			if(FileSystem.exists(fileToCheck))
 				return fileToCheck;
+			// CODENAME ENGINE KÖPRÜSÜ: CNE modları asset'lerini 'assets/' altında tutar.
+			var cneCheck:String = cne.compatibility.CNECompat.cneFile(Mods.currentModDirectory, key);
+			if(cneCheck != null)
+				return cneCheck;
 			// V-SLICE KÖPRÜSÜ: V-Slice modları asset'lerini 'shared/' altında tutar.
 			// Psych '<key>' ararken, mods/<mod>/shared/<key> de denensin.
 			var vsliceCheck:String = mods(Mods.currentModDirectory + '/shared/' + key);
@@ -632,6 +670,10 @@ class Paths
 			var fileToCheck:String = mods(mod + '/' + key);
 			if(FileSystem.exists(fileToCheck))
 				return fileToCheck;
+			// CODENAME ENGINE KÖPRÜSÜ: global CNE modlarında assets/ altını dene.
+			var cneCheck:String = cne.compatibility.CNECompat.cneFile(mod, key);
+			if(cneCheck != null)
+				return cneCheck;
 			// V-SLICE KÖPRÜSÜ: global modlarda da shared/ altını dene.
 			var vsliceCheck:String = mods(mod + '/shared/' + key);
 			if(FileSystem.exists(vsliceCheck))

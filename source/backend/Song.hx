@@ -271,6 +271,22 @@ class Song
 					try rawData = Assets.getText(_lastPath) catch(e:Dynamic) rawData = null;
 				}
 
+		// ---------- CODENAME ENGINE KÖPRÜSÜ ----------
+		// Psych chart yoksa, aktif modlarda CNE chart'ı ara
+		// (mods/<mod>/assets/songs/<song>/charts/<difficulty>.json) ve
+		// runtime'da Psych formatına çevir.
+		#if MODS_ALLOWED
+		if (rawData == null)
+		{
+			var cneSong:SwagSong = cast cne.compatibility.CNESongConverter.convertFromMods(folder, jsonInput);
+			if (cneSong != null)
+			{
+				_lastPath = cne.compatibility.CNESongConverter.lastConvertedPath;
+				return cneSong;
+			}
+		}
+		#end
+
 		// ---------- V-SLICE KÖPRÜSÜ ----------
 		// Psych chart yoksa, V-Slice mod path'ini dene (mods/<mod>/data/songs/<song>/<song>-chart.json)
 		if (rawData == null)
@@ -376,6 +392,7 @@ class Song
 				{
 					bindModDirectory(m);
 					var converted:backend.Song.SwagSong = VSliceSongConverter.convert(chartJson, metaJson, getDifficulty(song), songPath);
+					converted.needsVoices = vsliceSongHasVocals(m, songPath);
 					return Json.stringify(converted);
 				}
 				else if (chartJson != null)
@@ -396,6 +413,28 @@ class Song
 		}
 		#end
 		return null;
+	}
+
+	/** V-Slice şarkı klasöründe Voices* dosyası var mı? */
+	static function vsliceSongHasVocals(mod:String, song:String):Bool
+	{
+		#if (MODS_ALLOWED && sys)
+		var base:String = Paths.mods(mod + '/songs/');
+		if (!FileSystem.exists(base)) return true;
+		try
+		{
+			for (dir in FileSystem.readDirectory(base))
+			{
+				if (dir.toLowerCase() != song.toLowerCase()) continue;
+				var full:String = base + dir + '/';
+				if (!FileSystem.isDirectory(full)) continue;
+				for (f in FileSystem.readDirectory(full))
+					if (StringTools.startsWith(f.toLowerCase(), 'voices')) return true;
+			}
+		}
+		catch (e:Dynamic) {}
+		#end
+		return false;
 	}
 
 	/** Şarkı adından bilinen Psych difficulty suffixini atar. */
@@ -429,6 +468,24 @@ class Song
 	public static function parseJSON(rawData:String, ?nameForError:String = null, ?convertTo:String = 'psych_v1'):SwagSong
 	{
 		var songJson:SwagSong = cast Json.parse(rawData);
+
+		// CODENAME ENGINE KÖPRÜSÜ: ham CNE chart'ı doğrudan Psych formatına çevrilir.
+		var rawSong:Dynamic = songJson;
+		if(rawSong != null && Reflect.hasField(rawSong, 'codenameChart') && rawSong.codenameChart == true)
+		{
+			var cneSong:SwagSong = cast cne.compatibility.CNESongConverter.convertRaw(rawSong, nameForError);
+			if(cneSong != null) return cneSong;
+		}
+
+		// CODENAME ENGINE KÖPRÜSÜ: CNE event dosyaları {events: [{name, time, params}]}
+		// düzenindedir; Psych'in beklediği [time, [[name, v1, v2]]] formatına çevrilir.
+		if(rawSong != null && rawSong.events != null && Std.isOfType(rawSong.events, Array))
+		{
+			var evArr:Array<Dynamic> = rawSong.events;
+			if(evArr.length > 0 && evArr[0] != null && Reflect.hasField(evArr[0], 'name') && Reflect.hasField(evArr[0], 'time'))
+				rawSong.events = cne.compatibility.CNESongConverter.convertEventsList(evArr);
+		}
+
 		if(Reflect.hasField(songJson, 'song'))
 		{
 			var subSong:SwagSong = Reflect.field(songJson, 'song');

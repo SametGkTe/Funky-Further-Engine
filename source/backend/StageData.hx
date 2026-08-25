@@ -88,6 +88,12 @@ class StageData {
 				return cast tjson.TJSON.parse(Assets.getText(path));
 			#end
 
+			// CODENAME ENGINE KÖPRÜSÜ: Psych stage yoksa, CNE modundaki
+			// assets/data/stages/<stage>.xml dosyasını okuyup Psych StageFile'a çevir.
+			var cneStage:Dynamic = cne.compatibility.CNEStageConverter.convertFromMods(stage);
+			if (cneStage != null)
+				return cast cneStage;
+
 			// V-SLICE KÖPRÜSÜ: Psych stage yoksa, V-Slice modundaki
 			// data/stages/<stage>.json dosyasını okuyup Psych StageFile'a çevir.
 			#if MODS_ALLOWED
