@@ -190,7 +190,11 @@ class WeekData {
 				if (s == null) continue;
 				var songName:String = Std.isOfType(s, String) ? Std.string(s) : (Reflect.hasField(s, 'name') ? Std.string(s.name) : '');
 				if (songName.length < 1) continue;
-				psychSongs.push([songName, extractPlayerIcon(directory, songName), [146, 113, 253]]); // Fucking Fix
+				psychSongs.push({
+					name: songName,
+					color: [146, 113, 253],
+					icon: extractPlayerIcon(directory, songName)
+				});
 			}
 			if (psychSongs.length < 1) return;
 

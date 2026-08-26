@@ -384,9 +384,13 @@ class TypedMobileButton<T:FlxSprite> extends FlxSprite implements IFlxInput
 		#if FLX_MOUSE
 		for (camera in cameras)
 		{
+			// DİL DEĞİŞİMİ/resetState sonrası kamera imha edilip null kalabiliyor; crash'i önle
+			if (camera == null || !camera.exists) continue;
+
 			for (buttonID in mouseButtons)
 			{
 				var button = FlxMouseButton.getByID(buttonID);
+				if (button == null) continue;
 
 				final worldPos:FlxPoint = button.getWorldPosition(camera, _point);
 
@@ -411,6 +415,9 @@ class TypedMobileButton<T:FlxSprite> extends FlxSprite implements IFlxInput
 		var overlap = false;
 
 		for (camera in cameras) {
+			// DİL DEĞİŞİMİ/resetState sonrası kamera imha edilip null kalabiliyor; crash'i önle
+			if (camera == null || !camera.exists) continue;
+
 			for (touch in FlxG.touches.list) {
 				final worldPos:FlxPoint = touch.getWorldPosition(camera, _point);
 

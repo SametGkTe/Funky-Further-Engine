@@ -3889,7 +3889,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 					}
 				});
 			}, btnWid);
-		btn.resize(btnWid, 26);
+			btn.resize(btnWid, 26);
 		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 			tab_group.add(btn);
@@ -3944,7 +3944,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 					function() showOutput('Error on saving events!', true));
 				#end
 			}, btnWid);
-		btn.resize(btnWid, 26);
+			btn.resize(btnWid, 26);
 		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 			tab_group.add(btn);
@@ -3984,7 +3984,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			if(!ignoreProgressCheckBox.checked) openSubState(new Prompt('Warning: Any unsaved progress will be lost', func));
 			else func();
 		}, btnWid);
-				btn.resize(btnWid, 26);
+		btn.resize(btnWid, 26);
 		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
@@ -4072,7 +4072,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				}
 			});
 		},btnWid);
-				btn.resize(btnWid, 26);
+		btn.resize(btnWid, 26);
 		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
@@ -4238,7 +4238,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				));
 			});
 		},btnWid);
-				btn.resize(btnWid, 26);
+		btn.resize(btnWid, 26);
 		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
@@ -4322,7 +4322,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				});
 			});
 		},btnWid);
-				btn.resize(btnWid, 26);
+		btn.resize(btnWid, 26);
 		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
@@ -4369,7 +4369,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				}
 			});
 		}, btnWid);
-				btn.resize(btnWid, 26);
+		btn.resize(btnWid, 26);
 		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
@@ -4378,14 +4378,14 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		btnY++;
 		btnY += 28;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Preview (${(controls.mobileC) ? 'C' : 'F12'})', openEditorPlayState, btnWid);
-				btn.resize(btnWid, 26);
+		btn.resize(btnWid, 26);
 		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 		
 		btnY += 28;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Playtest (${(controls.mobileC) ? 'A' : 'ENTER'})', goToPlayState, btnWid);
-				btn.resize(btnWid, 26);
+		btn.resize(btnWid, 26);
 		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
@@ -4399,7 +4399,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			FlxG.sound.playMusic(Paths.music('freakyMenu'));
 			FlxG.mouse.visible = false;
 		}, btnWid);
-				btn.resize(btnWid, 26);
+		btn.resize(btnWid, 26);
 		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
@@ -4415,14 +4415,14 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		var btnWid = Std.int(tab.width);
 
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Undo', undo, btnWid);
-				btn.resize(btnWid, 26);
+		btn.resize(btnWid, 26);
 		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 
 		btnY += 28;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Redo', redo, btnWid);
-				btn.resize(btnWid, 26);
+		btn.resize(btnWid, 26);
 		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
@@ -4437,7 +4437,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			onSelectNote();
 			trace('Notes selected: ' + selectedNotes.length);
 		}, btnWid);
-				btn.resize(btnWid, 26);
+		btn.resize(btnWid, 26);
 		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
@@ -4465,7 +4465,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				}
 				softReloadNotes();
 			};
-					btn.resize(btnWid, 26);
+			btn.resize(btnWid, 26);
 		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 			tab_group.add(btn);
@@ -4525,7 +4525,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			));
 
 		};
-				btn.resize(btnWid, 26);
+		btn.resize(btnWid, 26);
 		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
@@ -4547,7 +4547,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		}, btnWid);
 		btn.normalStyle.bgColor = FlxColor.RED;
 		btn.normalStyle.textColor = FlxColor.WHITE;
-				btn.resize(btnWid, 26);
+		btn.resize(btnWid, 26);
 		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
@@ -4570,7 +4570,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			}, btnWid);
 			btn.normalStyle.bgColor = FlxColor.RED;
 			btn.normalStyle.textColor = FlxColor.WHITE;
-					btn.resize(btnWid, 26);
+			btn.resize(btnWid, 26);
 		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 			tab_group.add(btn);
@@ -4699,7 +4699,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				}
 			));
 		}, btnWid);
-				btn.resize(btnWid, 26);
+		btn.resize(btnWid, 26);
 		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
@@ -4780,7 +4780,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				}
 			));
 		}, btnWid);
-				btn.resize(btnWid, 26);
+		btn.resize(btnWid, 26);
 		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
@@ -4928,7 +4928,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				}
 			));
 		}, btnWid);
-				btn.resize(btnWid, 26);
+		btn.resize(btnWid, 26);
 		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
@@ -4940,7 +4940,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			infoBox.setPosition(infoBoxPosition.x, infoBoxPosition.y);
 			UIEvent(PsychUIBox.DROP_EVENT, btn); //to force a save
 		}, btnWid);
-				btn.resize(btnWid, 26);
+		btn.resize(btnWid, 26);
 		btn.text.size = 12;
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);

@@ -13,6 +13,19 @@ import sys.io.File;
 import sys.thread.Thread;
 #end
 
+/**
+ * ModPorterState — Mod Porter.
+ *
+ * Master Editor menüsünden açılır:
+ *   1) mods/ klasöründeki modlar listelenir, biri seçilir.
+ *   2) Mod türü sorulur: Psych / V-Slice / Codename (otomatik algılama önerilir).
+ *   3) Türüne göre "CODENAME TO PSYCH" veya "V-SLICE TO PSYCH" dönüşümü
+ *      yapılır; Psych modları olduğu gibi kopyalanır.
+ *   4) Hazır Psych modu `saves/<ModAdı>_PsychPort/` klasörüne yazılır.
+ *
+ * Dönüşüm arka plan thread'inde çalışır; arayüz ilerlemeyi gösterir.
+ * .hx/.hxc scriptler dönüştürülemez — atlanır ve raporda listelenir.
+ */
 typedef PorterProgress =
 {
 	var stage:String;
@@ -30,10 +43,10 @@ class ModPorterState extends MusicBeatState
 	static inline var TYPE_VSLICE:Int = 1;
 	static inline var TYPE_CNE:Int = 2;
 
-	var phase:Int = 0;
+	var phase:Int = 0; // 0 mod seç, 1 kaynak format, 2 onay, 3 dönüştürülüyor, 4 bitti, 5 hata, 6 hedef format (psych)
 
 	var modList:Array<String> = [];
-	var typeOptions:Array<String> = ['Psych To CNE / V-Slice', 'V-Slice To Psych', 'Codename To Psych'];
+	var typeOptions:Array<String> = ['Psych Mod → CNE / V-Slice', 'V-Slice To Psych', 'Codename To Psych'];
 	var targetOptions:Array<String> = ['Codename Engine', 'V-Slice'];
 	var confirmOptions:Array<String> = ['Dönüştür', 'Geri'];
 
@@ -87,7 +100,7 @@ class ModPorterState extends MusicBeatState
 		enterPhase(0);
 		FlxG.mouse.visible = false;
 
-		// Kodumun Mobil Kontrolleri
+		// Mobil kontroller: D-Pad ile liste gezme, A = onay/seç, B = geri
 		addTouchPad(#if MODS_ALLOWED 'LEFT_FULL' #else 'UP_DOWN' #end, 'A_B');
 
 		super.create();
@@ -101,7 +114,7 @@ class ModPorterState extends MusicBeatState
 		switch (phase)
 		{
 			case 0:
-				descTxt.text = 'Dönüştürülecek modu seçin.';
+				descTxt.text = 'Dönüştürülecek modu seç (YUKARI/AŞAĞI + ENTER)';
 				rebuildList(modList);
 				infoTxt.text = 'Toplam ' + modList.length + ' mod bulundu. ESC: Editör menüsüne dön';
 			case 1:
@@ -113,7 +126,7 @@ class ModPorterState extends MusicBeatState
 					case TYPE_VSLICE: 'V-Slice (algılandı)';
 					default: 'Psych/Bilinmiyor';
 				}
-				descTxt.text = '"' + selectedMod + '" — Modun formatını seç\nAlgılanan format: ' + detectStr;
+				descTxt.text = '"' + selectedMod + '" — Modun KAYNAK formatını seç\n(Hedef her zaman PSYCH — dönüştürme ona yapılır)\nAlgılanan kaynak format: ' + detectStr;
 				curSelected = detectedType;
 				rebuildList(typeOptions);
 				infoTxt.text = 'ESC: Geri';
@@ -133,11 +146,11 @@ class ModPorterState extends MusicBeatState
 						case TYPE_VSLICE: 'V-Slice';
 						default: 'Psych/Bilinmiyor';
 					}
-					warn = '\n!! BİLGİ: Otomatik algılama bu modu "' + detStr + '" olarak tanıdı. Emin misin?';
+					warn = '\n!! UYARI: Otomatik algılama bu modu "' + detStr + '" olarak tanıdı. Emin misin?';
 				}
-				descTxt.text = '"' + selectedMod + '" için işlem: ' + action + '\nÇıktı Klasörü: saves/' + outName(selectedMod) + '/' + warn;
+				descTxt.text = '"' + selectedMod + '" için işlem: ' + action + '\nÇıkış: saves/' + outName(selectedMod) + '/' + warn;
 				rebuildList(confirmOptions);
-				infoTxt.text = 'scriptler (.hx/.hxc) atlanır ve logda gösterilir.';
+				infoTxt.text = 'Dönüştürülemeyen scriptler (.hx/.hxc) atlanır ve raporda gösterilir.\nESC: Geri';
 			case 3:
 				grpTexts.clear();
 				descTxt.text = 'Dönüştürülüyor...';
@@ -145,7 +158,7 @@ class ModPorterState extends MusicBeatState
 				startConversion();
 			case 4:
 				grpTexts.clear();
-				descTxt.text = 'TAMAMLANDI!';
+				descTxt.text = 'DÖNÜŞTÜRME TAMAMLANDI!';
 				var txt:String = 'Hazır mod: ' + progress.outDir + '\n\n';
 				for (line in progress.report)
 					txt += line + '\n';
@@ -153,11 +166,11 @@ class ModPorterState extends MusicBeatState
 				infoTxt.text = txt;
 			case 5:
 				grpTexts.clear();
-				descTxt.text = 'BAŞARISIZ!';
+				descTxt.text = 'DÖNÜŞTÜRME BAŞARISIZ!';
 				infoTxt.text = 'Hata: ' + (progress != null ? progress.error : 'bilinmiyor') + '\n\nENTER/ESC: Editör menüsüne dön';
 			case 6:
 				buildTargetIcons();
-				descTxt.text = '"' + selectedMod + '" (Psych modu)';
+				descTxt.text = '"' + selectedMod + '" (Psych modu) — HEDEF formatı seç';
 				curSelected = 0;
 				rebuildList(targetOptions);
 				infoTxt.text = 'ESC: Geri';
@@ -205,6 +218,7 @@ class ModPorterState extends MusicBeatState
 		}
 	}
 
+	/** Tür seçim ekranı ikonları: images/further/editor/{psych, v-slice, codename}.png */
 	function buildTypeIcons()
 	{
 		if (typeIconGroup == null) return;
@@ -227,6 +241,7 @@ class ModPorterState extends MusicBeatState
 		}
 	}
 
+	/** Hedef seçim ekranı ikonları: codename + v-slice */
 	function buildTargetIcons()
 	{
 		if (typeIconGroup == null) return;
@@ -481,38 +496,8 @@ class ModPorterState extends MusicBeatState
 		return n;
 	}
 
-	/** Zorluk listesini sıralı string yapar (easy,normal,hard önce). */
-	static function sortDiffString(allDiffs:Array<String>):String
-	{
-		var order:Array<String> = ['easy', 'normal', 'hard'];
-		var sortedDiffs:Array<String> = [];
-		for (o in order)
-			if (allDiffs.indexOf(o) >= 0) sortedDiffs.push(o);
-		for (d in allDiffs)
-			if (sortedDiffs.indexOf(d) < 0) sortedDiffs.push(d);
-		return sortedDiffs.join(',');
-	}
+	// ================== PSYCH (KOPYALA) ==================
 
-	/** Yazılmış hafta dosyalarına zorluk listesini işler. */
-	static function applyDiffsToWeeks(out:String, weekIds:Array<String>, allDiffs:Array<String>)
-	{
-		if (allDiffs.length < 1) return;
-		var diffStr:String = sortDiffString(allDiffs);
-		for (wid in weekIds)
-		{
-			var wp:String = out + 'weeks/' + wid + '.json';
-			if (!FileSystem.exists(wp)) continue;
-			try
-			{
-				var wj:Dynamic = Json.parse(File.getContent(wp));
-				wj.difficulties = diffStr;
-				writeJsonFile(wp, wj);
-			}
-			catch (e:Dynamic) {}
-		}
-	}
-
-	// Psych
 	static function copyPsych(mod:String, prog:PorterProgress)
 	{
 		prog.stage = 'Psych modu kopyalanıyor';
@@ -524,7 +509,7 @@ class ModPorterState extends MusicBeatState
 		prog.report.push('Psych modu dönüşüm gerektirmez; birebir kopyalandı.');
 	}
 
-	// Codename To Psych
+	// ================== CODENAME → PSYCH ==================
 
 	static function convertCNE(mod:String, prog:PorterProgress)
 	{
@@ -533,6 +518,7 @@ class ModPorterState extends MusicBeatState
 		var out:String = prepareOutDir(mod);
 		prog.outDir = out;
 
+		// --- Karakterler ---
 		prog.stage = 'Karakterler';
 		var charDir:String = root + '/data/characters/';
 		var charFiles:Array<String> = [];
@@ -557,8 +543,8 @@ class ModPorterState extends MusicBeatState
 		}
 		prog.report.push('Karakter: ' + charCount + ' dönüştürüldü');
 
-		// Stage
-		prog.stage = 'Stageler';
+		// --- Sahneler ---
+		prog.stage = 'Sahneler';
 		var stageDir:String = root + '/data/stages/';
 		var stageFiles:Array<String> = [];
 		for (f in listDir(stageDir))
@@ -577,15 +563,15 @@ class ModPorterState extends MusicBeatState
 				stageCount++;
 			}
 			else
-				prog.report.push('Stage çevrilemedi: ' + id);
+				prog.report.push('Sahne çevrilemedi: ' + id);
 			prog.cur++;
 		}
-		prog.report.push('Stage: ' + stageCount + ' dönüştürüldü');
+		prog.report.push('Sahne: ' + stageCount + ' dönüştürüldü');
 		var stageScripts:Int = countFilesWithExt(stageDir, ['.hx']);
-		if (stageScripts > 0) prog.report.push('Atlanan Stage (.hx): ' + stageScripts);
+		if (stageScripts > 0) prog.report.push('Atlanan sahne scripti (.hx): ' + stageScripts);
 
-		// Song
-		prog.stage = 'Şarkı';
+		// --- Şarkılar ---
+		prog.stage = 'Şarkılar';
 		var songs:Array<String> = cne.compatibility.CNECompat.listSongs(mod);
 		prog.total = songs.length;
 		prog.cur = 0;
@@ -641,7 +627,7 @@ class ModPorterState extends MusicBeatState
 				if (allDiffs.indexOf('normal') < 0) allDiffs.push('normal');
 			}
 
-			// Ses : songs/<şarkı>/song/* -> songs/<şarkı>/
+			// Ses dosyaları: songs/<şarkı>/song/* -> songs/<şarkı>/
 			var audioSrc:String = songDir + '/song/';
 			if (FileSystem.exists(audioSrc))
 			{
@@ -652,6 +638,7 @@ class ModPorterState extends MusicBeatState
 						File.copy(audioSrc + '/' + af, audioDst + af);
 			}
 
+			// Şarkı scriptleri: yalnız .lua taşınır (Psych şarkı script konumu: data/<şarkı>/)
 			var songScripts:String = songDir + '/scripts/';
 			for (sf in listDir(songScripts))
 			{
@@ -665,7 +652,7 @@ class ModPorterState extends MusicBeatState
 		prog.report.push('Chart: ' + songCount + ' dönüştürüldü (' + songs.length + ' şarkı)');
 		if (skippedSongScripts > 0) prog.report.push('Atlanan şarkı scripti (.hx): ' + skippedSongScripts);
 
-		// Weeks
+		// --- Haftalar ---
 		prog.stage = 'Haftalar';
 		var weekIds:Array<String> = [];
 		var weeksSrc:String = root + '/data/weeks/weeks/';
@@ -721,12 +708,33 @@ class ModPorterState extends MusicBeatState
 			weekIds.push(outNameStatic(mod) + '_songs');
 		}
 		// Zorluk listesini haftalara işle (freeplay zorluk seçici bunu kullanır)
-		applyDiffsToWeeks(out, weekIds, allDiffs);
+		if (allDiffs.length > 0)
+		{
+			var order:Array<String> = ['easy', 'normal', 'hard'];
+			var sortedDiffs:Array<String> = [];
+			for (o in order)
+				if (allDiffs.indexOf(o) >= 0) sortedDiffs.push(o);
+			for (d in allDiffs)
+				if (sortedDiffs.indexOf(d) < 0) sortedDiffs.push(d);
+			var diffStr:String = sortedDiffs.join(',');
+			for (wid in weekIds)
+			{
+				var wp:String = out + 'weeks/' + wid + '.json';
+				if (!FileSystem.exists(wp)) continue;
+				try
+				{
+					var wj:Dynamic = Json.parse(File.getContent(wp));
+					wj.difficulties = diffStr;
+					writeJsonFile(wp, wj);
+				}
+				catch (e:Dynamic) {}
+			}
+		}
 		if (weekIds.length > 0)
 			File.saveContent(out + 'weeks/weekList.txt', weekIds.join('\n'));
 		prog.report.push('Hafta: ' + weekIds.length + ' yazıldı');
 
-		// Asset Copy
+		// --- Asset kopyalama ---
 		prog.stage = 'Asset kopyalama';
 		var assetFolders:Array<String> = ['images', 'fonts', 'music', 'sounds', 'videos', 'shaders', 'languages'];
 		var copiedAssets:Int = 0;
@@ -736,9 +744,9 @@ class ModPorterState extends MusicBeatState
 			if (FileSystem.exists(src))
 				copiedAssets += copyTree(src, out + af + '/');
 		}
-		prog.report.push('Assetlar kopyalandı: ' + copiedAssets);
+		prog.report.push('Asset dosyası kopyalandı: ' + copiedAssets);
 
-		// Lua
+		// --- Lua scriptler (Psych uyumlu olanlar) ---
 		prog.stage = 'Lua scriptler';
 		var luaSrc:String = root + '/scripts/';
 		var luaCount:Int = 0;
@@ -758,12 +766,12 @@ class ModPorterState extends MusicBeatState
 		var globalHx:Int = countFilesWithExt(root + '/data/scripts/', ['.hx']);
 		var eventHx:Int = countFilesWithExt(root + '/data/events/', ['.hx', '.hscript']);
 		if (globalHx + eventHx > 0)
-			prog.report.push('CNE scripti atlandı (global/event .hx): ' + (globalHx + eventHx) + '');
+			prog.report.push('Atlanan CNE scripti (global/event .hx): ' + (globalHx + eventHx) + ' — Lua karşılıklarını yazman gerekir');
 
-		// pack
+		// --- pack.json ---
 		writeJsonFile(out + 'pack.json', {
 			name: mod + ' (Psych Port)',
-			description: 'Converted By Further Mod Porter.',
+			description: 'Mod Porter ile Codename Engine formatından dönüştürüldü.',
 			restart: true
 		});
 		prog.report.push('pack.json oluşturuldu');
@@ -793,7 +801,7 @@ class ModPorterState extends MusicBeatState
 		return 'face';
 	}
 
-	// V-slice To Psych
+	// ================== V-SLICE → PSYCH ==================
 
 	static function convertVSlice(mod:String, prog:PorterProgress)
 	{
@@ -802,7 +810,7 @@ class ModPorterState extends MusicBeatState
 		var out:String = prepareOutDir(mod);
 		prog.outDir = out;
 
-		// Char
+		// --- Karakterler ---
 		prog.stage = 'Karakterler';
 		var charFiles:Array<String> = [];
 		for (f in listDir(base + '/data/characters/'))
@@ -824,10 +832,10 @@ class ModPorterState extends MusicBeatState
 				prog.report.push('Karakter çevrilemedi: ' + id);
 			prog.cur++;
 		}
-		prog.report.push('Karakter: ' + charCount + ' çevirildi');
+		prog.report.push('Karakter: ' + charCount + ' dönüştürüldü');
 
-		// Stageler
-		prog.stage = 'Stageler';
+		// --- Sahneler ---
+		prog.stage = 'Sahneler';
 		var stageFiles:Array<String> = [];
 		for (f in listDir(base + '/data/stages/'))
 			if (StringTools.endsWith(f.toLowerCase(), '.json')) stageFiles.push(f);
@@ -845,10 +853,10 @@ class ModPorterState extends MusicBeatState
 				stageCount++;
 			}
 			else
-				prog.report.push('Stageler çevrilemedi: ' + id);
+				prog.report.push('Sahne çevrilemedi: ' + id);
 			prog.cur++;
 		}
-		prog.report.push('Stage: ' + stageCount + ' dönüştürüldü');
+		prog.report.push('Sahne: ' + stageCount + ' dönüştürüldü');
 
 		// --- Şarkılar ---
 		prog.stage = 'Şarkılar';
@@ -858,7 +866,6 @@ class ModPorterState extends MusicBeatState
 		prog.total = songDirs.length;
 		prog.cur = 0;
 		var chartCount:Int = 0;
-		var allDiffs:Array<String> = [];
 		for (id in songDirs)
 		{
 			var songPath:String = base + '/data/songs/' + id + '/';
@@ -869,7 +876,7 @@ class ModPorterState extends MusicBeatState
 				prog.cur++;
 				continue;
 			}
-			// DİĞER CHARTLAR YANİ PİCO VS. ATLANIR
+			// Varyasyon chart'ları (-pico vb.) atlanır
 			for (f in listDir(songPath))
 				if (f != id + '-chart.json' && StringTools.endsWith(f.toLowerCase(), '-chart.json'))
 					prog.report.push('Varyasyon chart atlandı: ' + id + '/' + f);
@@ -888,38 +895,24 @@ class ModPorterState extends MusicBeatState
 				continue;
 			}
 
-			// Psych düzeni: data/<şarkı>/<şarkı>.json ve <şarkı>-<zorluk>.json
-			var outSongDir:String = out + 'data/' + id + '/';
+			var outSongDir:String = out + 'data/songs/' + id + '/';
 			if (!FileSystem.exists(outSongDir)) FileSystem.createDirectory(outSongDir);
 
 			var notesMap:Dynamic = chartJson.notes;
 			var diffs:Array<String> = Reflect.fields(notesMap);
-			var hasBase:Bool = false;
+			var hasNormal:Bool = false;
 			var firstConverted:Dynamic = null;
 			for (diff in diffs)
 			{
 				var converted:Dynamic = vslice.compatibility.VSliceSongConverter.convert(chartJson, metaJson, diff, id);
 				if (converted == null) continue;
-				var dl:String = diff.toLowerCase();
-				var psychName:String;
-				if (dl == 'normal' || dl == id.toLowerCase())
-				{
-					psychName = id; // varsayılan zorluk: <şarkı>.json
-					hasBase = true;
-				}
-				else
-					psychName = id + '-' + diff; // <şarkı>-<zorluk>.json
-				writeJsonFile(outSongDir + psychName + '.json', converted);
+				writeJsonFile(outSongDir + diff + '.json', converted);
 				if (firstConverted == null) firstConverted = converted;
-				if (allDiffs.indexOf(dl) < 0) allDiffs.push(dl);
+				if (diff.toLowerCase() == 'normal') hasNormal = true;
 				chartCount++;
 			}
-			// Temel chart yazılmadıysa ilkini temel olarak yaz
-			if (!hasBase && firstConverted != null)
-			{
-				writeJsonFile(outSongDir + id + '.json', firstConverted);
-				if (allDiffs.indexOf('normal') < 0) allDiffs.push('normal');
-			}
+			if (!hasNormal && firstConverted != null)
+				writeJsonFile(outSongDir + 'normal.json', firstConverted);
 
 			// Sesler: songs/<id>/ olduğu gibi kopyalanır (Inst + Voices-<karakter>)
 			var audioSrc:String = base + '/songs/' + id + '/';
@@ -933,7 +926,7 @@ class ModPorterState extends MusicBeatState
 			}
 			prog.cur++;
 		}
-		prog.report.push('Chart: ' + chartCount + ' çevirildi (' + songDirs.length + ' şarkı)');
+		prog.report.push('Chart: ' + chartCount + ' dönüştürüldü (' + songDirs.length + ' şarkı)');
 
 		// --- Haftalar (levels) ---
 		prog.stage = 'Haftalar';
@@ -955,6 +948,7 @@ class ModPorterState extends MusicBeatState
 			}
 		}
 
+		// Level'lara girmemiş şarkılar için sentetik hafta
 		var loose:Array<String> = [];
 		for (id in songDirs)
 			if (!covered.exists(id.toLowerCase())) loose.push(id);
@@ -980,13 +974,11 @@ class ModPorterState extends MusicBeatState
 			writeJsonFile(out + 'weeks/' + outNameStatic(mod) + '_songs.json', synthWeek);
 			weekIds.push(outNameStatic(mod) + '_songs');
 		}
-		// Zorluk listesini haftalara işle (freeplay zorluk seçici bunu kullanır)
-		applyDiffsToWeeks(out, weekIds, allDiffs);
 		if (weekIds.length > 0)
 			File.saveContent(out + 'weeks/weekList.txt', weekIds.join('\n'));
 		prog.report.push('Hafta: ' + weekIds.length + ' yazıldı');
 
-		// Asset Copy sobs.
+		// --- Asset kopyalama ---
 		prog.stage = 'Asset kopyalama';
 		var copiedAssets:Int = 0;
 		for (af in ['images', 'fonts', 'music', 'sounds', 'videos', 'shaders'])
@@ -997,7 +989,7 @@ class ModPorterState extends MusicBeatState
 			copiedAssets += copyTree(base + '/shared/images/', out + 'images/');
 		prog.report.push('Asset dosyası kopyalandı: ' + copiedAssets + ' (shared/images birleştirildi)');
 
-		// Lua
+		// --- Lua scriptler ---
 		prog.stage = 'Lua scriptler';
 		var luaCount:Int = 0;
 		for (lf in listDir(base + '/scripts/'))
@@ -1007,12 +999,13 @@ class ModPorterState extends MusicBeatState
 				File.copy(base + '/scripts/' + lf, out + 'scripts/' + lf);
 				luaCount++;
 			}
+		// scripts/songs/<şarkı>.lua -> data/songs/<şarkı>/ (Psych şarkı script konumu)
 		for (sf in listDir(base + '/scripts/songs/'))
 			if (StringTools.endsWith(sf.toLowerCase(), '.lua'))
 			{
 				var songId:String = sf.substr(0, sf.length - 4);
-				var dst:String = out + 'data/' + songId + '/';
-				if (FileSystem.exists(dst))
+				var dst:String = out + 'data/songs/' + songId + '/';
+				if (FileSystem.exists(out + 'data/songs/' + songId + '/'))
 				{
 					File.copy(base + '/scripts/songs/' + sf, dst + sf);
 					luaCount++;
@@ -1028,7 +1021,7 @@ class ModPorterState extends MusicBeatState
 		// --- pack.json ---
 		writeJsonFile(out + 'pack.json', {
 			name: mod + ' (Psych Port)',
-			description: 'Converted By Further Mod Porter.',
+			description: 'Mod Porter ile V-Slice formatından dönüştürüldü.',
 			restart: true
 		});
 		prog.report.push('pack.json oluşturuldu');
@@ -1076,6 +1069,7 @@ class ModPorterState extends MusicBeatState
 			var metaPath:String = basePath + '/data/songs/' + songId + '/' + songId + '-metadata.json';
 			if (!FileSystem.exists(metaPath))
 			{
+				// formatlanmamış adla da dene
 				for (d in listDir(basePath + '/data/songs/'))
 				{
 					var p:String = basePath + '/data/songs/' + d + '/' + d + '-metadata.json';
@@ -1107,7 +1101,7 @@ class ModPorterState extends MusicBeatState
 		return 'face';
 	}
 
-	// Psych To Codename
+	// ================== PSYCH → CODENAME ==================
 
 	static function convertPsychToCNE(mod:String, prog:PorterProgress)
 	{
@@ -1116,7 +1110,7 @@ class ModPorterState extends MusicBeatState
 		var out:String = prepareOutDir(mod);
 		prog.outDir = out;
 
-		// Karakterler Fucking Json To Xml shit
+		// --- Karakterler: characters/*.json -> data/characters/*.xml ---
 		prog.stage = 'Karakterler';
 		var charFiles:Array<String> = [];
 		for (f in listDir(base + '/characters/'))
@@ -1134,12 +1128,13 @@ class ModPorterState extends MusicBeatState
 				File.saveContent(out + 'data/characters/' + id + '.xml', psychCharToCNEXml(json, id));
 				charCount++;
 			}
-			catch (e:Dynamic) prog.report.push('Karakterler çevrilemedi: ' + id);
+			catch (e:Dynamic) prog.report.push('Karakter çevrilemedi: ' + id);
 			prog.cur++;
 		}
 		prog.report.push('Karakter: ' + charCount + ' dönüştürüldü (XML)');
 
-		prog.stage = 'Stageler';
+		// --- Sahneler: stages/*.json -> data/stages/*.xml ---
+		prog.stage = 'Sahneler';
 		var stageFiles:Array<String> = [];
 		for (f in listDir(base + '/stages/'))
 			if (StringTools.endsWith(f.toLowerCase(), '.json')) stageFiles.push(f);
@@ -1156,11 +1151,12 @@ class ModPorterState extends MusicBeatState
 				File.saveContent(out + 'data/stages/' + id + '.xml', psychStageToCNEXml(json));
 				stageCount++;
 			}
-			catch (e:Dynamic) prog.report.push('Stageler çevrilemedi: ' + id);
+			catch (e:Dynamic) prog.report.push('Sahne çevrilemedi: ' + id);
 			prog.cur++;
 		}
-		prog.report.push('Stage: ' + stageCount + ' dönüştürüldü (XML)');
+		prog.report.push('Sahne: ' + stageCount + ' dönüştürüldü (XML)');
 
+		// --- Şarkılar: data/songs veya songs altındaki chart JSON'ları ---
 		prog.stage = 'Şarkılar';
 		var songCharts:Map<String, Array<String>> = findPsychCharts(base);
 		var songIds:Array<String> = [for (k in songCharts.keys()) k];
@@ -1203,6 +1199,7 @@ class ModPorterState extends MusicBeatState
 				}
 				catch (e:Dynamic) prog.report.push('Chart çevrilemedi: ' + song + '/' + fname);
 			}
+			// Sesler: Psych songs/<song>/ -> CNE songs/<song>/song/
 			var audioSrc:String = base + '/songs/' + song + '/';
 			if (FileSystem.exists(audioSrc))
 			{
@@ -1219,7 +1216,7 @@ class ModPorterState extends MusicBeatState
 		}
 		prog.report.push('Chart: ' + chartCount + ' dönüştürüldü (' + songIds.length + ' şarkı)');
 
-		// Fucking Weeks
+		// --- Haftalar: weeks/*.json -> data/weeks/weeks/*.xml ---
 		prog.stage = 'Haftalar';
 		var weekCount:Int = 0;
 		for (wf in listDir(base + '/weeks/'))
@@ -1238,20 +1235,21 @@ class ModPorterState extends MusicBeatState
 		}
 		prog.report.push('Hafta: ' + weekCount + ' dönüştürüldü (XML)');
 
-		// Asset Copy Shit
-		prog.stage = 'Asset Kopya';
+		// --- Assetler ---
+		prog.stage = 'Asset kopyalama';
 		var copiedAssets:Int = 0;
 		for (af in ['images', 'fonts', 'music', 'sounds', 'videos', 'shaders'])
 			if (FileSystem.exists(base + '/' + af + '/'))
 				copiedAssets += copyTree(base + '/' + af + '/', out + af + '/');
 		prog.report.push('Asset kopyalandı: ' + copiedAssets);
 
+		// --- Lua scriptler dönüştürülemez: raporla ---
 		prog.stage = 'Script kontrolü';
 		var luaSkipped:Int = countFilesWithExt(base + '/scripts/', ['.lua']);
 		luaSkipped += countFilesWithExt(base + '/custom_events/', ['.lua']);
 		luaSkipped += countFilesWithExt(base + '/custom_notetypes/', ['.lua']);
 		if (luaSkipped > 0)
-			prog.report.push('Atlanan Psych Lua scripti: ' + luaSkipped + ' — Codename hscript ini yazman gerekir');
+			prog.report.push('Atlanan Psych Lua scripti: ' + luaSkipped + ' — Codename hscript karşılıklarını yazman gerekir');
 
 		prog.report.push('BİTTİ: Codename Engine modu hazır');
 	}
@@ -1481,7 +1479,7 @@ class ModPorterState extends MusicBeatState
 		return buf.toString();
 	}
 
-	// Psych To V-Slice
+	// ================== PSYCH → V-SLICE ==================
 
 	static function convertPsychToVSlice(mod:String, prog:PorterProgress)
 	{
@@ -1513,8 +1511,8 @@ class ModPorterState extends MusicBeatState
 		}
 		prog.report.push('Karakter: ' + charCount + ' dönüştürüldü');
 
-		// Stage
-		prog.stage = 'Stageler';
+		// --- Sahneler ---
+		prog.stage = 'Sahneler';
 		var stageFiles:Array<String> = [];
 		for (f in listDir(base + '/stages/'))
 			if (StringTools.endsWith(f.toLowerCase(), '.json')) stageFiles.push(f);
@@ -1531,10 +1529,10 @@ class ModPorterState extends MusicBeatState
 				writeJsonFile(out + 'data/stages/' + id + '.json', psychStageToVSlice(json, id));
 				stageCount++;
 			}
-			catch (e:Dynamic) prog.report.push('Stageler çevrilemedi: ' + id);
+			catch (e:Dynamic) prog.report.push('Sahne çevrilemedi: ' + id);
 			prog.cur++;
 		}
-		prog.report.push('Stage: ' + stageCount + ' dönüştürüldü');
+		prog.report.push('Sahne: ' + stageCount + ' dönüştürüldü');
 
 		// --- Şarkılar ---
 		prog.stage = 'Şarkılar';

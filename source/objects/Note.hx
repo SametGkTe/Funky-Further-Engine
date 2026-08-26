@@ -73,6 +73,7 @@ class Note extends FlxSprite
 
 	public var tail:Array<Note> = []; // for sustains
 	public var parent:Note;
+	public var noteHoldSplash:SustainSplash;
 	
 	public var blockHit:Bool = false; // only works for player
 

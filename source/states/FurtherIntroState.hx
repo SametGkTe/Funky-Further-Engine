@@ -5,16 +5,13 @@ import flixel.FlxState;
 class FurtherIntroState extends FlxState
 {
 	static inline var FADE_IN:Float = 0.4;
-	static inline var FIRST_LOGO_TIME:Float = 1.5;
-	static inline var SECOND_LOGO_TIME:Float = 2.0;
-	static inline var SECRET_LOGO_TIME:Float = 4.0;
-	static inline var FADE_OUT:Float = 1.0;
+	static inline var HOLD:Float = 2.0;
+	static inline var FADE_OUT:Float = 0.4;
 	static inline var SKIP_FADE:Float = 0.2;
 
 	var logo:FlxSprite;
 	var closing:Bool = false;
-	var phaseTimer:FlxTimer;
-	var secretIntro:Bool = false;
+	var holdTimer:FlxTimer;
 
 	override public function create():Void
 	{
@@ -24,10 +21,11 @@ class FurtherIntroState extends FlxState
 		var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
 		add(bg);
 
-		// Secret intro is still a 15% easter egg, but it plays on its own:
-		// no title1 swap and no BF "yeah" sound.
-		secretIntro = FlxG.random.bool(15) && Paths.fileExists('images/further/titlesecret.png', IMAGE);
-		var graphic = secretIntro ? Paths.image('further/titlesecret') : Paths.image('further/title');
+		var graphic = null;
+		if (FlxG.random.bool(15))
+			graphic = Paths.image('further/titlesecret');
+		if (graphic == null)
+			graphic = Paths.image('further/title');
 		if (graphic == null)
 		{
 			goToTitle();
@@ -35,63 +33,25 @@ class FurtherIntroState extends FlxState
 		}
 
 		logo = new FlxSprite().loadGraphic(graphic);
-		fitLogoToScreen();
+		logo.setGraphicSize(FlxG.width, FlxG.height);
+		logo.updateHitbox();
+		logo.screenCenter();
 		logo.antialiasing = ClientPrefs.data.antialiasing;
 		logo.alpha = 0;
 		add(logo);
 
-		FlxTween.tween(logo, {alpha: 1}, FADE_IN, {ease: FlxEase.quadOut});
-
-		if (secretIntro)
-		{
-			// 0–4 seconds: titlesecret, 4–5 seconds: fade-out.
-			phaseTimer = new FlxTimer().start(SECRET_LOGO_TIME, function(_)
+		FlxTween.tween(logo, {alpha: 1}, FADE_IN, {
+			ease: FlxEase.quadOut,
+			onComplete: function(_)
 			{
-				startFadeOut(FADE_OUT);
-			});
-		}
-		else
-		{
-			// 0–2 seconds: title.png. The initial fade-in is included in this time.
-			phaseTimer = new FlxTimer().start(FIRST_LOGO_TIME, function(_)
-			{
-				showSecondLogo();
-			});
-		}
-	}
-
-	function showSecondLogo():Void
-	{
-		if (closing || logo == null)
-			return;
-
-		if (Paths.fileExists('images/further/title1.png', IMAGE))
-		{
-			// Intentional instant swap at exactly two seconds.
-			logo.loadGraphic(Paths.image('further/title1'));
-			fitLogoToScreen();
-			logo.alpha = 1;
-		}
-		else
-			trace('[FurtherIntroState] Missing assets/shared/images/further/title1.png; keeping title.png.');
-
-		if (Paths.fileExists('sounds/bf-yeah.${Paths.SOUND_EXT}', SOUND))
-			FlxG.sound.play(Paths.sound('bf-yeah'));
-		else
-			trace('[FurtherIntroState] Missing assets/shared/sounds/bf-yeah.${Paths.SOUND_EXT}.');
-
-		// 2–4 seconds: title1.png, 4–5 seconds: fade-out.
-		phaseTimer = new FlxTimer().start(SECOND_LOGO_TIME, function(_)
-		{
-			startFadeOut(FADE_OUT);
+				if (closing)
+					return;
+				holdTimer = new FlxTimer().start(HOLD, function(__)
+				{
+					startFadeOut(FADE_OUT);
+				});
+			}
 		});
-	}
-
-	function fitLogoToScreen():Void
-	{
-		logo.setGraphicSize(FlxG.width, FlxG.height);
-		logo.updateHitbox();
-		logo.screenCenter();
 	}
 
 	override public function update(elapsed:Float):Void
@@ -120,10 +80,10 @@ class FurtherIntroState extends FlxState
 		if (closing)
 			return;
 		closing = true;
-		if (phaseTimer != null)
+		if (holdTimer != null)
 		{
-			phaseTimer.cancel();
-			phaseTimer = null;
+			holdTimer.cancel();
+			holdTimer = null;
 		}
 		if (logo == null)
 		{

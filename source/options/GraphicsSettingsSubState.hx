@@ -72,6 +72,12 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 		addOption(option);
 		#end
 
+		var option:Option = new Option('Katı Yükleme Ekranı',
+		'İşaretlenirse oyun önce arayüz varlıklarını boşaltıp sonra şarkı verisini yükler.\nDüşük bellekli cihazlarda (özellikle mobil) daha güvenlidir.',
+		'strictLoadingScreen',
+		BOOL);
+		addOption(option);
+
 		var option:Option = new Option('Yeni FPS Sistemi',
 			'Aktif edildiğinde, mevcut FPS sınırın altında olduğunda\noyunun "yavaş" ve "yumuşak" hissettirmesini önler.',
 			'fpsRework',

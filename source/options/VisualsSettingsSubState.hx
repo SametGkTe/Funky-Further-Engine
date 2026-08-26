@@ -80,6 +80,32 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 		addOption(option);
 		option.onChange = playNoteSplashes;
 
+		var holdCovers:Array<String> = Mods.mergeAllTextsNamed('images/holdCovers/list.txt');
+		if(holdCovers.length > 0)
+		{
+			if(!holdCovers.contains(ClientPrefs.data.holdSkin))
+				ClientPrefs.data.holdSkin = ClientPrefs.defaultData.holdSkin; //Kayıtlı skin bulunamazsa varsayılana dön
+			holdCovers.insert(0, ClientPrefs.defaultData.holdSkin); //Varsayılan her zaman başta
+			var option:Option = new Option(Language.getPhrase('setting_hold_skins', 'Hold Efekti Görünümü:'),
+				Language.getPhrase('description_hold_skins', "Hold notalarında strumline'da oynayan efektin görünümünü seçin."),
+				'holdSkin',
+				STRING,
+				holdCovers,
+				'note_splashes');
+			addOption(option);
+		}
+
+		var option:Option = new Option(Language.getPhrase('setting_hold_splash_opacity', 'Hold Efekti Opaklığı'),
+			Language.getPhrase('description_hold_splash_opacity', 'Hold efektleri ne kadar saydam olmalı. 0 ise tamamen kapalı.'),
+			'holdSplashAlpha',
+			PERCENT);
+		option.scrollSpeed = 1.6;
+		option.minValue = 0.0;
+		option.maxValue = 1;
+		option.changeValue = 0.1;
+		option.decimals = 1;
+		addOption(option);
+
 		var option:Option = new Option(Language.getPhrase('setting_hide_hud', 'Arayüzü Gizle'),
 			Language.getPhrase('description_hide_hud', 'İşaretlenirse, çoğu arayüz öğesini gizler.'),
 			'hideHud',
@@ -104,6 +130,12 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 		var option:Option = new Option(Language.getPhrase('setting_camera_zooms', 'Kamera Yakınlaştırması'),
 			Language.getPhrase('description_camera_zooms', "İşaretlenmezse, kamera ritme göre\nyakınlaşmaz."),
 			'camZooms',
+			BOOL);
+		addOption(option);
+
+		var option:Option = new Option(Language.getPhrase('setting_camera_movement', 'Kamera Hareketi'),
+			Language.getPhrase('description_camera_movement', "İşaretlenmezse, kamera şarkı söyleyen\nkaraktere doğru hareket etmez."),
+			'camMovement',
 			BOOL);
 		addOption(option);
 

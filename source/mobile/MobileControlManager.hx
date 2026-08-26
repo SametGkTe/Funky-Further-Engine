@@ -56,10 +56,18 @@ class MobileControlManager {
 
 	public function addMobilePadCamera(defaultDrawTarget:Bool = false):Void
 	{
+		// Eski kamera varsa önce temizle (resetState/dil değişimi sonrası sızıntıyı önle)
+		if (mobilePadCam != null)
+		{
+			FlxG.cameras.remove(mobilePadCam);
+			mobilePadCam = FlxDestroyUtil.destroy(mobilePadCam);
+		}
+
 		mobilePadCam = new FlxCamera();
 		mobilePadCam.bgColor.alpha = 0;
 		FlxG.cameras.add(mobilePadCam, defaultDrawTarget);
-		mobilePad.cameras = [mobilePadCam];
+		if (mobilePad != null)
+			mobilePad.cameras = [mobilePadCam];
 	}
 
 	public function makeHitbox(?mode:String, ?hints:Bool) {

@@ -4,9 +4,6 @@
 
 	<app title="Further Engine" file="FurtherEngine" packageName="com.sametgkte.furtherengine" package="com.sametgkte.furtherengine" main="Main" version="0.2.8" company="SametGkTe" />
 
-	<set name="ENGINE_VERSION" value="1.6.2" />
-	<haxedef name="ENGINE_VERSION" value="${ENGINE_VERSION}" />
-
 	<!--Switch Export with Unique ApplicationID and Icon-->
 	<set name="APP_ID" value="0x0100f6c013bbc000" />
 
@@ -34,6 +31,7 @@
 	
 	<define name="MULTITHREADED_LOADING" if="cpp" /> <!-- UNCOMMENTING THIS LINE WILL ENABLE MULTITHREADED LOADING, WHICH IMPROVES LOADING TIMES, BUT WITH A LOW CHANCE FOR THE GAME FREEZE ON SONG LOAD -->
 	<define name="SHOW_LOADING_SCREEN" />
+	<define name="STRICT_LOADING_SCREEN" /> <!-- Düşük bellekli cihazlar için katı yükleme ekranı (ayarı: strictLoadingScreen) -->
 	<define name="PSYCH_WATERMARKS"/> <!-- DELETE THIS TO REMOVE THE PSYCH LOGO FROM LOADING SCREEN -->
 	
 	<define name="TITLE_SCREEN_EASTER_EGG"/>
@@ -224,9 +222,6 @@
 
 	<!-- Allow Access to Engine Files in iOS / Android Files sidebar -->
 	<haxedef name="SHARE_MOBILE_FILES" if="ios || android" />
-	
-	<haxeflag name="--macro" value="include('cne.compatibility')" />
-	<haxeflag name="--macro" value="include('vslice.compatibility', false)" />
 
 	<!-- Official FNF-style DocumentsProvider (Files app sidebar) -->
 	<section if="android">
@@ -242,8 +237,6 @@
 		<config:android permission="android.permission.WRITE_EXTERNAL_STORAGE" />
 		<config:android accept-file-intent="application/zip" />
 		<config:android accept-file-intent="application/x-zip-compressed" />
-		<architecture name="armv7" unless="ONLY_ARM64" />
-		<architecture name="arm64" unless="ONLY_ARMV7" />
 	</section>
 	
 	<define name="TOUCH_CONTROLS_ALLOWED" if="android" />
@@ -252,6 +245,10 @@
 	<!--Macro fixes-->
 	<haxeflag name="--macro" value="allowPackage('flash')" />
 	<haxeflag name="--macro" value="include('my.pack')" />
+	<!-- CODENAME ENGINE KÖPRÜSÜ: CNE haftaları reflection ile yüklendiği için paket derlemeye dahil edilir -->
+	<haxeflag name="--macro" value="include('cne.compatibility')" />
+	<!-- V-SLICE KÖPRÜSÜ: haftasız V-Slice şarkıları reflection ile yüklenir (alt paketler hariç) -->
+	<haxeflag name="--macro" value="include('vslice.compatibility', false)" />
 
 	<haxedef name="hscriptPos" if="HSCRIPT_ALLOWED" />
 

@@ -236,6 +236,7 @@ class PlayState extends MusicBeatState
 	public var opponentStrums:FlxTypedGroup<StrumNote> = new FlxTypedGroup<StrumNote>();
 	public var playerStrums:FlxTypedGroup<StrumNote> = new FlxTypedGroup<StrumNote>();
 	public var grpNoteSplashes:FlxTypedGroup<NoteSplash> = new FlxTypedGroup<NoteSplash>();
+	public var grpHoldSplashes:FlxTypedGroup<SustainSplash> = new FlxTypedGroup<SustainSplash>();
 
 	public var camZooming:Bool = false;
 	public var camZoomingMult:Float = 1;
@@ -591,6 +592,7 @@ class PlayState extends MusicBeatState
 		generateSong();
 
 		noteGroup.add(grpNoteSplashes);
+		noteGroup.add(grpHoldSplashes);
 
 		camFollow = new FlxObject();
 		camFollow.setPosition(camPos.x, camPos.y);
@@ -1019,6 +1021,10 @@ class PlayState extends MusicBeatState
 					}
 					videoCutscene = null;
 					canPause = true;
+
+			// SUSTAIN SPLASH (P-Slice): hold cover ayarları
+			SustainSplash.startCrochet = Conductor.stepCrochet;
+			SustainSplash.frameRate = Math.floor(24 / 100 * SONG.bpm);
 					inCutscene = false;
 					startAndEnd();
 				}
@@ -2802,6 +2808,8 @@ class PlayState extends MusicBeatState
 	
 	public function moveCameraToGirlfriend()
 	{
+		if(!ClientPrefs.data.camMovement) return; // Kamera hareketi kapalı
+
 		camFollow.setPosition(gf.getMidpoint().x, gf.getMidpoint().y);
 		camFollow.x += gf.cameraPosition[0] + girlfriendCameraOffset[0];
 		camFollow.y += gf.cameraPosition[1] + girlfriendCameraOffset[1];
@@ -2811,6 +2819,8 @@ class PlayState extends MusicBeatState
 	var cameraTwn:FlxTween;
 	public function moveCamera(isDad:Bool)
 	{
+		if(!ClientPrefs.data.camMovement) return; // Kamera hareketi kapalı
+
 		if(isDad)
 		{
 			if(dad == null) return;
@@ -3645,6 +3655,8 @@ class PlayState extends MusicBeatState
 		var result:Dynamic = callOnLuas('opponentNoteHit', [notes.members.indexOf(note), Math.abs(note.noteData), note.noteType, note.isSustainNote]);
 		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript('opponentNoteHit', [note]);
 
+		spawnHoldSplashOnNote(note);
+
 		if (!note.isSustainNote) invalidateNote(note);
 	}
 
@@ -3747,6 +3759,7 @@ class PlayState extends MusicBeatState
 		stagesFunc(function(stage:BaseStage) stage.goodNoteHit(note));
 		var result:Dynamic = callOnLuas('goodNoteHit', [notes.members.indexOf(note), leData, leType, isSus]);
 		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript('goodNoteHit', [note]);
+		spawnHoldSplashOnNote(note);
 		if(!note.isSustainNote) invalidateNote(note);
 	}
 
@@ -3755,6 +3768,40 @@ class PlayState extends MusicBeatState
 		note.kill();
 		notes.remove(note, true);
 		backend.SafeDestroy.afterUpdate(note);
+	}
+
+	public function spawnHoldSplashOnNote(note:Note)
+	{
+		if (ClientPrefs.data.holdSplashAlpha <= 0)
+			return;
+
+		if (note != null)
+		{
+			var strum:StrumNote = (note.mustPress ? playerStrums : opponentStrums).members[note.noteData];
+			if (strum != null && note.tail.length > 1)
+				spawnHoldSplash(note);
+		}
+	}
+
+	public function spawnHoldSplash(note:Note)
+	{
+		var end:Note = note.isSustainNote ? note.parent.tail[note.parent.tail.length - 1] : note.tail[note.tail.length - 1];
+		var strum:StrumNote = (note.mustPress ? playerStrums : opponentStrums).members[note.noteData];
+		var splash:SustainSplash = null;
+		#if mobile
+		// MOBİL OPTİMİZASYONU: Aynı lane'e yeni splash üretme, yaşayanı yeniden başlat
+		for (candidate in grpHoldSplashes.members)
+		{
+			if (candidate != null && candidate.alive && candidate.strumNote == strum)
+			{
+				splash = candidate;
+				break;
+			}
+		}
+		#end
+		if (splash == null) splash = grpHoldSplashes.recycle(SustainSplash);
+		splash.setupSusSplash(strum, note, playbackRate);
+		grpHoldSplashes.add(end.noteHoldSplash = splash);
 	}
 
 	public function spawnNoteSplashOnNote(note:Note) {

@@ -10,7 +10,6 @@ import states.FreeplayState;
 class MasterEditorMenu extends MusicBeatState
 {
 	var options:Array<String> = [
-		'Mod Porter',
 		'Chart Editor',
 		'Character Editor',
 		'Stage Editor',
@@ -18,7 +17,8 @@ class MasterEditorMenu extends MusicBeatState
 		'Menu Character Editor',
 		'Dialogue Editor',
 		'Dialogue Portrait Editor',
-		'Note Splash Editor'
+		'Note Splash Editor',
+		'Mod Porter'
 	];
 	private var grpTexts:FlxTypedGroup<Alphabet>;
 	private var directories:Array<String> = [null];
@@ -109,8 +109,6 @@ class MasterEditorMenu extends MusicBeatState
 		if (controls.ACCEPT)
 		{
 			switch(options[curSelected]) {
-				case 'Mod Porter':
-					MusicBeatState.switchState(new ModPorterState());
 				case 'Chart Editor'://felt it would be cool maybe
 					LoadingState.loadAndSwitchState(new ChartingState(), false);
 				case 'Character Editor':
@@ -127,8 +125,10 @@ class MasterEditorMenu extends MusicBeatState
 					LoadingState.loadAndSwitchState(new DialogueCharacterEditorState(), false);
 				case 'Note Splash Editor':
 					MusicBeatState.switchState(new NoteSplashEditorState());
+				case 'Mod Porter':
+					MusicBeatState.switchState(new ModPorterState());
 			}
-			FlxG.sound.music.volume = 0;
+			if (FlxG.sound.music != null) FlxG.sound.music.volume = 0;
 			FreeplayState.destroyFreeplayVocals();
 		}
 		

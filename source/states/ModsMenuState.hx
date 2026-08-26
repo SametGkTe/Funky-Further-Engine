@@ -17,6 +17,7 @@ import lime.utils.Assets;
 
 import states.TitleState;
 import vslice.menus.freeplay.FreeplayState;
+import vslice.menus.states.MainMenuState;
 
 class ModsMenuState extends MusicBeatState
 {
@@ -365,7 +366,7 @@ class ModsMenuState extends MusicBeatState
 				}
 				FlxG.camera.fade(FlxColor.BLACK, 0.5, false, FlxG.resetGame, false);
 			}
-			else MenuStyleRouter.goToMainMenu();
+			else MusicBeatState.switchState(new MainMenuState());
 
 			persistentUpdate = false;
 			FlxG.autoPause = ClientPrefs.data.autoPause;

@@ -55,7 +55,6 @@ class TitleState extends MusicBeatState
 	var credGroup:FlxGroup = new FlxGroup();
 	var textGroup:FlxGroup = new FlxGroup();
 	var blackScreen:FlxSprite;
-	var titleBackground:FlxSprite;
 	var credTextShit:Alphabet;
 	var ngSpr:FlxSprite;
 	
@@ -192,31 +191,6 @@ class TitleState extends MusicBeatState
 		#if TITLE_SCREEN_EASTER_EGG easterEggData(); #end
 		Conductor.bpm = musicBPM;
 
-		// Intro starts from black, then Further Engine's title background fades in.
-		// Both sprites stay alive after the intro so titlebg remains behind the
-		// logo, GF and the "Press Enter" prompt.
-		blackScreen = new FlxSprite().makeGraphic(1, 1, FlxColor.BLACK);
-		blackScreen.scale.set(FlxG.width, FlxG.height);
-		blackScreen.updateHitbox();
-		add(blackScreen);
-
-		if (Paths.fileExists('images/further/titlebg.png', IMAGE))
-		{
-			titleBackground = new FlxSprite().loadGraphic(Paths.image('further/titlebg'));
-			titleBackground.antialiasing = ClientPrefs.data.antialiasing;
-
-			// Cover the whole screen without distorting the image.
-			var bgScale:Float = Math.max(FlxG.width / titleBackground.width, FlxG.height / titleBackground.height);
-			titleBackground.scale.set(bgScale, bgScale);
-			titleBackground.updateHitbox();
-			titleBackground.screenCenter();
-			titleBackground.alpha = 0;
-			add(titleBackground);
-			FlxTween.tween(titleBackground, {alpha: 1}, 1.2, {ease: FlxEase.quadOut});
-		}
-		else
-			trace('[TitleState] Missing assets/shared/images/further/titlebg.png; using black background.');
-
 		logoBl = new FlxSprite(logoPosition.x, logoPosition.y);
 		logoBl.frames = Paths.getSparrowAtlas('logoBumpin');
 		logoBl.antialiasing = ClientPrefs.data.antialiasing;
@@ -270,11 +244,10 @@ class TitleState extends MusicBeatState
 		titleText.animation.play('idle');
 		titleText.updateHitbox();
 
-		// The actual title screen stays hidden while the intro credits play.
-		// Previously the opaque black member of credGroup handled this.
-		gfDance.visible = false;
-		logoBl.visible = false;
-		titleText.visible = false;
+		blackScreen = new FlxSprite().makeGraphic(1, 1, FlxColor.BLACK);
+		blackScreen.scale.set(FlxG.width, FlxG.height);
+		blackScreen.updateHitbox();
+		credGroup.add(blackScreen);
 
 		credTextShit = new Alphabet(0, 0, "", true);
 		credTextShit.screenCenter();
@@ -282,7 +255,6 @@ class TitleState extends MusicBeatState
 
 		ngSpr = new FlxSprite(0, FlxG.height * 0.52).loadGraphic(Paths.image('newgrounds_logo'));
 		ngSpr.visible = false;
-		ngSpr.alpha = 0;
 		ngSpr.setGraphicSize(Std.int(ngSpr.width * 0.8));
 		ngSpr.updateHitbox();
 		ngSpr.screenCenter(X);
@@ -643,127 +615,39 @@ class TitleState extends MusicBeatState
 		closedState = true;
 	}
 
-	static inline var INTRO_TEXT_SIZE:Int = 72;
-	static inline var INTRO_TEXT_MIN_SIZE:Int = 40;
-	static inline var INTRO_TEXT_SIDE_PADDING:Float = 48;
-	static inline var INTRO_TEXT_GAP:Float = 12;
-	static inline var INTRO_TEXT_TOP_PAD_MULT:Float = 1.1;
-	static inline var INTRO_TEXT_LINE_HEIGHT_MULT:Float = 1.3;
-	static inline var INTRO_TEXT_FADE_IN:Float = 0.45;
-	static inline var INTRO_TEXT_FADE_OUT:Float = 0.35;
-
-	function makeIntroText(text:String):FlxText
-	{
-		// title.ttf reports incorrect ascender metrics on some targets. A real
-		// blank line above the text keeps the glyphs away from TextField's upper
-		// clipping boundary; layoutIntroText compensates for this invisible pad.
-		var introText:FlxText = new FlxText(0, 0, FlxG.width, '\n' + text, INTRO_TEXT_SIZE);
-		introText.setFormat(Paths.font('AvantGuard-Bold.ttf'), INTRO_TEXT_SIZE, FlxColor.WHITE, CENTER);
-		introText.antialiasing = ClientPrefs.data.antialiasing;
-		introText.wordWrap = false;
-		introText.autoSize = false;
-		while (introText.textField.textWidth > FlxG.width - (INTRO_TEXT_SIDE_PADDING * 2)
-			&& introText.size > INTRO_TEXT_MIN_SIZE)
-		{
-			introText.size -= 4;
-		}
-
-		// Enough room for both the invisible padding line and the visible line.
-		introText.fieldHeight = Math.ceil(introText.size * 2.6);
-		introText.updateHitbox();
-		introText.alpha = 0;
-		credGroup.add(introText);
-		textGroup.add(introText);
-		FlxTween.tween(introText, {alpha: 1}, INTRO_TEXT_FADE_IN, {ease: FlxEase.quadOut});
-		return introText;
-	}
-
-	function layoutIntroText(?offset:Float = 0):Void
-	{
-		var texts:Array<FlxText> = [];
-		var totalHeight:Float = 0;
-
-		for (member in textGroup.members)
-		{
-			if (member == null) continue;
-			var text:FlxText = cast member;
-			texts.push(text);
-			// Ignore the transparent safety area in fieldHeight while laying out.
-			totalHeight += text.size * INTRO_TEXT_LINE_HEIGHT_MULT;
-		}
-
-		if (texts.length > 1)
-			totalHeight += (texts.length - 1) * INTRO_TEXT_GAP;
-
-		var nextY:Float = (FlxG.height - totalHeight) * 0.5 + offset;
-		for (text in texts)
-		{
-			// Pull the padded TextField upward so its visible second line starts
-			// at nextY. The glyph itself still has a full blank line above it.
-			text.y = nextY - (text.size * INTRO_TEXT_TOP_PAD_MULT);
-			nextY += (text.size * INTRO_TEXT_LINE_HEIGHT_MULT) + INTRO_TEXT_GAP;
-		}
-	}
-
 	function createCoolText(textArray:Array<String>, ?offset:Float = 0)
 	{
-		if (credGroup == null || textGroup == null) return;
-		for (text in textArray) makeIntroText(text);
-		layoutIntroText(offset);
+		for (i in 0...textArray.length)
+		{
+			var money:Alphabet = new Alphabet(0, 0, textArray[i], true);
+			money.screenCenter(X);
+			money.y += (i * 60) + 200 + offset;
+			if(credGroup != null && textGroup != null)
+			{
+				credGroup.add(money);
+				textGroup.add(money);
+			}
+		}
 	}
 
 	function addMoreText(text:String, ?offset:Float = 0)
 	{
-		if (textGroup == null || credGroup == null) return;
-		makeIntroText(text);
-		layoutIntroText(offset);
+		if(textGroup != null && credGroup != null) {
+			var coolText:Alphabet = new Alphabet(0, 0, text, true);
+			coolText.screenCenter(X);
+			coolText.y += (textGroup.length * 60) + 200 + offset;
+			credGroup.add(coolText);
+			textGroup.add(coolText);
+		}
 	}
 
 	function deleteCoolText()
 	{
-		if (textGroup == null || credGroup == null) return;
-
-		// Stop tracking immediately so the next beat can create a fresh set,
-		// while the previous set finishes fading out visually.
-		var oldTexts:Array<FlxText> = [];
-		for (member in textGroup.members)
-			if (member != null) oldTexts.push(cast member);
-		textGroup.clear();
-
-		for (text in oldTexts)
+		while (textGroup.members.length > 0)
 		{
-			FlxTween.cancelTweensOf(text);
-			FlxTween.tween(text, {alpha: 0}, INTRO_TEXT_FADE_OUT, {
-				ease: FlxEase.quadIn,
-				onComplete: function(_)
-				{
-					credGroup.remove(text, true);
-					text.destroy();
-				}
-			});
+			credGroup.remove(textGroup.members[0], true);
+			textGroup.remove(textGroup.members[0], true);
 		}
-	}
-
-	function showNewgroundsLogo():Void
-	{
-		if (ngSpr == null) return;
-		FlxTween.cancelTweensOf(ngSpr);
-		ngSpr.alpha = 0;
-		ngSpr.visible = true;
-		FlxTween.tween(ngSpr, {alpha: 1}, INTRO_TEXT_FADE_IN, {ease: FlxEase.quadOut});
-	}
-
-	function hideNewgroundsLogo():Void
-	{
-		if (ngSpr == null || !ngSpr.visible) return;
-		FlxTween.cancelTweensOf(ngSpr);
-		FlxTween.tween(ngSpr, {alpha: 0}, INTRO_TEXT_FADE_OUT, {
-			ease: FlxEase.quadIn,
-			onComplete: function(_)
-			{
-				ngSpr.visible = false;
-			}
-		});
 	}
 
 	private var sickBeats:Int = 0;
@@ -799,23 +683,23 @@ class TitleState extends MusicBeatState
 					FlxG.sound.playMusic(Paths.music(getMenuMusicName()), 0);
 					FlxG.sound.music.fadeIn(4, 0, 0.7);
 				case 2:
-					createCoolText([isTR ? 'PSYCH ENGİNE YAPIMCILARI' : 'Psych Engine by'], 40);
+					createCoolText([isTR ? 'Psych Engine yapımcıları' : 'Psych Engine by'], 40);
 				case 4:
-					addMoreText('SHADOW MARİO', 40);
-					addMoreText('RİVEREN', 40);
+					addMoreText('Shadow Mario', 40);
+					addMoreText('Riveren', 40);
 				case 5:
 					deleteCoolText();
 				case 6:
 					if (isTR)
-						createCoolText(['NEWGROUNDS', 'İLE'], -40);
+						createCoolText(['Newgrounds', 'ile'], -40);
 					else
-						createCoolText(['NOT ASSOCIATED', 'WITH'], -40);
+						createCoolText(['Not associated', 'with'], -40);
 				case 8:
-					addMoreText(isTR ? 'ALAKASI YOKTUR' : 'newgrounds', -40);
-					showNewgroundsLogo();
+					addMoreText(isTR ? 'Alakası yoktur' : 'newgrounds', -40);
+					ngSpr.visible = true;
 				case 9:
 					deleteCoolText();
-					hideNewgroundsLogo();
+					ngSpr.visible = false;
 				case 10:
 					createCoolText([curWacky[0]]);
 				case 12:
@@ -823,11 +707,11 @@ class TitleState extends MusicBeatState
 				case 13:
 					deleteCoolText();
 				case 14:
-					addMoreText('FURTHER');
+					addMoreText('Friday');
 				case 15:
-					addMoreText('ENGİNE');
+					addMoreText('Night');
 				case 16:
-					addMoreText('FUH YEAHH');
+					addMoreText("Funkin'");
 				case 17:
 					skipIntro();
 			}
@@ -836,14 +720,6 @@ class TitleState extends MusicBeatState
 
 	var skippedIntro:Bool = false;
 	var increaseVolume:Bool = false;
-
-	function revealTitleScreen():Void
-	{
-		if (gfDance != null) gfDance.visible = true;
-		if (logoBl != null) logoBl.visible = true;
-		if (titleText != null) titleText.visible = true;
-	}
-
 	function skipIntro():Void
 	{
 		if (!skippedIntro)
@@ -876,7 +752,6 @@ class TitleState extends MusicBeatState
 
 						FlxG.sound.playMusic(Paths.music(getMenuMusicName()), 0);
 						FlxG.sound.music.fadeIn(4, 0, 0.7);
-						revealTitleScreen();
 						return;
 				}
 
@@ -926,7 +801,6 @@ class TitleState extends MusicBeatState
 				}
 				#end
 			}
-			revealTitleScreen();
 			skippedIntro = true;
 		}
 	}

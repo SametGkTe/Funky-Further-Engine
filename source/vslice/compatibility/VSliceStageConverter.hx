@@ -6,6 +6,32 @@ import sys.FileSystem;
 #end
 import haxe.Json;
 
+/**
+ * VSliceStageConverter — V-Slice (FunkinCrew/Funkin 0.8) stage JSON'unu
+ * Psych (Further-Engine) `StageFile` formatına runtime'da çevirir.
+ *
+ * FORMAT FARKLARI:
+ *   V-Slice stage:                          Psych StageFile:
+ *   -----------------------------------      ---------------------------------
+ *   props[].name                            objects[].name
+ *   props[].assetPath ("stageback")         objects[].image ("stageback")
+ *   props[].position [x,y]                  objects[].x / objects[].y
+ *   props[].scale [x,y]                     objects[].scale
+ *   props[].scroll [x,y]                    objects[].scrollFactor
+ *   props[].animations[...]                 objects[].animations[...]
+ *   props[].zIndex                          (kısmi: layer sırası)
+ *   characters.bf.position                  boyfriend [x,y]
+ *   characters.dad.position                 opponent [x,y]
+ *   characters.gf.position                  girlfriend [x,y]
+ *   characters.*.cameraOffsets              camera_boyfriend / camera_opponent / camera_girlfriend
+ *   cameraZoom                              defaultZoom
+ *   directory                               directory
+ *
+ * Bu converter, V-Slice modundaki `data/stages/<stage>.json` dosyasını okuyup
+ * Psych'in `StageData.getStageFile()`'in beklediği `StageFile`'a çevirir.
+ * Böylece Psych asset sistemi (dosya sistemi) üzerinden V-Slice sahneleri de
+ * çözülür; Polymod/FLIXEL yükü yoktur, performans düşmez.
+ */
 class VSliceStageConverter
 {
 	/**
@@ -143,7 +169,7 @@ class VSliceStageConverter
 
 	/**
 	 * V-Slice modundaki `data/stages/<stage>.json` dosyasını okuyup Psych StageFile
-	 * döndürür. Bulunamazsa null.
+	 * JSON string olarak döndürür. Bulunamazsa null.
 	 */
 	public static function convertFromMod(modDir:String, stageId:String):Dynamic
 	{

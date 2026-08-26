@@ -217,18 +217,6 @@ class GalleryState extends MusicBeatState {
 			favorited: false,
 			dateAdded: "2026-08-22",
 			modDirectory: null
-		},
-		{
-			fileName: "astmikoifsa",
-			title: "astmiko ifsa 4K ifşa",
-			description: "rlly like this char ngl",
-			type: IMAGE,
-			category: "Art",
-			artist: "sametgkte",
-			unlocked: true,
-			favorited: false,
-			dateAdded: "2026-08-25",
-			modDirectory: null
 		}
 	];
 
