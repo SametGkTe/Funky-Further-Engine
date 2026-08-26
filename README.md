@@ -1,76 +1,83 @@
-# Further Online — Drop-in pack
+<div align="center">
 
-**Doğrudan Funky-Further-Engine repo köküne kopyala.**
+<img src="docs/img/fe.png" alt="Further Engine logosu" width="240">
 
-## Kurulum (1 dakika)
+<br>
 
-```bash
-# 1) Bu klasörün İÇİNDEKİLERİ FE repo köküne birleştir:
-#    source/  →  FE/source/
-#    Project.xml → FE/Project.xml  (üzerine yaz veya diff al)
-#    further-server/ → FE/further-server/  (veya ayrı klasör)
+<img src="docs/img/FurtherEngineWordmark.png" alt="Further Engine" width="620">
 
-cp -r source/*   /path/to/Funky-Further-Engine/source/
-cp Project.xml   /path/to/Funky-Further-Engine/Project.xml
-cp -r further-server /path/to/Funky-Further-Engine/
-```
+**Further Engine, FNF Kullanıcıların Oyun deneyimini en iyi hale getirmeyi amaçlar diğer adı ile "Psych Engine Türkiye" olarak bilinir**
 
-> **Uyarı:** `PlayState.hx`, `MainMenuState.hx`, `MusicBeatState.hx`, `Note.hx`, `Project.xml`
-> upstream FE main'den patch'lenmiş **tam dosyalardır**. Kendi local değişikliklerin varsa
-> önce yedek al / merge et.
+[![Sürüm](https://img.shields.io/badge/sürüm-1.6.2-9a6bff?style=for-the-badge)](https://github.com/SametGkTe/Funky-Further-Engine/tags)
+[![Durum](https://img.shields.io/badge/durum-Release%202%20Beta-ff4fc8?style=for-the-badge)](#proje-durumu)
+[![Haxe](https://img.shields.io/badge/Haxe-OpenFL%20%2B%20HaxeFlixel-ea8220?style=for-the-badge&logo=haxe&logoColor=white)](https://haxe.org/)
+[![Lisans](https://img.shields.io/badge/Lisans-Apache%202.0-35e7ff?style=for-the-badge)](LICENSE)
 
-## Haxelib
+</div>
 
-```bash
-haxelib install colyseus 0.15.0
-haxelib install colyseus-websocket 1.0.14
-```
+> [!ÖNEMLİ]
+> Proje yapılma aşamasındadır. Özellikle mobil desteği, çevrimiçi sunucular ve yeni arayüzlerde platforma bağlı sorunlarla karşılaşılabilir. Bir hata alırsan kullandığın platformu ve mümkünse crash logunu (pc: oyun/logs/ensonaldığınlog, mobilde: KULLANDIĞIN DEPOLAMA TÜRÜ/logs/ensonaldığınlog) ekleyerek [issue açabilirsin](https://github.com/SametGkTe/Funky-Further-Engine/issues/new/choose).
 
-Sürüm uyuşmazlığında server `further-server/package.json` içindeki `colyseus@0.15.x` ile hizala.
+> [!NOT]
+> Further Engine SametGkTe tarafından yapılan bağımsız bir topluluk projesidir; The Funkin' Crew veya resmi Friday Night Funkin' ekibiyle bağlantılı değildir.
 
-## Sunucu
+[**Derleme rehberi**](docs/BUILDING_TR.md) · [**Modlama rehberi**](docs/MODDING_TR.md) · [**Hata bildir**](https://github.com/SametGkTe/Funky-Further-Engine/issues/new/choose)
 
-```bash
-cd further-server
-npm install
-npm start
-# ws://0.0.0.0:2567
-```
+### Arayüzler
 
-## Oyunda
+![Yeni Serbest Oyun](docs/img/wfreeplay.png)
 
-1. Derle (`FURTHER_ONLINE` Project.xml'de açık)
-2. Ana menüde **O** tuşu → Online menü
-3. Address: `ws://127.0.0.1:2567`
-4. CREATE → kodu paylaş → diğer client JOIN
-5. **STRUM TEST** ile ok relay dene
-6. Host SET SONG `tutorial` → ikisi I HAVE SONG → READY → maç
+![Yeni Ana Menü](docs/img/wmainmenu.png)
 
-## Ne değişti (FE dosyaları)
+Klasik Psych Engine görünümü ile yeni V-Slice  menü stili arasında geçiş yap. Ana menü, Story Mode, Freeplay gibi menülerde etkili olur. Fakat cihazınızda donma / kasma problemleri oluşabilir
 
-| Dosya | Değişiklik |
-|-------|------------|
-| `Project.xml` | `FURTHER_ONLINE` + colyseus haxelibs |
-| `MusicBeatState.hx` | `NetThread.pump()` |
-| `MainMenuState.hx` | **O** → OnlineMenuState |
-| `Note.hx` | Online'da opponent auto-hit kapalı |
-| `PlayState.hx` | Full 1v1 hooks + startCallback defer |
-| `source/online/**` | Yeni netcode paketi |
+</td>
+<td width="50%" valign="top">
 
-## Offline
+### Modpackler
+**YAKINDA**
 
-`Project.xml` içinden `<define name="FURTHER_ONLINE" />` satırını sil → online kod compile-out, normal FE.
+![Mod Paketleri](docs/img/modpack.png)
 
-## MVP limitleri
+Further için onaylanmış Modpackleri oyun içinden indir, içe aktar, güncelle veya kaldır. GitHub ve MediaFire kaynakları (Beta)
 
-- İlk sürüm aynı chart / skor+ok senkronu (side-swap duel sonraki adım)
-- Supabase leaderboard aynen duruyor
-- Public internet sunucu yok (LAN first)
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
 
-## Test
+### Mobil Desteği
 
-```bash
-cd further-server && npm start
-# başka terminal:
-node test-client.mjs
-```
+Android için **Psych Hitbox** ve **V-Slice Kontrolü**, mobil kontrol opaklığı, hitbox görünümü, ve farklı depolama ayarları.
+
+</td>
+<td width="50%" valign="top">
+
+### Further Mod Desteği
+
+**Galeri Sistemi**; Resim, Spritesheet, video, müzik ve ses efektlerini galeriye koy. Mod yapımcıları kendi `gallery.json` içeriğini ekleyebilir. (mod/other/gallery.json)
+
+</td>
+</tr>
+</table>
+
+
+## Yapımcılar
+
+### Further Engine
+
+- **[SametGkTe](https://github.com/SametGkTe)** — Further Engine Ana Geliştiricisi
+
+### Temel projeler ve ekipler
+
+- **[Shadow Mario](https://github.com/ShadowMario)** — Psych Engine ana geliştiricisi
+- **RiverOaken / Riveren** — Psych Engine ana sanatçısı ve animatörü
+- **[Psych Engine](https://github.com/ShadowMario/FNF-PsychEngine)** katkıcıları
+- **[Psych Engine Mobile](https://github.com/Luansilv16/Psych-Engine-1.0.4-Android)** port ekibi ve katkıcıları
+- **[The Funkin' Crew](https://github.com/FunkinCrew)** — Friday Night Funkin'
+
+<div align="center">
+
+**Kullandığın FNF'i daha fazla ileri (Further) it.**
+
+</div>
