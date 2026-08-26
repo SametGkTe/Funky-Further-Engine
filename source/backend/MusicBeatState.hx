@@ -163,6 +163,9 @@ class MusicBeatState extends FlxState
 	public static var timePassedOnState:Float = 0;
 	override function update(elapsed:Float)
 	{
+		#if FURTHER_ONLINE
+		online.NetThread.pump();
+		#end
 		//everyStep();
 		var oldStep:Int = curStep;
 		timePassedOnState += elapsed;

@@ -1,5 +1,10 @@
 package states;
 
+#if FURTHER_ONLINE
+import online.PlayStateSync;
+import online.GameClient;
+#end
+
 import sys.thread.Thread;
 import backend.Highscore;
 import backend.StageData;
@@ -742,6 +747,14 @@ class PlayState extends MusicBeatState
 			eventNotes.sort(sortByTime);
 		}
 
+		#if FURTHER_ONLINE
+		if (GameClient.isConnected())
+		{
+			// Countdown waits for both clients (PlayStateSync on startSong)
+			trace("[Online] deferring startCallback until startSong");
+		}
+		else
+		#end
 		startCallback();
 		RecalculateRating(false, false);
 
@@ -804,6 +817,17 @@ class PlayState extends MusicBeatState
 		}
 
 		if(eventNotes.length < 1) checkEventNote();
+
+		#if FURTHER_ONLINE
+		if (GameClient.isConnected())
+		{
+			PlayStateSync.bind(this);
+			practiceMode = true; // no game-over fail online
+			cpuControlled = false;
+			// CRITICAL: window minimize / alt-tab must NOT pause the song (desync)
+			FlxG.autoPause = false;
+		}
+		#end
 	}
 
 	function set_songSpeed(value:Float):Float
@@ -1337,6 +1361,27 @@ class PlayState extends MusicBeatState
 		if(!instakillOnMiss) tempScore = Language.getPhrase('score_text', 'Skor: {1} | Iskalar: {2} | Doğruluk: {3}', [songScore, songMisses, str]);
 		else tempScore = Language.getPhrase('score_text_instakill', 'Skor: {1} | Doğruluk: {2}', [songScore, str]);
 		scoreTxt.text = tempScore;
+		#if FURTHER_ONLINE
+		if (GameClient.isConnected() && GameClient.room != null && GameClient.room.state != null)
+		{
+			try {
+				var extra = " | ";
+				var keys:Array<String> = [];
+				var items:Dynamic = Reflect.field(GameClient.room.state.players, "items");
+				if (items != null) {
+					var ks:Array<Dynamic> = cast Reflect.field(items, "_keys");
+					if (ks != null) for (k in ks) keys.push(Std.string(k));
+				}
+				for (sid in keys) {
+					var pl = GameClient.room.state.players.get(sid);
+					if (pl == null) continue;
+					var tag = (sid == GameClient.room.sessionId) ? "YOU" : "OPP";
+					extra += tag + ":" + Std.int(pl.score) + " ";
+				}
+				scoreTxt.text = tempScore + extra;
+			} catch (_:Dynamic) {}
+		}
+		#end
 	}
 
 	public dynamic function fullComboFunction()
@@ -1609,6 +1654,11 @@ class PlayState extends MusicBeatState
 				swagNote.gfNote = (section.gfSection && gottaHitNote == section.mustHitSection);
 				swagNote.animSuffix = isAlt ? "-alt" : "";
 				swagNote.mustPress = gottaHitNote;
+				#if FURTHER_ONLINE
+				// Guest (bfSide=false) plays opponent chart lane
+				if (GameClient.isConnected() && !GameClient.playsAsBF())
+					swagNote.mustPress = !swagNote.mustPress;
+				#end
 				if (totalColumns > 4)
 				{
 					var strumGroup:FlxTypedGroup<StrumNote> = gottaHitNote ? playerStrums : opponentStrums;
@@ -1953,6 +2003,15 @@ class PlayState extends MusicBeatState
 	override public function onFocusLost():Void
 	{
 		super.onFocusLost();
+		#if FURTHER_ONLINE
+		if (GameClient.isConnected())
+		{
+			// Keep song + sync thread running while tabbed out
+			FlxG.autoPause = false;
+			shutdownThread = false;
+			return;
+		}
+		#end
 		if (!paused && health > 0 && autoUpdateRPC)
 		{
 			DiscordClient.changePresence(detailsPausedText, SONG.song + " (" + storyDifficultyText + ")", iconP2.getCharacter());
@@ -2007,6 +2066,15 @@ class PlayState extends MusicBeatState
 
 	override public function update(elapsed:Float)
 	{
+		#if FURTHER_ONLINE
+		PlayStateSync.update(this);
+		if (PlayStateSync.isWaitingStart() || PlayStateSync.isMatchOver())
+		{
+			// Freeze gameplay until startSong / after matchEnded
+			super.update(elapsed);
+			return;
+		}
+		#end
 		if(!inCutscene && !paused && !freezeCamera) {
 			FlxG.camera.followLerp = 0.04 * cameraSpeed * playbackRate;
 			var idleAnim:Bool = boyfriend != null && (boyfriend.getAnimationName().startsWith('idle') || boyfriend.getAnimationName().startsWith('danceLeft') || boyfriend.getAnimationName().startsWith('danceRight'));
@@ -2043,6 +2111,9 @@ class PlayState extends MusicBeatState
 
 		if ((controls.PAUSE #if android || FlxG.android.justReleased.BACK #end || mobilePausePressed) && startedCountdown && canPause)
 		{
+			#if FURTHER_ONLINE
+			if (PlayStateSync.active()) return;
+			#end
 			var ret:Dynamic = callOnScripts('onPause', null, true);
 			if(ret != LuaUtils.Function_Stop) {
 				openPauseMenu();
@@ -2167,8 +2238,12 @@ class PlayState extends MusicBeatState
 								if(cpuControlled && !daNote.blockHit && daNote.canBeHit && (daNote.isSustainNote || daNote.strumTime <= Conductor.songPosition))
 									goodNoteHit(daNote);
 							}
-							else if (daNote.wasGoodHit && !daNote.hitByOpponent && !daNote.ignoreNote)
-								opponentNoteHit(daNote);
+							else if (daNote.wasGoodHit && !daNote.hitByOpponent && !daNote.ignoreNote
+							#if FURTHER_ONLINE
+							&& PlayStateSync.allowOpponentAutoHit()
+							#end
+						)
+							opponentNoteHit(daNote);
 
 							if(daNote.isSustainNote && strum.sustainReduce) daNote.clipToStrumNote(strum);
 
@@ -2392,6 +2467,13 @@ class PlayState extends MusicBeatState
 
 	function openPauseMenu()
 	{
+		#if FURTHER_ONLINE
+		if (GameClient.isConnected())
+		{
+			trace("[Online] pause disabled (would desync)");
+			return;
+		}
+		#end
 		FlxG.camera.followLerp = 0;
 		persistentUpdate = false;
 		persistentDraw = true;
@@ -2462,6 +2544,9 @@ class PlayState extends MusicBeatState
 	public var isDead:Bool = false; //Don't mess with this on Lua!!!
 	public var gameOverTimer:FlxTimer;
 	function doDeathCheck(?skipHealthCheck:Bool = false) {
+		#if FURTHER_ONLINE
+		if (PlayStateSync.suppressDeath()) return false;
+		#end
 		if (((skipHealthCheck && instakillOnMiss) || health <= 0) && !practiceMode && !isDead && gameOverTimer == null)
 		{
 			var ret:Dynamic = callOnScripts('onGameOver', null, true);
@@ -2915,6 +3000,9 @@ class PlayState extends MusicBeatState
 		timeTxt.visible = false;
 		canPause = false;
 		endingSong = true;
+		#if FURTHER_ONLINE
+		PlayStateSync.onLocalSongEnd(this);
+		#end
 		camZooming = false;
 		inCutscene = false;
 		updateTime = false;
@@ -2948,6 +3036,13 @@ class PlayState extends MusicBeatState
 
 			submitLeaderboardOnce();
 			
+			#if FURTHER_ONLINE
+			if (GameClient.isConnected())
+			{
+				trace('[Online] hold transitions until matchEnded');
+				return false;
+			}
+			#end
 			if (isStoryMode)
 			{
 				campaignScore += songScore;
@@ -3014,6 +3109,15 @@ class PlayState extends MusicBeatState
 			else
 			{
 				trace('WENT BACK TO FREEPLAY??');
+				#if FURTHER_ONLINE
+			if (GameClient.isConnected())
+				{
+					trace('[Online] endSong held for matchEnded (connected)');
+					// Keep PlayState until matchEnded switches to OnlineResults
+					// Soft-freeze: stop music already ended
+					return false;
+				}
+				#end
 				Mods.loadTopMod();
 
 				#if DISCORD_ALLOWED
@@ -3338,6 +3442,9 @@ class PlayState extends MusicBeatState
 		{
 			spr.playAnim('pressed');
 			spr.resetAnim = 0;
+			#if FURTHER_ONLINE
+			PlayStateSync.sendStrumPressed(key);
+			#end
 		}
 		callOnScripts('onKeyPress', [key]);
 	}
@@ -3391,6 +3498,9 @@ class PlayState extends MusicBeatState
 		{
 			spr.playAnim('static');
 			spr.resetAnim = 0;
+			#if FURTHER_ONLINE
+			PlayStateSync.sendStrumStatic(key);
+			#end
 		}
 		callOnScripts('onKeyRelease', [key]);
 	}
@@ -3584,13 +3694,19 @@ class PlayState extends MusicBeatState
 		if (breakCombo)
 			combo = 0;
 
-		health -= subtract * healthLoss;
+			#if FURTHER_ONLINE
+		if (!PlayStateSync.suppressLocalHealth())
+		#end
+			health -= subtract * healthLoss;
+		#if FURTHER_ONLINE
+		PlayStateSync.sendNoteMiss(note, direction);
+		#end
 		songScore -= 10;
 		if(!endingSong) songMisses++;
 		totalPlayed++;
 		RecalculateRating(true);
 
-		var char:Character = boyfriend;
+		var char:Character = getOnlineSelfChar();
 		if((note != null && note.gfNote) || (SONG.notes[curSection] != null && SONG.notes[curSection].gfSection)) char = gf;
 
 		if(char != null && (note == null || !note.noMissAnimation) && char.hasMissAnimations)
@@ -3610,7 +3726,28 @@ class PlayState extends MusicBeatState
 		vocals.volume = 0;
 	}
 
-	function opponentNoteHit(note:Note):Void
+
+	/** Online: character you control (BF if host/BF side, Dad if guest/OPP side) */
+	public inline function getOnlineSelfChar():Character
+	{
+		#if FURTHER_ONLINE
+		if (GameClient.isConnected() && !GameClient.playsAsBF())
+			return dad;
+		#end
+		return boyfriend;
+	}
+
+	/** Online: the other player's character */
+	public inline function getOnlineOtherChar():Character
+	{
+		#if FURTHER_ONLINE
+		if (GameClient.isConnected() && !GameClient.playsAsBF())
+			return boyfriend;
+		#end
+		return dad;
+	}
+
+	public function opponentNoteHit(note:Note):Void
 	{
 		var result:Dynamic = callOnLuas('opponentNoteHitPre', [notes.members.indexOf(note), Math.abs(note.noteData), note.noteType, note.isSustainNote]);
 		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) result = callOnHScript('opponentNoteHitPre', [note]);
@@ -3620,15 +3757,16 @@ class PlayState extends MusicBeatState
 		if (songName != 'tutorial')
 			camZooming = true;
 
-		if(note.noteType == 'Hey!' && dad.hasAnimation('hey'))
+		var otherChar:Character = getOnlineOtherChar();
+		if(note.noteType == 'Hey!' && otherChar != null && otherChar.hasAnimation('hey'))
 		{
-			dad.playAnim('hey', true);
-			dad.specialAnim = true;
-			dad.heyTimer = 0.6;
+			otherChar.playAnim('hey', true);
+			otherChar.specialAnim = true;
+			otherChar.heyTimer = 0.6;
 		}
 		else if(!note.noAnimation)
 		{
-			var char:Character = dad;
+			var char:Character = otherChar;
 			var animToPlay:String = singAnimations[Std.int(Math.abs(Math.min(singAnimations.length-1, note.noteData)))] + note.animSuffix;
 			if(note.gfNote) char = gf;
 
@@ -3648,7 +3786,15 @@ class PlayState extends MusicBeatState
 		}
 
 		if(opponentVocals.length <= 0) vocals.volume = 1;
+		// Glow strums on the lane this note belongs to (after online side flip)
+		#if FURTHER_ONLINE
+		var glowDadLane = true;
+		if (GameClient.isConnected())
+			glowDadLane = GameClient.playsAsBF(); // host: remote on dad lane; guest: remote on bf lane → player strums
+		strumPlayAnim(glowDadLane, Std.int(Math.abs(note.noteData)), Conductor.stepCrochet * 1.25 / 1000 / playbackRate);
+		#else
 		strumPlayAnim(true, Std.int(Math.abs(note.noteData)), Conductor.stepCrochet * 1.25 / 1000 / playbackRate);
+		#end
 		note.hitByOpponent = true;
 		
 		stagesFunc(function(stage:BaseStage) stage.opponentNoteHit(note));
@@ -3685,7 +3831,7 @@ class PlayState extends MusicBeatState
 			{
 				var animToPlay:String = singAnimations[Std.int(Math.abs(Math.min(singAnimations.length-1, note.noteData)))] + note.animSuffix;
 
-				var char:Character = boyfriend;
+				var char:Character = getOnlineSelfChar();
 				var animCheck:String = 'hey';
 				if(note.gfNote)
 				{
@@ -3734,7 +3880,16 @@ class PlayState extends MusicBeatState
 			}
 			var gainHealth:Bool = true; // prevent health gain, *if* sustains are treated as a singular note
 			if (guitarHeroSustains && note.isSustainNote) gainHealth = false;
-			if (gainHealth) health += note.hitHealth * healthGain;
+			if (gainHealth)
+			{
+				#if FURTHER_ONLINE
+				if (!PlayStateSync.suppressLocalHealth())
+				#end
+					health += note.hitHealth * healthGain;
+			}
+			#if FURTHER_ONLINE
+			PlayStateSync.sendNoteHit(note, note.rating);
+			#end
 
 		}
 		else //Notes that count as a miss if you hit them (Hurt notes for example)
@@ -3746,8 +3901,11 @@ class PlayState extends MusicBeatState
 					case 'Hurt Note':
 						if(boyfriend.hasAnimation('hurt'))
 						{
-							boyfriend.playAnim('hurt', true);
-							boyfriend.specialAnim = true;
+							var hurtChar = getOnlineSelfChar();
+							if (hurtChar != null) {
+								hurtChar.playAnim('hurt', true);
+								hurtChar.specialAnim = true;
+							}
 						}
 				}
 			}
@@ -3835,6 +3993,9 @@ class PlayState extends MusicBeatState
 	}
 
 	override function destroy() {
+		#if FURTHER_ONLINE
+		PlayStateSync.unbind();
+		#end
 		// Sabitlenmiş Notalar: prefs'i orijinal değerlerine döndür ve temizle
 		PinnedNotes.restorePrefs();
 		PinnedNotes.clear();

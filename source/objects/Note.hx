@@ -628,6 +628,13 @@ class Note extends FlxSprite
 		{
 			canBeHit = false;
 
+			#if FURTHER_ONLINE
+			if (!online.PlayStateSync.allowOpponentAutoHit())
+			{
+				// Online: wait for remote noteHit relay (PlayStateSync)
+			}
+			else
+			#end
 			if (!wasGoodHit && strumTime <= Conductor.songPosition)
 			{
 				if(!isSustainNote || (prevNote.wasGoodHit && !ignoreNote))

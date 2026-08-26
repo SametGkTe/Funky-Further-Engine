@@ -24,6 +24,8 @@
 	<define name="HSCRIPT_ALLOWED" if="desktop || mobile" />
 	<define name="LUA_ALLOWED" if="cpp" />
 	<define name="ACHIEVEMENTS_ALLOWED" />
+	<!-- Further Online 1v1 (Colyseus). Remove define to disable multiplayer compile. -->
+	<define name="FURTHER_ONLINE" />
 	<define name="DISCORD_ALLOWED" if="desktop" />
 	<define name="TRANSLATIONS_ALLOWED" />
 	<define name="COPYSTATE_ALLOWED" if="MODS_ALLOWED mobile"/>
@@ -128,6 +130,9 @@
 
 	<haxelib name="flixel"/>
 	<haxelib name="flixel-addons" version="3.3.2"/>
+	<!-- Further Online -->
+	<haxelib name="colyseus" if="FURTHER_ONLINE"/>
+	<haxelib name="colyseus-websocket" if="FURTHER_ONLINE"/>
 	<haxelib name="tjson" version="1.4.0"/>
 	
 	<haxelib name="HtmlParser" />
@@ -231,6 +236,10 @@
 			<config:android extension="furtherengine.util.ShareImportUtil" />
 			<config:android permission="android.permission.INTERNET" />
 		<config:android permission="android.permission.ACCESS_NETWORK_STATE" />
+		<!-- Allow http:// and ws:// to LAN server (Colyseus matchmake) -->
+		<config:android>
+			<application android:usesCleartextTraffic="true" />
+		</config:android>
 		<config:android permission="android.permission.MANAGE_DOCUMENTS" />
 		<config:android permission="android.permission.MANAGE_EXTERNAL_STORAGE" />
 		<config:android permission="android.permission.READ_EXTERNAL_STORAGE" />

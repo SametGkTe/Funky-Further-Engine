@@ -41,6 +41,11 @@ class MainMenuState extends MusicBeatState
 	var camFollow:FlxObject;
 	var bottomBarHeight:Int = 56;
 
+	#if FURTHER_ONLINE
+	var onlineBtn:FlxSprite;
+	var onlineBtnText:FlxText;
+	#end
+
 	// ── Further Engine: güncelleme uyarısı tek sefer gösterilir (zamanlama güvenceli) ──
 	var updateWarningHandled:Bool = false;
 
@@ -135,6 +140,18 @@ class MainMenuState extends MusicBeatState
 			rightItem = createMenuItem(rightOption, FlxG.width - 60, 490);
 			rightItem.x -= rightItem.width;
 		}
+
+		#if FURTHER_ONLINE
+		// Sağ üstte görünür ONLINE butonu (atlas gerekmez)
+		onlineBtn = new FlxSprite(FlxG.width - 220, 20).makeGraphic(200, 48, 0xFF4A90E2);
+		onlineBtn.scrollFactor.set();
+		onlineBtn.antialiasing = ClientPrefs.data.antialiasing;
+		add(onlineBtn);
+		onlineBtnText = new FlxText(onlineBtn.x, onlineBtn.y + 10, onlineBtn.width, "ONLINE (O)", 18);
+		onlineBtnText.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		onlineBtnText.scrollFactor.set();
+		add(onlineBtnText);
+		#end
 
 		var psychVer:FlxText = new FlxText(12, FlxG.height - 44, 0, "Further Engine v" + psychEngineVersion, 12);
 		psychVer.scrollFactor.set();
@@ -540,6 +557,36 @@ class MainMenuState extends MusicBeatState
 				MusicBeatState.switchState(new MasterEditorMenu());
 			}
 		}
+
+		#if FURTHER_ONLINE
+		if (!selectedSomethin)
+		{
+			var openOnline = FlxG.keys.justPressed.O;
+			// mouse / touch on ONLINE button
+			if (!openOnline && onlineBtn != null && FlxG.mouse.justPressed)
+			{
+				var mx = FlxG.mouse.screenX;
+				var my = FlxG.mouse.screenY;
+				if (mx >= onlineBtn.x && mx <= onlineBtn.x + onlineBtn.width
+					&& my >= onlineBtn.y && my <= onlineBtn.y + onlineBtn.height)
+					openOnline = true;
+			}
+			#if mobile
+			if (!openOnline && onlineBtn != null && FlxG.mouse.justPressed)
+			{
+				// already handled via mouse emulation on many android builds
+			}
+			#end
+			if (openOnline)
+			{
+				selectedSomethin = true;
+				FlxG.mouse.visible = false;
+				FlxG.sound.play(Paths.sound('confirmMenu'));
+				MusicBeatState.switchState(new online.states.OnlineMenuState());
+				return;
+			}
+		}
+		#end
 
 		super.update(elapsed);
 	}

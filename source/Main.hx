@@ -201,8 +201,9 @@ class Main extends Sprite
 		Lib.current.stage.window.setIcon(icon);
 		#end
 
-		#if html5
+		// Online multiplayer + background: never freeze the game on focus loss
 		FlxG.autoPause = false;
+		#if html5
 		FlxG.mouse.visible = false;
 		#end
 
