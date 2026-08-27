@@ -67,6 +67,22 @@ import states.TitleState;
 	public var vSliceButtonWidth:Array<Float> = [0.1171875, 0.1171875, 0.1171875, 0.1171875];
 	public var vSliceButtonHeight:Array<Float> = [1.0, 1.0, 1.0, 1.0];
 	public var mobileExtraKeyReturns:Array<String> = ['SHIFT', 'SPACE', 'Q', 'E'];
+	// ── Audio Mixer kanal hacimleri ───────────────────────────────────
+	// Değişken isimleri Options sistemi ile uyumlu olsun diye volume_<ch> formatında
+	// (bkz. options/AudioSubState.hx ve backend/AudioMixer.hx)
+	// (0.0 sessiz – 1.0 varsayılan – 2.0 iki kat)
+	public var volume_master:Float = 1.0;
+	public var volume_music:Float  = 0.8;
+	public var volume_inst:Float   = 1.0;
+	public var volume_voices:Float = 1.0;
+	public var volume_hitSfx:Float = 0.85;
+	public var volume_ui:Float     = 0.9;
+	public var volume_sfx:Float    = 1.0;
+	public var volumeMuted:Bool    = false;
+
+	// ── İlk açılış kurulum sihirbazı ─────────────────────────────
+	// true ise wizard bir kere tamamlanmış demektir; doğrudan TitleState açılır.
+	public var setupWizardCompleted:Bool = false;
 	#if android
 	public var storageType:String = "EXTERNAL_PE";
 	public var openDataFolder:Bool = false;

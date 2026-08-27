@@ -1,6 +1,10 @@
 package states;
 
 import backend.SafeMode;
+import backend.AudioMixer;
+import backend.PerformanceProfiler;
+import backend.PerformanceProfile;
+import backend.Log;
 import flixel.FlxG;
 import flixel.FlxState;
 
@@ -25,6 +29,10 @@ class StartupState extends FlxState
 		backend.PolymodHandler.MODS_FOLDER = mobile.backend.StorageUtil.getExternalStorageDirectory() + 'mods';
 		#end
 		SafeMode.detectPersistentRequest();
+
+		// ── Core sistemleri başlangıçtan önce başlat ─────────────────
+		AudioMixer.init();
+		Log.info('boot', 'Further Engine başlıyor...');
 	}
 
 	override public function update(elapsed:Float):Void
@@ -61,13 +69,21 @@ class StartupState extends FlxState
 		else
 		{
 			Mods.currentModDirectory = '';
-			trace('[SafeMode] Modlar ve Polymod yüklenmeden oyun başlatılıyor.');
+			Log.warn('safemode', 'Modlar ve Polymod yüklenmeden oyun başlatılıyor.');
 		}
 
 		ClientPrefs.loadPrefs();
 		MobileConfig.initDefault();
+
+		// Performans profili uygulandıysa runtime ayarlarını yaşat
+		PerformanceProfiler.applyRuntimeSettings();
+		AudioMixer.syncFromPrefs();
+
+		Log.infoLazy('boot', function() return 'Ayarlar yüklendi, menüye geçiliyor (guvenliMod=' + SafeMode.active + ')');
 		if (!ClientPrefs.data.disableIntroVideo)
 			FlxG.switchState(new FurtherIntroState());
+		else if (!ClientPrefs.data.setupWizardCompleted)
+			FlxG.switchState(new SetupWizardState());
 		else
 			FlxG.switchState(new TitleState());
 	}

@@ -102,35 +102,42 @@ class CoolUtil
 	}
 	#end
 
-	inline public static function dominantColor(sprite:flixel.FlxSprite):Int
+	inline public static function dominantColor(sprite:flixel.FlxSprite, ?sampleStep:Int = 4):Int
 	{
+		// ORİJİNAL: her piksel tek tek dolaşılıyordu. Büyük spritelarda (128x128 = 16384 piksel)
+		// ana thread bloklanıyordu. Bunun yerine sampleStep piksel atlayarak örnekle; renk
+		// histogramı için %3-5 örnek yeterlidir.
+		// Ayrıca çoğunlukla saydam pikseli atla.
+		if (sprite == null || sprite.pixels == null) return FlxColor.BLACK;
+		var step:Int = sampleStep != null && sampleStep > 0 ? sampleStep : 4;
 		var countByColor:Map<Int, Int> = [];
-		for(col in 0...sprite.frameWidth)
+		var w = sprite.frameWidth;
+		var h = sprite.frameHeight;
+		var maxCount = 0;
+		var maxKey:Int = FlxColor.BLACK;
+		for (col in 0...w)
 		{
-			for(row in 0...sprite.frameHeight)
+			if (col % step != 0) continue;
+			for (row in 0...h)
 			{
+				if (row % step != 0) continue;
 				var colorOfThisPixel:FlxColor = sprite.pixels.getPixel32(col, row);
-				if(colorOfThisPixel.alphaFloat > 0.05)
+				if (colorOfThisPixel.alphaFloat > 0.1)
 				{
-					colorOfThisPixel = FlxColor.fromRGB(colorOfThisPixel.red, colorOfThisPixel.green, colorOfThisPixel.blue, 255);
-					var count:Int = countByColor.exists(colorOfThisPixel) ? countByColor[colorOfThisPixel] : 0;
-					countByColor[colorOfThisPixel] = count + 1;
+					// Alpha'yı 255'e sabitle, aynı rengin farklı alpha'ları aynı kaba girsin
+					var key:Int = FlxColor.fromRGB(colorOfThisPixel.red, colorOfThisPixel.green, colorOfThisPixel.blue, 255);
+					var count:Int = countByColor.exists(key) ? countByColor.get(key) : 0;
+					count++;
+					countByColor.set(key, count);
+					if (count > maxCount)
+					{
+						maxCount = count;
+						maxKey = key;
+					}
 				}
 			}
 		}
-
-		var maxCount = 0;
-		var maxKey:Int = 0; //after the loop this will store the max color
-		countByColor[FlxColor.BLACK] = 0;
-		for(key => count in countByColor)
-		{
-			if(count >= maxCount)
-			{
-				maxCount = count;
-				maxKey = key;
-			}
-		}
-		countByColor = [];
+		countByColor = null;
 		return maxKey;
 	}
 
@@ -182,7 +189,7 @@ class CoolUtil
 	**/
 	@:access(flixel.util.FlxSave.validate)
 	inline public static function getSavePath():String {
-		final company:String = FlxG.stage.application.meta.get('company');
+		var company:String = FlxG.stage.application.meta.get('company');
 		// #if (flixel < "5.0.0") return company; #else
 		return '${company}/${flixel.util.FlxSave.validate(FlxG.stage.application.meta.get('file'))}';
 		// #end

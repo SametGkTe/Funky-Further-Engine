@@ -144,6 +144,14 @@ class FurtherIntroState extends FlxState
 	{
 		FlxTransitionableState.skipNextTransIn = true;
 		FlxTransitionableState.skipNextTransOut = true;
-		FlxG.switchState(new TitleState());
+		if (!ClientPrefs.data.setupWizardCompleted)
+		{
+			SetupWizardState.returnToWizard = false;
+			FlxG.switchState(new SetupWizardState());
+		}
+		else
+		{
+			FlxG.switchState(new TitleState());
+		}
 	}
 }

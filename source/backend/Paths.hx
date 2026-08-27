@@ -5,6 +5,7 @@ import flixel.graphics.frames.FlxAtlasFrames;
 import flixel.graphics.FlxGraphic;
 import flixel.math.FlxRect;
 import flixel.system.FlxAssets;
+import backend.Log;
 
 import openfl.display.BitmapData;
 import openfl.display3D.textures.RectangleTexture;
@@ -394,7 +395,7 @@ class Paths
 
 			if (bitmap == null)
 			{
-				trace('Bitmap not found: $file | key: $key');
+				Log.warn('asset', 'Bitmap not found: $file | key: $key');
 				return null;
 			}
 		}
@@ -531,9 +532,11 @@ class Paths
 
 	inline static public function getSparrowAtlas(key:String, ?parentFolder:String = null, ?allowGPU:Bool = true):FlxAtlasFrames
 	{
-		if(key.contains('psychic')) trace(key, parentFolder, allowGPU);
+		#if debug
+		if(key.contains('psychic')) Log.debug('asset', 'Sparrow atlas: $key (folder=$parentFolder, gpu=$allowGPU)');
+		#end
 		var imageLoaded:FlxGraphic = image(key, parentFolder, allowGPU);
-		if (imageLoaded == null) { trace('[Paths] Sparrow PNG yüklenemedi: $key'); return null; }
+		if (imageLoaded == null) { Log.warn('asset', 'Sparrow PNG yüklenemedi: $key'); return null; }
 		#if MODS_ALLOWED
 		var xmlExists:Bool = false;
 
@@ -549,7 +552,7 @@ class Paths
 	inline static public function getPackerAtlas(key:String, ?parentFolder:String = null, ?allowGPU:Bool = true):FlxAtlasFrames
 	{
 		var imageLoaded:FlxGraphic = image(key, parentFolder, allowGPU);
-		if (imageLoaded == null) { trace('[Paths] Packer PNG yüklenemedi: $key'); return null; }
+		if (imageLoaded == null) { Log.warn('asset', 'Packer PNG yüklenemedi: $key'); return null; }
 		#if MODS_ALLOWED
 		var txtExists:Bool = false;
 		
@@ -565,7 +568,7 @@ class Paths
 	inline static public function getAsepriteAtlas(key:String, ?parentFolder:String = null, ?allowGPU:Bool = true):FlxAtlasFrames
 	{
 		var imageLoaded:FlxGraphic = image(key, parentFolder, allowGPU);
-		if (imageLoaded == null) { trace('[Paths] Aseprite PNG yüklenemedi: $key'); return null; }
+		if (imageLoaded == null) { Log.warn('asset', 'Aseprite PNG yüklenemedi: $key'); return null; }
 		#if MODS_ALLOWED
 		var jsonExists:Bool = false;
 
@@ -579,8 +582,8 @@ class Paths
 	}
 
 	inline static public function formatToSongPath(path:String) {
-		final invalidChars = ~/[~&;:<>#\s]/g;
-		final hideChars = ~/[.,'"%?!]/g;
+		var invalidChars = ~/[~&;:<>#\s]/g;
+		var hideChars = ~/[.,'"%?!]/g;
 
 		return hideChars.replace(invalidChars.replace(path, '-'), '').trim().toLowerCase();
 	}
@@ -602,7 +605,7 @@ class Paths
 			#end
 			else if(beepOnNull)
 			{
-				trace('SOUND NOT FOUND: $key, PATH: $path');
+				Log.warn('audio', 'SOUND NOT FOUND: $key, PATH: $path');
 				FlxG.log.error('SOUND NOT FOUND: $key, PATH: $path');
 				return FlxAssets.getSound('flixel/sounds/beep');
 			}

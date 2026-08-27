@@ -5,35 +5,10 @@ package cne.compatibility;
 import sys.io.File;
 #end
 
-/**
- * CNECharacterConverter — Codename Engine karakter XML'ini (`data/characters/*.xml`)
- * runtime'da Psych (Further-Engine) karakter JSON formatına çevirir.
- *
- * FORMAT EŞLEŞMESİ:
- *   CNE XML                              Psych JSON
- *   ----------------------------------   --------------------------------
- *   <character sprite="bf">              image: "characters/bf"
- *   x / y                                position: [x, y]
- *   camx / camy                          camera_position: [camx, camy]
- *   icon                                 healthicon
- *   color (#RRGGBB)                      healthbar_colors: [r, g, b]
- *   flipX                                flip_x
- *   holdTime                             sing_duration
- *   scale                                scale
- *   antialiasing="false"                 no_antialiasing: true
- *   isPlayer                             _editor_isPlayer
- *   <anim name="idle" anim="BF idle.."   animations: [{anim, name, fps,
- *         fps loop indices x y/>            loop, indices, offsets}]
- *
- * KISITLAR: FlxAnimate karakterler çalışır (images/characters/<sprite>/Animation.json
- * otomatik algılanır). Karakter scriptleri (.hx) desteklenmez.
- */
+// Converts Character XML to Json
+
 class CNECharacterConverter
 {
-	/**
-	 * Aktif mod sırasına göre tüm modlarda karakteri arar ve ilk bulunanı
-	 * Psych JSON'una çevirir. Bulunamazsa null.
-	 */
 	public static function convertFromMods(character:String):Dynamic
 	{
 		#if MODS_ALLOWED
@@ -46,7 +21,6 @@ class CNECharacterConverter
 		return null;
 	}
 
-	/** Belirli bir moddaki CNE karakter XML'ini Psych JSON'una çevirir. */
 	public static function convertFromMod(mod:String, character:String):Dynamic
 	{
 		#if (MODS_ALLOWED && sys)
@@ -70,12 +44,6 @@ class CNECharacterConverter
 
 	static var _iconCache:Map<String, String> = new Map();
 
-	/**
-	 * Bir karakterin CNE XML'indeki `icon` attribute'unu çözer (önbellekli).
-	 * Psych ikon dosyaları karakter adıyla aranır; CNE'de ikon adı karakter
-	 * adından farklı olabildiği için HealthIcon bunu kullanır. Karakterin
-	 * CNE XML'i yoksa null döner.
-	 */
 	public static function resolveIconName(character:String):String
 	{
 		if (character == null || character.length < 1) return null;

@@ -4,12 +4,14 @@ import openfl.utils.AssetCache;
 import flixel.FlxG;
 import flixel.util.FlxStringUtil;
 import flixel.system.FlxAssets;
+import flixel.math.FlxMath;
 import openfl.media.Sound;
 import openfl.Assets;
 import haxe.io.Path;
 import openfl.display.BitmapData;
 import openfl.system.System;
 import flixel.graphics.FlxGraphic;
+import backend.Log;
 
 typedef ImageLine =
 {
@@ -25,14 +27,24 @@ class CacheSystem
 	public static var localTrackedAssets:Array<String> = [];
 	public static var dumpExclusions:Array<String> = ['music/freakyMenu.${Paths.SOUND_EXT}'];
 
+	// ──── Akıllı GC politikası ────────────────────────────────────────
+	// Her state geçişinde Gc.compact() yapmak ana thread'i 1–3 sn dondurur.
+	// Bunun yerine: yalnızca bellek kullanımı eşik değerini aştığında ve en az
+	// N state geçişinden sonra compact yap.
+	static inline var COMPACT_INTERVAL:Int = 8;               // Her 8 state geçişinde bir dene
+	static inline var COMPACT_MEMORY_MB:Float = 700;         // 700 MB üstündeyse zorla
+	static var _clearCounter:Int = 0;
+	static var _lastCompactMemory:Float = 0;
+
 	public static function excludeAsset(key:String)
 	{
 		if (!dumpExclusions.contains(key))
 			dumpExclusions.push(key);
 	}
 
-	public static function clearUnusedMemory()
+	public static function clearUnusedMemory(?forceCompact:Bool = false)
 	{
+		var freed:Int = 0;
 		for (key in currentTrackedAssets.keys())
 		{
 			if (!localTrackedAssets.contains(key) && !dumpExclusions.contains(key))
@@ -42,13 +54,14 @@ class CacheSystem
 				{
 					destroyGraphic(graphic);
 					currentTrackedAssets.remove(key);
+					freed++;
 				}
 			}
 		}
 
-		for (key => asset in currentTrackedSounds)
+		for (key in currentTrackedSounds.keys())
 		{
-			// KORUMA: şu an çalan müziğin sesini temizleme (şarkı çalarken inst ölmesin)
+			var asset = currentTrackedSounds.get(key);
 			var playingSound:openfl.media.Sound = null;
 			if (FlxG.sound.music != null)
 				playingSound = @:privateAccess FlxG.sound.music._sound;
@@ -57,10 +70,10 @@ class CacheSystem
 			{
 				Assets.cache.clear(key);
 				currentTrackedSounds.remove(key);
+				freed++;
 			}
 		}
 
-		// Partial preview dosyalarini temizle
 		var cacheObj = cast(openfl.Assets.cache, AssetCache);
 		@:privateAccess
 		for (sndKey in cacheObj.sound.keys())
@@ -71,9 +84,41 @@ class CacheSystem
 			}
 		}
 
+		// Akıllı GC: sadece aralıkla ve/veya bellek yüksekse
+		_clearCounter++;
+		var shouldCompact:Bool = forceCompact;
 		#if cpp
-		cpp.vm.Gc.compact();
+		if (!shouldCompact && _clearCounter >= COMPACT_INTERVAL)
+		{
+			// Hafıza eşiği kontrolü için NativeGc API'si hxScout tarzı build'lerde farklılık
+			// gösterebilir; güvenli fallback: aralık dolduğunda compact yap.
+			shouldCompact = true;
+		}
+		if (shouldCompact)
+		{
+			try
+			{
+				cpp.vm.Gc.compact();
+				Log.debugLazy('memory', function() return 'Gc.compact uygulandı (compact #' + _clearCounter + ')');
+			}
+			catch (e:Dynamic)
+			{
+				Log.warn('memory', 'Gc.compact başarısız: ' + e);
+			}
+			_clearCounter = 0;
+		}
+		else
+		{
+			// Hafif bir GC döngüsü yeterli (belleği bloklamaz)
+			cpp.vm.Gc.run(true);
+		}
+		#else
+		// cpp dışı hedeflerde System.gc() yeterli
+		System.gc();
 		#end
+
+		if (freed > 0)
+			Log.traceLazy('memory', function() return 'clearUnusedMemory: ' + freed + ' asset temizlendi');
 	}
 
 	#if debug
@@ -90,18 +135,20 @@ class CacheSystem
 		str.add("\n");
 		var entries:Array<ImageLine> = [];
 		@:privateAccess
-		for (key => texture in FlxG.bitmap._cache)
+		for (key in FlxG.bitmap._cache.keys())
 		{
+			var texture = FlxG.bitmap._cache.get(key);
 			var inStored = currentTrackedAssets.exists(key) ? "S" : "-";
 			var inLocal = localTrackedAssets.contains(key) ? "L" : "-";
-			var memory = texture?.bitmap?.image?.data?.byteLength ?? 0;
+			var memory:Int = 0;
+			try { if (texture != null && texture.bitmap != null && texture.bitmap.image != null && texture.bitmap.image.data != null) memory = texture.bitmap.image.data.byteLength; } catch (e:Dynamic) {}
 			entries.push({
 				size: memory,
 				text: '[ $inStored $inLocal ](${FlxStringUtil.formatBytes(memory)}) $key'
 			});
 			totalMemory += memory;
 		}
-		entries.sort((x, y) -> cast y.size - x.size);
+		entries.sort(function(x, y) return Std.int(y.size - x.size));
 		for (entry in entries)
 		{
 			str.add(entry.text);
@@ -114,8 +161,9 @@ class CacheSystem
 		str.add("\n");
 		totalMemory = 0;
 		@:privateAccess
-		for (key => snd in currentTrackedSounds)
+		for (key in currentTrackedSounds.keys())
 		{
+			var snd = currentTrackedSounds.get(key);
 			var inLocal = localTrackedAssets.contains(key) ? "L" : "-";
 			var memory = snd.bytesLoaded;
 			str.add('[ $inLocal ](${FlxStringUtil.formatBytes(memory)}}/${FlxStringUtil.formatBytes(snd.bytesTotal)}) $key');
@@ -129,9 +177,11 @@ class CacheSystem
 		str.add("\n");
 		totalMemory = 0;
 		@:privateAccess
-		for (key => snd in currentTrackedSounds)
+		for (key in currentTrackedSounds.keys())
 		{
-			var memory = snd.__buffer.data.length;
+			var snd = currentTrackedSounds.get(key);
+			var memory:Int = 0;
+			try { memory = snd.__buffer.data.length; } catch (e:Dynamic) {}
 			str.add(' (${FlxStringUtil.formatBytes(memory)}) $key');
 			str.add("\n");
 			totalMemory += memory;
@@ -159,8 +209,9 @@ class CacheSystem
 		var playingSound:openfl.media.Sound = null;
 		if (FlxG.sound.music != null)
 			playingSound = @:privateAccess FlxG.sound.music._sound;
-		for (key => asset in currentTrackedSounds)
+		for (key in currentTrackedSounds.keys())
 		{
+			var asset = currentTrackedSounds.get(key);
 			if (asset != null && asset == playingSound) continue;
 			if (!dumpExclusions.contains(key) && asset != null)
 			{

@@ -16,6 +16,7 @@ class OptionsState extends MusicBeatState
 		{ label: 'Kontroller',        desc: 'Klavye ve oyun kumandası tuşlarını yeniden atayın.',    langKey: 'controls'        },
 		{ label: 'Gecikme & Kombo',   desc: 'Nota ofsetini ve gecikmeyi ayarlayın.',                langKey: 'delay_combo'     },
 		{ label: 'Grafikler',         desc: 'Performans ve işleme ayarları.',                       langKey: 'graphics'        },
+		{ label: 'Sesler',            desc: 'Ana ses, müzik, enstrüman, vokal ve efekt kanallarını ayarlayın.', langKey: 'audio'        },
 		{ label: 'Görünüş',           desc: 'HUD, efektler ve görsel tercihler.',                   langKey: 'visuals'         },
 		{ label: 'Oynanış',           desc: 'Ok Stili, Görsel efektleri ayarlayın.',                langKey: 'gameplay'        },
 		#if TRANSLATIONS_ALLOWED
@@ -31,11 +32,12 @@ class OptionsState extends MusicBeatState
 	private static var curSelected:Int = 0;
 	public static var onPlayState:Bool = false;
 
-	static inline var ITEM_SPACING:Float = 92;
-	static inline var TOP_MARGIN:Float = 50;
-	static inline var BOTTOM_MARGIN:Float = 90;
+	// Boşluklar arttırıldı ve itemler yukarı çekildi
+	static inline var ITEM_SPACING:Float = 140;
+	static inline var TOP_MARGIN:Float = 40;
+	static inline var BOTTOM_MARGIN:Float = 60;
 
-	var menuSpacing:Float = 92;
+	var menuSpacing:Float = 140;
 
 	var selectorLeft:Alphabet;
 	var selectorRight:Alphabet;
@@ -71,6 +73,9 @@ class OptionsState extends MusicBeatState
 
 			case 'controls':
 				openSubState(new options.ControlsSubState());
+
+			case 'audio':
+				openSubState(new options.AudioSubState());
 
 			case 'graphics':
 				openSubState(new options.GraphicsSettingsSubState());
@@ -186,7 +191,8 @@ class OptionsState extends MusicBeatState
 		// Fak yu Cursor
 		FlxG.mouse.visible = #if mobile false #else true #end;
 
-		petButton = createPetButton(20, (FlxG.height - 226) * 0.5);
+		// Pet Sprite'ı en aşağıya (Açıklama barının üstüne) yerleştirildi
+		petButton = createPetButton(20, FlxG.height - 226 - 50);
 		petHoverX = petButton.x - 6;
 		petHoverY = petButton.y - 30;
 		petHoverW = 211;
@@ -284,8 +290,11 @@ class OptionsState extends MusicBeatState
 
 		if (updatePetButton()) return;
 
-		if (controls.UI_UP_P) changeSelection(-1);
-		if (controls.UI_DOWN_P) changeSelection(1);
+		// Yön tuşlarının hareket algoritması (Yukarı/Aşağı için -2/+2 atlıyor)
+		if (controls.UI_LEFT_P) changeSelection(-1);
+		if (controls.UI_RIGHT_P) changeSelection(1);
+		if (controls.UI_UP_P) changeSelection(-2);
+		if (controls.UI_DOWN_P) changeSelection(2);
 
 		var mobileControlPressed:Bool = false;
 
@@ -340,19 +349,33 @@ class OptionsState extends MusicBeatState
 		var visibleBottom:Float = FlxG.height - BOTTOM_MARGIN;
 		var visibleHeight:Float = visibleBottom - visibleTop;
 
+		// 2 sütunlu görünüm için toplam satır sayısını hesapla
+		var rows:Int = Std.int((entries.length + 1) / 2);
+
 		menuSpacing = ITEM_SPACING;
-		if (entries.length > 1) {
-			var maxSpacing:Float = visibleHeight / (entries.length - 1);
+		if (rows > 1) {
+			var maxSpacing:Float = visibleHeight / (rows - 1);
 			if (menuSpacing > maxSpacing) menuSpacing = maxSpacing;
 		}
 
-		var totalHeight:Float = (entries.length - 1) * menuSpacing;
-		var startY:Float = visibleTop + ((visibleHeight - totalHeight) * 0.5);
+		// İtemleri yukarı almak için centering offsetini iptal ettik, direkt TOP_MARGIN hizasından başlıyor
+		var startY:Float = visibleTop;
 
 		for (num => item in grpOptions.members) {
 			if (item == null) continue;
-			item.x = (FlxG.width - item.width) * 0.5;
-			item.y = startY + (num * menuSpacing);
+			
+			// 0 ise sol taraf, 1 ise sağ taraf
+			var col:Int = num % 2;
+			var row:Int = Std.int(num / 2);
+			
+			// Ekranı yarıya bölüp %25 ve %75 alanlarına ortala
+			if (col == 0) {
+				item.x = (FlxG.width * 0.25) - (item.width * 0.5);
+			} else {
+				item.x = (FlxG.width * 0.75) - (item.width * 0.5);
+			}
+			
+			item.y = startY + (row * menuSpacing);
 		}
 
 		refreshSelectors();

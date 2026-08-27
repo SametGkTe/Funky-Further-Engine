@@ -20,29 +20,50 @@ class AchievementPopup extends Sprite {
 	// ══════════════════════════════════════
 	public static var DEBUG_MODE:Bool = true;
 	static var _debugTriggered:Bool = false;
+	static var _debugFrame1:Event->Void = null;
+	static var _debugFrame2:Event->Void = null;
 
 	public static function debugTest():Void {
 		if (!DEBUG_MODE || _debugTriggered)
 			return;
 		_debugTriggered = true;
 
+		// İkinci bir debug isteğini engelle + eski listener'ları temizle (re-enter durumunda leak)
+		cleanupDebugListeners();
+
 		var startTime:Float = Lib.getTimer();
-		FlxG.stage.addEventListener(Event.ENTER_FRAME, function debugFrame1(e:Event):Void {
+		_debugFrame1 = function(e:Event):Void {
 			var now:Float = Lib.getTimer();
 			if ((now - startTime) >= 1000) {
-				FlxG.stage.removeEventListener(Event.ENTER_FRAME, debugFrame1);
+				FlxG.stage.removeEventListener(Event.ENTER_FRAME, _debugFrame1);
+				_debugFrame1 = null;
 				Achievements.startPopup('__debug_test_1', null);
 
 				var startTime2:Float = Lib.getTimer();
-				FlxG.stage.addEventListener(Event.ENTER_FRAME, function debugFrame2(e2:Event):Void {
+				_debugFrame2 = function(e2:Event):Void {
 					var now2:Float = Lib.getTimer();
 					if ((now2 - startTime2) >= 2500) {
-						FlxG.stage.removeEventListener(Event.ENTER_FRAME, debugFrame2);
+						FlxG.stage.removeEventListener(Event.ENTER_FRAME, _debugFrame2);
+						_debugFrame2 = null;
 						Achievements.startPopup('__debug_test_2', null);
+						_debugTriggered = false;
 					}
-				});
+				};
+				FlxG.stage.addEventListener(Event.ENTER_FRAME, _debugFrame2);
 			}
-		});
+		};
+		FlxG.stage.addEventListener(Event.ENTER_FRAME, _debugFrame1);
+	}
+
+	static function cleanupDebugListeners():Void {
+		if (_debugFrame1 != null) {
+			FlxG.stage.removeEventListener(Event.ENTER_FRAME, _debugFrame1);
+			_debugFrame1 = null;
+		}
+		if (_debugFrame2 != null) {
+			FlxG.stage.removeEventListener(Event.ENTER_FRAME, _debugFrame2);
+			_debugFrame2 = null;
+		}
 	}
 	// ══════════════════════════════════════
 
@@ -378,16 +399,43 @@ class AchievementPopup extends Sprite {
 	}
 
 	public function destroy():Void {
+		if (_isDead)
+			return;
+		_isDead = true;
+		_state = DEAD;
+
+		// Listener'ları mutlaka kaldır (stage'e eklenenler sprite ölse bile kalır)
+		removeEventListener(Event.ENTER_FRAME, _onEnterFrame);
+		if (FlxG.stage != null)
+			FlxG.stage.removeEventListener(Event.RESIZE, _onResize);
+
+		// Çocukları ve grafikleri temizle (bellek sızıntısı önle)
+		if (_bg != null) { _bg.graphics.clear(); removeChild(_bg); _bg = null; }
+		if (_accentBar != null) { _accentBar.graphics.clear(); removeChild(_accentBar); _accentBar = null; }
+		if (_timerBar != null) { _timerBar.graphics.clear(); removeChild(_timerBar); _timerBar = null; }
+		if (_iconSprite != null) {
+			_iconSprite.graphics.clear();
+			if (_iconSprite.numChildren > 0) _iconSprite.removeChildren(0, _iconSprite.numChildren - 1);
+			removeChild(_iconSprite);
+			_iconSprite = null;
+		}
+		if (_titleField != null) { removeChild(_titleField); _titleField.text = ''; _titleField = null; }
+		if (_descField != null) { removeChild(_descField); _descField.text = ''; _descField = null; }
+
+		this.graphics.clear();
+		if (this.numChildren > 0)
+			this.removeChildren(0, this.numChildren - 1);
+
 		Achievements._popups.remove(this);
 
-		if (FlxG.game.contains(this))
+		if (FlxG.game != null && FlxG.game.contains(this))
 			FlxG.game.removeChild(this);
 
-		FlxG.stage.removeEventListener(Event.RESIZE, _onResize);
-		removeEventListener(Event.ENTER_FRAME, _onEnterFrame);
-
-		if (onFinish != null)
-			onFinish();
+		if (onFinish != null) {
+			var cb = onFinish;
+			onFinish = null;
+			cb();
+		}
 	}
 }
 

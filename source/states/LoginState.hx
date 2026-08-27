@@ -11,24 +11,24 @@ import flixel.tweens.FlxEase;
 import flixel.util.FlxTimer;
 
 class LoginState extends MusicBeatState {
-	static inline final C_BG = 0xFF0a0a0a;
-	static inline final C_CARD = 0xFF161616;
-	static inline final C_FIELD = 0xFF111111;
-	static inline final C_FIELD_LINE = 0xFF444444;
-	static inline final C_ACCENT = 0xFF888888;
-	static inline final C_ACCENT_LIGHT = 0xFFaaaaaa;
-	static inline final C_TEXT = 0xFFe0e0e0;
-	static inline final C_MUTED = 0xFF606060;
-	static inline final C_RED = 0xFFef4444;
-	static inline final C_GREEN = 0xFF22c55e;
-	static inline final C_BTN = 0xFF2a2a2a;
-	static inline final C_BTN_HOVER = 0xFF383838;
-	static inline final C_BORDER = 0xFF222222;
+	static inline var C_BG = 0xFF0a0a0a;
+	static inline var C_CARD = 0xFF161616;
+	static inline var C_FIELD = 0xFF111111;
+	static inline var C_FIELD_LINE = 0xFF444444;
+	static inline var C_ACCENT = 0xFF888888;
+	static inline var C_ACCENT_LIGHT = 0xFFaaaaaa;
+	static inline var C_TEXT = 0xFFe0e0e0;
+	static inline var C_MUTED = 0xFF606060;
+	static inline var C_RED = 0xFFef4444;
+	static inline var C_GREEN = 0xFF22c55e;
+	static inline var C_BTN = 0xFF2a2a2a;
+	static inline var C_BTN_HOVER = 0xFF383838;
+	static inline var C_BORDER = 0xFF222222;
 
-	static inline final CARD_W = 440;
-	static inline final CARD_H = 500;
-	static inline final FIELD_W = 370;
-	static inline final FIELD_H = 44;
+	static inline var CARD_W = 440;
+	static inline var CARD_H = 500;
+	static inline var FIELD_W = 370;
+	static inline var FIELD_H = 44;
 
 	var cardX:Float;
 	var cardY:Float;
@@ -455,6 +455,13 @@ class LoginState extends MusicBeatState {
 		if (_busy) return;
 		FlxG.sound.play(Paths.sound('cancelMenu'));
 		PsychUIInputText.focusOn = null;
+		if (SetupWizardState.returnToWizard) {
+			SetupWizardState.returnToWizard = false;
+			FlxTransitionableState.skipNextTransIn = true;
+			FlxTransitionableState.skipNextTransOut = true;
+			FlxG.switchState(new SetupWizardState());
+			return;
+		}
 		MenuStyleRouter.goToMainMenu();
 	}
 }

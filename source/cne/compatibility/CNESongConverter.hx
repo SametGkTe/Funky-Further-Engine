@@ -8,46 +8,14 @@ import sys.FileSystem;
 import sys.io.File;
 #end
 
-/**
- * CNESongConverter — Codename Engine chart'larını (`songs/<song>/charts/<diff>.json`
- * + `meta.json`) runtime'da Psych (Further-Engine) `SwagSong` formatına çevirir.
- *
- * FORMAT EŞLEŞMESİ:
- *   CNE chart                                  Psych SwagSong
- *   ----------------------------------------   --------------------------------
- *   strumLines[].type 0 (OPPONENT) notları     sectionNotes lane 4-7
- *   strumLines[].type 1 (PLAYER) notları       sectionNotes lane 0-3
- *   strumLines[].type 2 (ADDITIONAL)           karşı tarafa eklenir (CPU)
- *   note {time, id, sLen, type}                [time, lane, sLen, noteTypeName]
- *   noteTypes[type-1]                          not tipi adı ('' = varsayılan)
- *   events: {name, time, params}               events: [time, [[name, v1, v2]]]
- *   events "BPM Change"                        section.changeBPM / section.bpm
- *   meta.bpm / chart.meta.bpm                  bpm
- *   scrollSpeed (sayı veya {default: n})       speed
- *   stage                                      stage
- *   strumLines[].characters[0]                 player1 / player2 / gfVersion
- *   meta.needsVoices                           needsVoices
- *
- * KISITLAR: 4k dışı keycount desteklenmez (id > 3 notlar atlanır).
- * "Camera Movement", "Alt Animation Toggle" ve "HScript Call" eventleri yok
- * sayılır; diğer event isimleri olduğu gibi aktarılır (Psych tarafında eş
- * isimli custom event varsa çalışır).
- */
+// CNE Chart Converter
+
 class CNESongConverter
 {
-	/** Son başarılı çevirinin chart dosya yolu (Song.chartPath için). */
 	public static var lastConvertedPath:String = '';
 
 	static final SKIP_EVENTS:Array<String> = ['camera movement', 'alt animation toggle', 'hscript call', 'unknown'];
 
-	/**
-	 * Aktif mod sırasına göre şarkının CNE chart'ını arar ve Psych SwagSong'a
-	 * çevirir. Chart hangi modda bulunduysa `Mods.currentModDirectory` o moda
-	 * bağlanır (sahne/ses çözümlemesi aynı moddan devam etsin diye).
-	 *
-	 * @param folder     Şarkı adı (getChart'ın folder parametresi)
-	 * @param difficulty Zorluk adı (getChart'ın jsonInput parametresi)
-	 */
 	public static function convertFromMods(folder:String, difficulty:String):Dynamic
 	{
 		#if (MODS_ALLOWED && sys)
@@ -67,10 +35,6 @@ class CNESongConverter
 		return null;
 	}
 
-	/**
-	 * Tek bir chart dosyasını okur, meta.json ve events.json ile birleştirip
-	 * Psych SwagSong'a çevirir.
-	 */
 	public static function convert(mod:String, songName:String, difficulty:String, chartPath:String):Dynamic
 	{
 		#if (MODS_ALLOWED && sys)
@@ -116,12 +80,6 @@ class CNESongConverter
 		#end
 	}
 
-	/**
-	 * Zaten parse edilmiş bir CNE chart nesnesini çevirir (Chart Editor gibi
-	 * dosya içeriğine doğrudan sahip akışlar için). CNE chart'ı değilse null.
-	 *
-	 * @param suggestedName Dosya adı veya yol; şarkı adı buradan türetilir
-	 */
 	public static function convertRaw(rawJson:Dynamic, ?suggestedName:String):Dynamic
 	{
 		if (rawJson == null) return null;
@@ -162,7 +120,7 @@ class CNESongConverter
 
 			var strumLines:Array<Dynamic> = (chart.strumLines != null) ? chart.strumLines : [];
 
-			// ---- KARAKTERLER ----
+			// Characters
 			var player1:String = 'bf';
 			var player2:String = 'dad';
 			var gfVersion:String = 'gf';
@@ -194,7 +152,6 @@ class CNESongConverter
 				}
 			}
 
-			// ---- SCROLL SPEED ----
 			var speed:Float = 1;
 			if (chart.scrollSpeed != null)
 			{
@@ -214,7 +171,6 @@ class CNESongConverter
 			}
 			if (speed <= 0) speed = 1;
 
-			// ---- EVENTLER ----
 			var bpmChanges:Array<{time:Float, bpm:Float}> = [];
 			var psychEvents:Array<Dynamic> = [];
 			var rawEvents:Array<Dynamic> = (chart.events != null) ? chart.events : [];
@@ -241,7 +197,6 @@ class CNESongConverter
 			}
 			bpmChanges.sort(function(a, b) return a.time < b.time ? -1 : (a.time > b.time ? 1 : 0));
 
-			// ---- NOTLAR ----
 			var noteTypes:Array<String> = (chart.noteTypes != null) ? chart.noteTypes : [];
 			var allNotes:Array<{time:Float, lane:Int, sLen:Float, type:Int, player:Bool}> = [];
 			var lastTime:Float = 0;
@@ -265,7 +220,6 @@ class CNESongConverter
 			}
 			allNotes.sort(function(a, b) return a.time < b.time ? -1 : (a.time > b.time ? 1 : 0));
 
-			// ---- BÖLÜMLER (BPM değişim noktalarına göre) ----
 			var sections:Array<Dynamic> = [];
 
 			// [t0, t1) aralığını b BPM'inde beatsPerMeasure'lik bölümlere böler.
@@ -321,7 +275,6 @@ class CNESongConverter
 				});
 			}
 
-			// Bölüm başlangıç zamanları (not ataması için)
 			var starts:Array<Float> = [];
 			var acc:Float = 0;
 			for (sec in sections)
@@ -345,7 +298,7 @@ class CNESongConverter
 				if (n.player) sec.mustHitSection = true;
 			}
 
-			// ---- VOCALS ----
+			// Vokal
 			var needsVoices:Bool = true;
 			if (meta != null && Reflect.hasField(meta, 'needsVoices') && Reflect.field(meta, 'needsVoices') != null)
 				needsVoices = Reflect.field(meta, 'needsVoices') == true;
@@ -379,11 +332,7 @@ class CNESongConverter
 		}
 	}
 
-	/**
-	 * CNE event listesini ({name, time, params}) Psych event formatına
-	 * ([time, [[name, v1, v2]]]) çevirir. Chart Editor'ün events.json
-	 * yüklemesi için kullanılır.
-	 */
+	// Event Convert
 	public static function convertEventsList(rawEvents:Array<Dynamic>):Array<Dynamic>
 	{
 		var out:Array<Dynamic> = [];

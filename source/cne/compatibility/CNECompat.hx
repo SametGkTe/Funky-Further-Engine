@@ -8,42 +8,15 @@ import haxe.Json;
 import sys.FileSystem;
 #end
 
-/**
- * CNECompat — Codename Engine (CNE) mod tespiti ve asset yol yardımcıları.
- *
- * Codename Engine modlarının fiziksel düzeni (assets ağacı DOĞRUDAN mod
- * kökündedir; CNE'deki 'assets/' yalnızca sanal yol önekidir):
- *
- *   mods/MyMod/
- *     data/characters/*.xml        mods/MyMod/data/stages/*.xml
- *     data/weeks/weeks/*.xml       data/config/modpack.ini
- *     songs/<şarkı>/charts/*.json  songs/<şarkı>/meta.json
- *     songs/<şarkı>/song/Inst.ogg  songs/<şarkı>/song/Voices.ogg
- *     images/  music/  sounds/  fonts/  videos/  shaders/ ...
- *
- * Ayrıca '<mod>/assets/' altına sarılmış düzenler de desteklenir.
- *
- * Bu sınıf:
- *   - Bir mod klasörünün CNE modu olup olmadığını Psych modlarıyla
- *     çakışmayacak marker'larla (önbellekli) tespit eder.
- *   - `Paths.modFolders` ve arkadaşlarının kullanması için `cneFile()`
- *     çözümlemesini sunar.
- *   - Şarkı (chart/meta/ses), karakter XML'i, sahne XML'i bulma yardımcıları
- *     sağlar (büyük/küçük harf duyarsız).
- *
- * ÖNEMLİ: Bu sınıf yalnızca dosya sistemi çözümlemesi yapar; içeriği Psych
- * formatına çevirme işi CNECharacterConverter / CNEStageConverter /
- * CNESongConverter / CNEWeekConverter sınıflarındadır.
- *
- * HScript/Lua script desteği, ZIP modlar ve CNE addon'ları KAPSAM DIŞIDIR.
- */
+// CNE Mod Checker
+
 class CNECompat
 {
 	static var _modCache:Map<String, Bool> = new Map();
 	static var _rootCache:Map<String, String> = new Map();
 	static var _metaCache:Map<String, Dynamic> = new Map();
 
-	/** Önbellekleri sıfırlar (mod listesi değiştiğinde çağrılmalı). */
+	// Cache
 	public static function invalidate():Void
 	{
 		_modCache = new Map();
@@ -51,16 +24,12 @@ class CNECompat
 		_metaCache = new Map();
 	}
 
-	/** Klasör bir Codename Engine modu mu? */
+	// CNE Mod?
 	public static function isCNEMod(folder:String):Bool
 	{
 		return cneRoot(folder) != null;
 	}
 
-	/**
-	 * CNE modunun fiziksel asset kökünü döndürür (mutlak yol), CNE modu
-	 * değilse null. Sonuç önbelleğe alınır.
-	 */
 	public static function cneRoot(folder:String):String
 	{
 		if (folder == null || folder.length < 1) return null;
@@ -91,14 +60,6 @@ class CNECompat
 		#end
 	}
 
-	/**
-	 * Bir klasörün CNE asset ağacı olup olmadığını gösteren işaretler.
-	 * Psych modlarıyla çakışmayacak kadar spesifik seçildiler:
-	 *   - data/config/modpack.ini (CNE mod yapılandırması)
-	 *   - data/weeks/weeks/ klasörü (CNE hafta XML'leri)
-	 *   - songs/<şarkı>/charts/ klasörü (CNE chart düzeni)
-	 *   - data/stages/*.xml veya data/characters/*.xml
-	 */
 	static function hasCNEMarkers(base:String):Bool
 	{
 		#if (MODS_ALLOWED && sys)
@@ -137,10 +98,6 @@ class CNECompat
 		return false;
 	}
 
-	/**
-	 * `<kök>/<key>` yolu varsa döndürür (dosya veya klasör), yoksa null.
-	 * Psych yolları her zaman önce denenmelidir; bu yalnızca CNE köprüsüdür.
-	 */
 	public static function cneFile(mod:String, key:String):String
 	{
 		#if (MODS_ALLOWED && sys)
@@ -152,10 +109,6 @@ class CNECompat
 		return null;
 	}
 
-	/**
-	 * CNE varlıkları aranırken kullanılacak mod sırası:
-	 * aktif mod > global modlar > modsList.txt sırası.
-	 */
 	public static function modSearchOrder():Array<String>
 	{
 		var list:Array<String> = [];
@@ -178,14 +131,12 @@ class CNECompat
 		return list;
 	}
 
-	/** Psych/CNE şarkı adı normalizasyonu (küçük harf, boşluk -> tire). */
 	public static function normalizeSong(name:String):String
 	{
 		if (name == null) return '';
 		return StringTools.trim(name).toLowerCase().split(' ').join('-');
 	}
 
-	/** Moddaki şarkı klasörünü büyük/küçük harf duyarsız bulur. */
 	public static function songDir(mod:String, song:String):String
 	{
 		#if (MODS_ALLOWED && sys)
@@ -208,10 +159,6 @@ class CNECompat
 		return null;
 	}
 
-	/**
-	 * Bir CNE şarkısının chart dosyasını bulur: `<kök>/songs/<song>/charts/<difficulty>.json`.
-	 * İstenen zorluk yoksa sırasıyla normal > hard > easy > ilk json kullanılır.
-	 */
 	public static function findChartFile(mod:String, song:String, ?difficulty:String):String
 	{
 		#if (MODS_ALLOWED && sys)
@@ -241,7 +188,6 @@ class CNECompat
 		#end
 	}
 
-	/** `<kök>/songs/<song>/meta.json` içeriği (önbellekli, yoksa null). */
 	public static function getSongMeta(mod:String, song:String):Dynamic
 	{
 		#if (MODS_ALLOWED && sys)
@@ -261,16 +207,7 @@ class CNECompat
 		#end
 	}
 
-	/**
-	 * CNE şarkı sesini bulur. CNE sesleri `songs/<song>/song/` altında tutar:
-	 * `Inst.ogg`, `Inst-<difficulty>.ogg`, `Voices.ogg` (+ meta.json içindeki
-	 * `instSuffix` / `vocalsSuffix` türevleri).
-	 *
-	 * @param song       Şarkı adı
-	 * @param base       'Inst' veya 'Voices'
-	 * @param difficulty Zorluk adı (ör. 'hard'); opsiyonel
-	 * @param mod        Belirli bir modda ara; null ise modSearchOrder() kullanılır
-	 */
+	// Song Finder
 	public static function findSongAudio(song:String, base:String, ?difficulty:String, ?mod:String):String
 	{
 		#if (MODS_ALLOWED && sys)
@@ -284,7 +221,6 @@ class CNECompat
 		return null;
 	}
 
-	/** Tek bir mod içinde CNE şarkı sesi arar. */
 	public static function findSongAudioInMod(mod:String, song:String, base:String, ?difficulty:String):String
 	{
 		#if (MODS_ALLOWED && sys)
@@ -319,13 +255,11 @@ class CNECompat
 		return null;
 	}
 
-	/** `data/characters/<name>.xml` dosyasını bulur (case-insensitive). */
 	public static function findCharacterXml(mod:String, character:String):String
 	{
 		return findDataXml(mod, 'characters', character);
 	}
 
-	/** `data/stages/<name>.xml` dosyasını bulur (case-insensitive). */
 	public static function findStageXml(mod:String, stage:String):String
 	{
 		return findDataXml(mod, 'stages', stage);
@@ -350,7 +284,6 @@ class CNECompat
 		return null;
 	}
 
-	/** Moddaki chart'ı olan tüm CNE şarkı klasörlerini listeler. */
 	public static function listSongs(mod:String):Array<String>
 	{
 		var out:Array<String> = [];
@@ -373,7 +306,6 @@ class CNECompat
 		return out;
 	}
 
-	/** '#RRGGBB' renk metnini [r, g, b] dizisine çevirir; olmazsa null. */
 	public static function parseColor(str:String):Array<Int>
 	{
 		if (str == null) return null;
@@ -389,7 +321,6 @@ class CNECompat
 		return null;
 	}
 
-	/** '0,1,2' gibi bir listeyi Int dizisine çevirir; boşsa null. */
 	public static function parseIntList(str:String):Array<Int>
 	{
 		if (str == null || StringTools.trim(str).length < 1) return null;
@@ -402,7 +333,6 @@ class CNECompat
 		return out.length > 0 ? out : null;
 	}
 
-	/** XML attribute'unu Float olarak okur; yoksa/geçersizse varsayılan. */
 	public static function parseFloatAttr(node:Xml, att:String, def:Float):Float
 	{
 		if (node == null || !node.exists(att)) return def;

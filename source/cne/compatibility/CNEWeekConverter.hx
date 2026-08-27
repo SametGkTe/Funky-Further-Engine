@@ -8,33 +8,9 @@ import sys.FileSystem;
 import sys.io.File;
 #end
 
-/**
- * CNEWeekConverter — Codename Engine hafta XML'lerini
- * (`data/weeks/weeks/*.xml`) runtime'da Psych `WeekFile` formatına çevirir ve
- * ayrıca hiçbir haftaya bağlı olmayan CNE şarkıları için serbest oynatma
- * (freeplay-only) sentetik haftalar üretir.
- *
- * FORMAT EŞLEŞMESİ:
- *   CNE XML                                  Psych WeekFile
- *   --------------------------------------   --------------------------------
- *   <week name="..." chars="dad,bf,gf">      storyName / weekName / weekCharacters
- *   <week sprite="week1">                    weekBackground
- *   <week bgColor="#...">                    şarkı renkleri [r,g,b]
- *   <song>Bopeebo</song>                     songs: [["Bopeebo", icon, [r,g,b]]]
- *   <difficulty name="hard"/>                difficulties: "hard,..."
- *
- * Şarkı ikonları chart'taki karşı taraf karakterinden ve karakter XML'inin
- * `icon` attribute'undan okunur (bulunamazsa 'face').
- *
- * NOT: backend.WeekData'ya derleme zamanı bağımlılık YOKTUR; erişim
- * reflection üzerinden yapılır. Sebep: source/import.hx her dosyaya
- * FreeplayState/FreeplayCatalog importu eklediği için WeekData ile doğrudan
- * modül bağımlılığı döngüsel hale geliyor ve "Type not found" hatası veriyor.
- *
- * KISITLAR: Hafta karakter sprite'ları (`data/weeks/characters/*.xml`)
- * kullanılmaz; Psych'in kendi menu karakter sistemi geçerlidir.
- */
-@:keep // WeekData tarafından reflection ile çağrılır; DCE/ölü kod eleme koruması
+// CNE Week Converter
+
+@:keep // reflect
 class CNEWeekConverter
 {
 	static var _weekDataClass:Class<Dynamic> = null;
@@ -61,11 +37,7 @@ class CNEWeekConverter
 		return Type.createInstance(weekDataClass(), [weekFile, id]);
 	}
 
-	/**
-	 * Tüm aktif CNE modlarını tarar: CNE haftalarını ve haftasız şarkıları
-	 * WeekData'ya ekler. `backend.WeekData.reloadWeekFiles()` sonundan
-	 * reflection ile çağrılır.
-	 */
+	// Checker
 	public static function addAllFromMods():Void
 	{
 		#if (MODS_ALLOWED && sys)
@@ -120,7 +92,6 @@ class CNEWeekConverter
 		}
 	}
 
-	/** Tek bir CNE hafta XML'ini Psych WeekFile'a çevirir. */
 	public static function convertWeekXml(mod:String, path:String, id:String):Dynamic
 	{
 		try
@@ -182,7 +153,6 @@ class CNEWeekConverter
 		}
 	}
 
-	/** Haftalara bağlı olmayan CNE şarkıları için freeplay-only sentetik hafta. */
 	static function addLooseSongsFromMod(mod:String):Void
 	{
 		var songNames:Array<String> = CNECompat.listSongs(mod);
@@ -233,7 +203,6 @@ class CNEWeekConverter
 		trace('[CNEWeek] Sentetik freeplay haftası eklendi: "$id" (' + loose.length + ' şarkı)');
 	}
 
-	/** Bir şarkının freeplay ikonu: karşı karakterin icon attribute'u. */
 	static function songIcon(mod:String, song:String):String
 	{
 		try

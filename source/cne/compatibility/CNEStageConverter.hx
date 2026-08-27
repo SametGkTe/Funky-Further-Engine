@@ -4,34 +4,12 @@ package cne.compatibility;
 import sys.io.File;
 #end
 
-/**
- * CNEStageConverter — Codename Engine sahne XML'ini (`data/stages/*.xml`)
- * runtime'da Psych (Further-Engine) `StageFile` formatına çevirir.
- *
- * FORMAT EŞLEŞMESİ:
- *   CNE XML                                Psych StageFile
- *   ------------------------------------   --------------------------------
- *   <stage zoom="0.9">                     defaultZoom
- *   <stage folder="stages/default/">       object image ön eki
- *   <sprite name="bg" x y sprite scroll>   objects: [{type:'sprite', ...}]
- *   <sprite animated="true"><anim .../>    objects: [{type:'animatedSprite', animations}]
- *   <girlfriend x y camxoffset camyoffset> girlfriend + camera_girlfriend + {type:'gf'}
- *   <dad .../>                             opponent + camera_opponent + {type:'dad'}
- *   <boyfriend .../>                       boyfriend + camera_boyfriend + {type:'boyfriend'}
- *   <girlfriend/> yoksa                    hide_girlfriend: true
- *
- * KISITLAR: <box>/<solid>, ratings/combo konumu ve sahne scriptleri (.hx)
- * desteklenmez; bu düğümler güvenle yok sayılır.
- */
+// CNE Stage Converter Shit
+
 class CNEStageConverter
 {
-	/** Psych visibility filtresi: LOW_QUALITY | HIGH_QUALITY (her zaman görünür). */
 	static inline var ALWAYS_VISIBLE:Int = 3;
 
-	/**
-	 * `backend.StageData.dummy()` ile aynı varsayılan StageFile.
-	 * backend.StageData import edilmez; döngüsel modül bağımlılığı önlenir.
-	 */
 	static function defaultStageFile():Dynamic
 	{
 		return {
@@ -51,7 +29,6 @@ class CNEStageConverter
 		};
 	}
 
-	/** Aktif mod sırasına göre sahneyi arar; ilk bulunanı çevirir. */
 	public static function convertFromMods(stage:String):Dynamic
 	{
 		#if MODS_ALLOWED
@@ -64,7 +41,6 @@ class CNEStageConverter
 		return null;
 	}
 
-	/** Belirli bir moddaki CNE sahne XML'ini Psych StageFile'a çevirir. */
 	public static function convertFromMod(mod:String, stage:String):Dynamic
 	{
 		#if (MODS_ALLOWED && sys)
@@ -78,7 +54,7 @@ class CNEStageConverter
 		}
 		catch (e:Dynamic)
 		{
-			trace('[CNEStage] "$stage" sahnesi çevrilemedi (mod: $mod): $e');
+			trace('[CNEStage] "$stage" Stage i çevrilemedi (mod: $mod): $e');
 			return null;
 		}
 		#else
@@ -131,7 +107,6 @@ class CNEStageConverter
 			}
 		}
 
-		// XML'de hiç geçmeyen karakterleri Psych'in varsayılan katman sırasıyla ekle.
 		if (!hasGfNode) objects.push({type: 'gf'});
 		if (!seenDad) objects.push({type: 'dad'});
 		if (!seenBf) objects.push({type: 'boyfriend'});
@@ -141,7 +116,6 @@ class CNEStageConverter
 		return stageFile;
 	}
 
-	/** Karakter düğümündeki x/y/camxoffset/camyoffset değerlerini uygular. */
 	static function applyCharNode(stageFile:Dynamic, which:String, el:Xml)
 	{
 		var pos:Array<Dynamic>;
@@ -164,7 +138,6 @@ class CNEStageConverter
 		if (el.exists('camyoffset')) cam[1] = CNECompat.parseFloatAttr(el, 'camyoffset', 0);
 	}
 
-	/** <sprite> düğümünü Psych stage object tanımına çevirir. */
 	static function buildSpriteObject(el:Xml, folder:String):Dynamic
 	{
 		if (!el.exists('sprite') || !el.exists('name')) return null;
