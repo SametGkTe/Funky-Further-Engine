@@ -51,6 +51,7 @@ import flixel.FlxBasic;
 import flixel.FlxCamera;
 import flixel.FlxObject;
 import flixel.FlxSprite;
+import flixel.util.FlxSpriteUtil;
 import flixel.FlxSubState;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.group.FlxSpriteGroup.FlxTypedSpriteGroup;
@@ -186,8 +187,8 @@ class FreeplayState extends MusicBeatSubstate
 	var dropdownMaxVisible:Int = 8;
 	var dropdownScrollOffset:Int = 0;
 
-	static inline var SEARCH_BAR_WIDTH:Int = 460;
-	static inline var SEARCH_BAR_HEIGHT:Int = 42;
+	static inline var SEARCH_BAR_WIDTH:Int = 640;
+	static inline var SEARCH_BAR_HEIGHT:Int = 52;
 	static inline var SEARCH_BAR_MARGIN:Int = 10;
 	static inline var DROPDOWN_ITEM_HEIGHT:Int = 40;
 	static inline var DROPDOWN_ICON_SIZE:Int = 28;
@@ -848,19 +849,21 @@ class FreeplayState extends MusicBeatSubstate
 		var barX:Int = Std.int((FlxG.width - SEARCH_BAR_WIDTH) / 2);
 		var barY:Int = SEARCH_BAR_MARGIN;
 
-		searchBarOutline = new FlxSprite(barX - 2, barY - 2).makeGraphic(SEARCH_BAR_WIDTH + 4, SEARCH_BAR_HEIGHT + 4, FlxColor.fromRGB(100, 180, 255));
+		searchBarOutline = new FlxSprite(barX - 2, barY - 2).makeGraphic(SEARCH_BAR_WIDTH + 4, SEARCH_BAR_HEIGHT + 4, FlxColor.TRANSPARENT);
+		flixel.util.FlxSpriteUtil.drawRoundRect(searchBarOutline, 0, 0, SEARCH_BAR_WIDTH + 4, SEARCH_BAR_HEIGHT + 4, 16, 16, FlxColor.WHITE);
 		searchBarOutline.alpha = 0;
 		searchBarOutline.scrollFactor.set();
 		searchBarOutline.cameras = [funnyCam];
 		add(searchBarOutline);
 
-		searchBarBG = new FlxSprite(barX, barY).makeGraphic(SEARCH_BAR_WIDTH, SEARCH_BAR_HEIGHT, FlxColor.fromRGB(30, 30, 40));
+		searchBarBG = new FlxSprite(barX, barY).makeGraphic(SEARCH_BAR_WIDTH, SEARCH_BAR_HEIGHT, FlxColor.TRANSPARENT);
+		flixel.util.FlxSpriteUtil.drawRoundRect(searchBarBG, 0, 0, SEARCH_BAR_WIDTH, SEARCH_BAR_HEIGHT, 12, 12, FlxColor.fromRGB(30, 30, 40));
 		searchBarBG.alpha = 0.85;
 		searchBarBG.scrollFactor.set();
 		searchBarBG.cameras = [funnyCam];
 		add(searchBarBG);
 
-		searchIcon = new FlxSprite(barX + 8, barY + 7);
+		searchIcon = new FlxSprite(barX + 8, barY + 12);
 		if (Paths.image('freeplay/search') != null)
 		{
 			searchIcon.loadGraphic(Paths.image('freeplay/search'));
@@ -880,19 +883,19 @@ class FreeplayState extends MusicBeatSubstate
 		var hintText:String = controls.mobileC
 			? Language.getPhrase('freeplay_search_tap', 'X butonu veya dokunarak arayın')
 			: Language.getPhrase('freeplay_search_key', 'Aramak için C tuşuna basın');
-		searchBarHint = new FlxText(barX + 44, barY + 11, SEARCH_BAR_WIDTH - 60, hintText, 16);
+		searchBarHint = new FlxText(barX + 44, barY + 16, SEARCH_BAR_WIDTH - 60, hintText, 20);
 		searchBarHint.setFormat("VCR OSD Mono", 16, FlxColor.fromRGB(150, 150, 170), LEFT);
 		searchBarHint.scrollFactor.set();
 		searchBarHint.cameras = [funnyCam];
 		add(searchBarHint);
 
-		searchBarText = new FlxText(barX + 44, barY + 11, SEARCH_BAR_WIDTH - 60, "", 16);
+		searchBarText = new FlxText(barX + 44, barY + 16, SEARCH_BAR_WIDTH - 60, "", 20);
 		searchBarText.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT);
 		searchBarText.scrollFactor.set();
 		searchBarText.cameras = [funnyCam];
 		add(searchBarText);
 
-		searchBarCursor = new FlxText(barX + 44, barY + 11, 20, "|", 16);
+		searchBarCursor = new FlxText(barX + 44, barY + 16, 20, "|", 20);
 		searchBarCursor.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT);
 		searchBarCursor.scrollFactor.set();
 		searchBarCursor.visible = false;
@@ -1133,7 +1136,8 @@ class FreeplayState extends MusicBeatSubstate
 		var visibleCount:Int = Std.int(Math.min(dropdownItems.length, dropdownMaxVisible));
 		var dropdownHeight:Int = visibleCount * DROPDOWN_ITEM_HEIGHT + 10;
 
-		dropdownBG.makeGraphic(SEARCH_BAR_WIDTH, Std.int(Math.max(dropdownHeight, 50)), FlxColor.fromRGB(25, 25, 35));
+		dropdownBG.makeGraphic(SEARCH_BAR_WIDTH, Std.int(Math.max(dropdownHeight, 50)), FlxColor.TRANSPARENT);
+			flixel.util.FlxSpriteUtil.drawRoundRect(dropdownBG, 0, 0, SEARCH_BAR_WIDTH, Std.int(Math.max(dropdownHeight, 50)), 12, 12, FlxColor.fromRGB(25, 25, 35));
 		dropdownBG.setPosition(barX, barY);
 
 		FlxTween.cancelTweensOf(dropdownBG);
@@ -1181,7 +1185,8 @@ class FreeplayState extends MusicBeatSubstate
 
 		// makeGraphic her çağrıda yeni bitmap üretir — boyut değişmediyse atla
 		if (Std.int(dropdownBG.height) != targetHeight)
-			dropdownBG.makeGraphic(SEARCH_BAR_WIDTH, targetHeight, FlxColor.fromRGB(25, 25, 35));
+			dropdownBG.makeGraphic(SEARCH_BAR_WIDTH, targetHeight, FlxColor.TRANSPARENT);
+			flixel.util.FlxSpriteUtil.drawRoundRect(dropdownBG, 0, 0, SEARCH_BAR_WIDTH, targetHeight, 12, 12, FlxColor.fromRGB(25, 25, 35));
 
 		for (vi in visibleStart...visibleEnd)
 		{
@@ -1192,9 +1197,9 @@ class FreeplayState extends MusicBeatSubstate
 			if (item.type == HEADER)
 			{
 				var headerText:FlxText = recycleText();
-				headerText.setFormat("VCR OSD Mono", 12, item.color, LEFT);
+				headerText.setFormat("VCR OSD Mono", 18, item.color, LEFT);
 				headerText.text = item.text;
-				headerText.setPosition(barX + 12, itemY + Std.int((DROPDOWN_ITEM_HEIGHT - 12) / 2));
+				headerText.setPosition(barX + 12, itemY + Std.int((DROPDOWN_ITEM_HEIGHT - 18) / 2));
 				headerText.fieldWidth = SEARCH_BAR_WIDTH - 24;
 				headerText.scrollFactor.set();
 				headerText.cameras = [funnyCam];
@@ -1215,7 +1220,7 @@ class FreeplayState extends MusicBeatSubstate
 				var songText:FlxText = recycleText();
 				songText.setFormat("VCR OSD Mono", 15, isSelected ? FlxColor.WHITE : FlxColor.fromRGB(200, 200, 210), LEFT);
 				songText.text = displayName;
-				songText.setPosition(barX + 14 + DROPDOWN_ICON_SIZE + 10, itemY + Std.int((DROPDOWN_ITEM_HEIGHT - 15) / 2));
+				songText.setPosition(barX + 14 + DROPDOWN_ICON_SIZE + 15, itemY + Std.int((DROPDOWN_ITEM_HEIGHT - 20) / 2));
 				songText.fieldWidth = SEARCH_BAR_WIDTH - (14 + DROPDOWN_ICON_SIZE + 20);
 				songText.scrollFactor.set();
 				songText.cameras = [funnyCam];
@@ -1230,10 +1235,11 @@ class FreeplayState extends MusicBeatSubstate
 					var songIcon:HealthIcon = recycleIcon(item.songData.songCharacter);
 					songIcon.setGraphicSize(DROPDOWN_ICON_SIZE, DROPDOWN_ICON_SIZE);
 					songIcon.updateHitbox();
+					songIcon.centerOffsets();
 					songIcon.scrollFactor.set();
 					songIcon.cameras = [funnyCam];
-					songIcon.x = barX + 10;
-					songIcon.y = itemY + Std.int((DROPDOWN_ITEM_HEIGHT - DROPDOWN_ICON_SIZE) / 2);
+					songIcon.x = barX + 14;
+					songIcon.y = itemY + Std.int((DROPDOWN_ITEM_HEIGHT - songIcon.height) / 2);
 					songIcon.alpha = isSelected ? 1 : 0.6;
 					songIcon.visible = true;
 					songIcon.active = true;
@@ -1249,7 +1255,8 @@ class FreeplayState extends MusicBeatSubstate
 		{
 			var highlightSlot:Int = dropdownSelected - visibleStart;
 			var highlightY:Float = startY + highlightSlot * DROPDOWN_ITEM_HEIGHT;
-			dropdownHighlight.makeGraphic(SEARCH_BAR_WIDTH - 8, DROPDOWN_ITEM_HEIGHT, FlxColor.fromRGB(60, 60, 90));
+			dropdownHighlight.makeGraphic(SEARCH_BAR_WIDTH - 8, DROPDOWN_ITEM_HEIGHT, FlxColor.TRANSPARENT);
+			flixel.util.FlxSpriteUtil.drawRoundRect(dropdownHighlight, 0, 0, SEARCH_BAR_WIDTH - 8, DROPDOWN_ITEM_HEIGHT, 8, 8, FlxColor.fromRGB(60, 60, 90));
 			dropdownHighlight.setPosition(barX + 4, highlightY);
 			dropdownHighlight.scrollFactor.set();
 			dropdownHighlight.alpha = 0.5;
@@ -1279,7 +1286,7 @@ class FreeplayState extends MusicBeatSubstate
 			if (t != null && !t.alive)
 				return t;
 		}
-		var txt = new FlxText(0, 0, SEARCH_BAR_WIDTH, "", 15);
+		var txt = new FlxText(0, 0, SEARCH_BAR_WIDTH, "", 20);
 		txt.scrollFactor.set();
 		txt.cameras = [funnyCam];
 		return txt;
@@ -1995,6 +2002,11 @@ class FreeplayState extends MusicBeatSubstate
 			ModsHelper.loadModDir('');
 		controls.isInSubstate = true;
 		super.closeSubState();
+		
+		// Kamerayı ve görüşünü sıfırla ki Freeplay menüsü kafayı yemesin
+		if (funnyCam != null) funnyCam.visible = true;
+		if (rankCamera != null) rankCamera.visible = true;
+		if (overlayCam != null) overlayCam.visible = false;
 
 		busy = false;
 		persistentUpdate = true;
@@ -3483,4 +3495,3 @@ typedef MoveData =
 	var ?speed:Float;
 	var ?wait:Float;
 }
-

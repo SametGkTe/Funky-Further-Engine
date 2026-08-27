@@ -53,6 +53,7 @@ class FreeplaySettingsSubState extends BaseOptionsMenu
 
 	function onFreeplayPrefChanged():Void
 	{
+		FreeplayCatalog.invalidate(); // ZORUNLU: Değişikliklerin anında etkili olması için önbelleği sıfırla!
 		FreeplayCatalog.markDirty();
 		ClientPrefs.saveSettings();
 	}

@@ -61,7 +61,7 @@ class StorageUtil
 			{
 				CoolUtil.showPopUp(
 					Language.getPhrase('file_save_fail', '{1} Kaydedilemedi.\n({2})', [fileName, err]),
-					Language.getPhrase('mobile_error', "Error!")
+					Language.getPhrase('mobile_error', "Hata!")
 				);
 			}
 			else
@@ -227,17 +227,12 @@ class StorageUtil
 		}
 		catch (e:Dynamic)
 		{
-			trace('Failed to read storagetype.txt: ' + errorToString(e));
+			trace('storagetype.txt okunamadı: ' + errorToString(e));
 		}
 
 		return storageType;
 	}
 
-	/**
-	 * Main açılışında storage init, ClientPrefs yüklenmeden önce çalışabiliyor.
-	 * Bu da UI'da EXTERNAL_PE görünürken runtime'ın eski EXTERNAL_DATA yolunda
-	 * kalmasına neden oluyordu. Save'deki seçimi storagetype.txt ile uzlaştırır.
-	 */
 	public static function syncStorageTypeFromSave():String
 	{
 		var selected:String = getDefaultStorageType();
@@ -255,7 +250,7 @@ class StorageUtil
 		persistStorageType(selected);
 		currentExternalStorageDirectory = null;
 		var result = initExternalStorageDirectory();
-		trace('[Storage] Seçim senkronlandı: type=$selected path=$result');
+		trace('[Storage] Seçildi: type=$selected path=$result');
 		maybeRequestAllFilesAccess(selected, false);
 		return result;
 	}
@@ -420,8 +415,6 @@ class StorageUtil
 			&& AndroidVersion.SDK_INT >= AndroidVersionCode.R
 			&& !AndroidEnvironment.isExternalStorageManager())
 		{
-			// Seçimi EXTERNAL_DATA olarak ezme. İzin verilene kadar yalnızca bu
-			// oturumda app-specific klasörü güvenli fallback olarak kullan.
 			currentExternalStorageDirectory = appFiles;
 			trace('Temporary storage fallback: $selectedType için All files access gerekli.');
 		}

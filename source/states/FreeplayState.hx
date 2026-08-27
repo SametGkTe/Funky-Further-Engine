@@ -102,7 +102,7 @@ class FreeplayState extends MusicBeatState
 	static inline var SEARCH_BAR_HEIGHT:Int = 44;
 	static inline var SEARCH_BAR_MARGIN:Int = 10;
 	static inline var DROPDOWN_ITEM_HEIGHT:Int = 44;
-	static inline var SEARCH_BAR_WIDTH:Int = 500;
+	static inline var SEARCH_BAR_WIDTH:Int = 640;
 	static inline var DROPDOWN_ICON_SIZE:Int = 30;
 
 	var rankLabelText:FlxText;
@@ -511,12 +511,14 @@ class FreeplayState extends MusicBeatState
 		var barX:Int = Std.int((FlxG.width - SEARCH_BAR_WIDTH) / 2);
 		var barY:Int = SEARCH_BAR_MARGIN;
 
-		searchBarOutline = new FlxSprite(barX - 2, barY - 2).makeGraphic(SEARCH_BAR_WIDTH + 4, SEARCH_BAR_HEIGHT + 4, FlxColor.fromRGB(100, 180, 255));
+		searchBarOutline = new FlxSprite(barX - 2, barY - 2).makeGraphic(SEARCH_BAR_WIDTH + 4, SEARCH_BAR_HEIGHT + 4, FlxColor.TRANSPARENT);
+		flixel.util.FlxSpriteUtil.drawRoundRect(searchBarOutline, 0, 0, SEARCH_BAR_WIDTH + 4, SEARCH_BAR_HEIGHT + 4, 16, 16, FlxColor.WHITE);
 		searchBarOutline.alpha = 0;
 		searchBarOutline.scrollFactor.set();
 		add(searchBarOutline);
 
-		searchBarBG = new FlxSprite(barX, barY).makeGraphic(SEARCH_BAR_WIDTH, SEARCH_BAR_HEIGHT, FlxColor.fromRGB(30, 30, 40));
+		searchBarBG = new FlxSprite(barX, barY).makeGraphic(SEARCH_BAR_WIDTH, SEARCH_BAR_HEIGHT, FlxColor.TRANSPARENT);
+		flixel.util.FlxSpriteUtil.drawRoundRect(searchBarBG, 0, 0, SEARCH_BAR_WIDTH, SEARCH_BAR_HEIGHT, 12, 12, FlxColor.fromRGB(30, 30, 40));
 		searchBarBG.alpha = 0.85;
 		searchBarBG.scrollFactor.set();
 		add(searchBarBG);
@@ -537,17 +539,17 @@ class FreeplayState extends MusicBeatState
 		searchIcon.alpha = 0.7;
 		add(searchIcon);
 
-		searchBarHint = new FlxText(barX + 44, barY + 12, SEARCH_BAR_WIDTH - 60, getSearchHintText(), 18);
+		searchBarHint = new FlxText(barX + 44, barY + 16, SEARCH_BAR_WIDTH - 60, getSearchHintText(), 20);
 		searchBarHint.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.fromRGB(150, 150, 170), LEFT);
 		searchBarHint.scrollFactor.set();
 		add(searchBarHint);
 
-		searchBarText = new FlxText(barX + 44, barY + 12, SEARCH_BAR_WIDTH - 60, "", 18);
+		searchBarText = new FlxText(barX + 44, barY + 16, SEARCH_BAR_WIDTH - 60, "", 20);
 		searchBarText.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.WHITE, LEFT);
 		searchBarText.scrollFactor.set();
 		add(searchBarText);
 
-		searchBarCursor = new FlxText(barX + 44, barY + 12, 20, "|", 18);
+		searchBarCursor = new FlxText(barX + 44, barY + 16, 20, "|", 20);
 		searchBarCursor.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.WHITE, LEFT);
 		searchBarCursor.scrollFactor.set();
 		searchBarCursor.visible = false;
@@ -779,7 +781,8 @@ class FreeplayState extends MusicBeatState
 		var visibleCount:Int = Std.int(Math.min(dropdownItems.length, dropdownMaxVisible));
 		var dropdownHeight:Int = visibleCount * DROPDOWN_ITEM_HEIGHT + 10;
 
-		dropdownBG.makeGraphic(SEARCH_BAR_WIDTH, Std.int(Math.max(dropdownHeight, 50)), FlxColor.fromRGB(25, 25, 35));
+		dropdownBG.makeGraphic(SEARCH_BAR_WIDTH, Std.int(Math.max(dropdownHeight, 50)), FlxColor.TRANSPARENT);
+						flixel.util.FlxSpriteUtil.drawRoundRect(dropdownBG, 0, 0, SEARCH_BAR_WIDTH, Std.int(Math.max(dropdownHeight, 50)), 12, 12, FlxColor.fromRGB(25, 25, 35));
 		dropdownBG.setPosition(barX, barY);
 
 		dropdownTargetY = barY;
@@ -827,7 +830,8 @@ class FreeplayState extends MusicBeatState
 
 		var visibleCount:Int = visibleEnd - visibleStart;
 		var dropdownHeight:Int = visibleCount * DROPDOWN_ITEM_HEIGHT + 10;
-		dropdownBG.makeGraphic(SEARCH_BAR_WIDTH, Std.int(Math.max(dropdownHeight, 50)), FlxColor.fromRGB(25, 25, 35));
+		dropdownBG.makeGraphic(SEARCH_BAR_WIDTH, Std.int(Math.max(dropdownHeight, 50)), FlxColor.TRANSPARENT);
+						flixel.util.FlxSpriteUtil.drawRoundRect(dropdownBG, 0, 0, SEARCH_BAR_WIDTH, Std.int(Math.max(dropdownHeight, 50)), 12, 12, FlxColor.fromRGB(25, 25, 35));
 
 		for (vi in visibleStart...visibleEnd)
 		{
@@ -838,9 +842,9 @@ class FreeplayState extends MusicBeatState
 			if (item.type == HEADER)
 			{
 				var headerText:FlxText = getOrCreateText();
-				headerText.setFormat(Paths.font("vcr.ttf"), 13, item.color, LEFT);
+				headerText.setFormat(Paths.font("vcr.ttf"), 18, item.color, LEFT);
 				headerText.text = "── " + item.text + " ──";
-				headerText.setPosition(barX + 12, itemY + Std.int((DROPDOWN_ITEM_HEIGHT - 13) / 2));
+				headerText.setPosition(barX + 12, itemY + Std.int((DROPDOWN_ITEM_HEIGHT - 18) / 2));
 				headerText.fieldWidth = SEARCH_BAR_WIDTH - 24;
 				headerText.scrollFactor.set();
 				headerText.alpha = 0.9;
@@ -858,9 +862,9 @@ class FreeplayState extends MusicBeatState
 					displayName = "♥ " + displayName;
 
 				var songText:FlxText = getOrCreateText();
-				songText.setFormat(Paths.font("vcr.ttf"), 16, isSelected ? FlxColor.WHITE : FlxColor.fromRGB(200, 200, 210), LEFT);
+				songText.setFormat(Paths.font("vcr.ttf"), 20, isSelected ? FlxColor.WHITE : FlxColor.fromRGB(200, 200, 210), LEFT);
 				songText.text = displayName;
-				songText.setPosition(barX + 14 + DROPDOWN_ICON_SIZE + 10, itemY + Std.int((DROPDOWN_ITEM_HEIGHT - 16) / 2));
+				songText.setPosition(barX + 14 + DROPDOWN_ICON_SIZE + 15, itemY + Std.int((DROPDOWN_ITEM_HEIGHT - 20) / 2));
 				songText.fieldWidth = SEARCH_BAR_WIDTH - (14 + DROPDOWN_ICON_SIZE + 20);
 				songText.scrollFactor.set();
 				songText.alpha = isSelected ? 1 : 0.7;
@@ -875,9 +879,10 @@ class FreeplayState extends MusicBeatState
 				});
 				songIcon.setGraphicSize(DROPDOWN_ICON_SIZE, DROPDOWN_ICON_SIZE);
 				songIcon.updateHitbox();
+				songIcon.centerOffsets();
 				songIcon.scrollFactor.set();
-				songIcon.x = barX + 10;
-				songIcon.y = itemY + Std.int((DROPDOWN_ITEM_HEIGHT - DROPDOWN_ICON_SIZE) / 2);
+				songIcon.x = barX + 14;
+				songIcon.y = itemY + Std.int((DROPDOWN_ITEM_HEIGHT - songIcon.height) / 2);
 				songIcon.alpha = isSelected ? 1 : 0.6;
 				songIcon.visible = true;
 				songIcon.active = true;
@@ -892,7 +897,8 @@ class FreeplayState extends MusicBeatState
 		{
 			var highlightSlot:Int = dropdownSelected - visibleStart;
 			var highlightY:Float = startY + highlightSlot * DROPDOWN_ITEM_HEIGHT;
-			dropdownHighlight.makeGraphic(SEARCH_BAR_WIDTH - 8, DROPDOWN_ITEM_HEIGHT, FlxColor.fromRGB(60, 60, 90));
+			dropdownHighlight.makeGraphic(SEARCH_BAR_WIDTH - 8, DROPDOWN_ITEM_HEIGHT, FlxColor.TRANSPARENT);
+						flixel.util.FlxSpriteUtil.drawRoundRect(dropdownHighlight, 0, 0, SEARCH_BAR_WIDTH - 8, DROPDOWN_ITEM_HEIGHT, 8, 8, FlxColor.fromRGB(60, 60, 90));
 			dropdownHighlight.setPosition(barX + 4, highlightY);
 			dropdownHighlight.scrollFactor.set();
 			dropdownHighlight.alpha = 0.5;
@@ -928,7 +934,7 @@ class FreeplayState extends MusicBeatState
 		}
 		if (txt == null)
 		{
-			txt = new FlxText(0, 0, SEARCH_BAR_WIDTH, "", 16);
+			txt = new FlxText(0, 0, SEARCH_BAR_WIDTH, "", 20);
 			txt.scrollFactor.set();
 		}
 		return txt;
@@ -974,7 +980,7 @@ class FreeplayState extends MusicBeatState
 		var foundIndex:Int = -1;
 		for (si in 0...songs.length)
 		{
-			if (songs[si].songName == targetSong.songName && songs[si].folder == targetSong.folder)
+			if (songs[si] != null && !songs[si].isCategoryHeader && songs[si].sourceIndex == targetSong.sourceIndex)
 			{
 				foundIndex = si;
 				break;
@@ -1091,6 +1097,11 @@ class FreeplayState extends MusicBeatState
 			reloadFromCatalog();
 		else
 			changeSelection(0, false);
+			
+		// BaseOptionsMenu (Ayarlar menüsü) kamerayı kaydırıyor, onu eski yerine sıfırlayalım
+		flixel.FlxG.camera.follow(null);
+		flixel.FlxG.camera.scroll.set(0, 0);
+			
 		persistentUpdate = true;
 		super.closeSubState();
 		removeTouchPad();

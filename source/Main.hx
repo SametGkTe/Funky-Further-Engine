@@ -227,7 +227,25 @@ class Main extends Sprite
 		#end
 
 		Application.current.window.vsync = ClientPrefs.data.vsync;
-		FlxG.signals.preStateCreate.add(function(_) FlxG.mouse.visible = false); // Fak yu Cursor
+		FlxG.signals.preStateCreate.add(function(_) {
+			FlxG.mouse.visible = false;
+		});
+		
+		// Load custom cursor
+		// Modern Pointer Cursor (beyaz dolgu, siyah çizgi)
+		var cursorBmd = new openfl.display.BitmapData(32, 32, true, 0x00000000);
+		var gfx = new openfl.display.Shape();
+		gfx.graphics.lineStyle(2, 0x000000, 1, true, openfl.display.LineScaleMode.NORMAL, openfl.display.CapsStyle.SQUARE, openfl.display.JointStyle.MITER);
+		gfx.graphics.beginFill(0xFFFFFF);
+		gfx.graphics.moveTo(0, 0);
+		gfx.graphics.lineTo(11, 28);
+		gfx.graphics.lineTo(14, 18);
+		gfx.graphics.lineTo(24, 14);
+		gfx.graphics.lineTo(0, 0);
+		gfx.graphics.endFill();
+		cursorBmd.draw(gfx);
+		FlxG.mouse.load(cursorBmd, 1, 0, 0);
+		FlxG.mouse.useSystemCursor = false;
 		FlxG.signals.gameResized.add(function (w, h) {
 			if(fpsVar != null)
 				fpsVar.positionFPS(10, 3, Math.min(w / FlxG.width, h / FlxG.height));

@@ -2,6 +2,7 @@ package options;
 
 import states.MainMenuState;
 import backend.StageData;
+import flixel.FlxObject;
 
 typedef OptionEntry = {
 	label:String,
@@ -32,12 +33,10 @@ class OptionsState extends MusicBeatState
 	private static var curSelected:Int = 0;
 	public static var onPlayState:Bool = false;
 
-	// Boşluklar arttırıldı ve itemler yukarı çekildi
-	static inline var ITEM_SPACING:Float = 140;
-	static inline var TOP_MARGIN:Float = 40;
-	static inline var BOTTOM_MARGIN:Float = 60;
+	static inline var ITEM_SPACING:Float = 120;
+	static inline var TOP_MARGIN:Float = 200;
 
-	var menuSpacing:Float = 140;
+	var menuSpacing:Float = 120;
 
 	var selectorLeft:Alphabet;
 	var selectorRight:Alphabet;
@@ -53,13 +52,14 @@ class OptionsState extends MusicBeatState
 	var petHoverW:Float = 211;
 	var petHoverH:Float = 226;
 
+	var camFollow:FlxObject;
+
 	function openSelectedSubstate(langKey:String)
 	{
 		#if mobile
 		FlxG.mouse.visible = false;
 		#end
-		FlxG.camera.scroll.set(0, 0);
-
+		
 		if (langKey != 'delay_combo') {
 			removeTouchPad();
 			if (mobileManager != null) mobileManager.removeMobilePad();
@@ -69,41 +69,50 @@ class OptionsState extends MusicBeatState
 
 		switch (langKey) {
 			case 'note_colors':
-				openSubState(new options.NotesColorSubState());
-
+				FlxG.camera.follow(null);
+			FlxG.camera.scroll.set(0, 0);
+			openSubState(new options.NotesColorSubState());
 			case 'controls':
-				openSubState(new options.ControlsSubState());
-
+				FlxG.camera.follow(null);
+			FlxG.camera.scroll.set(0, 0);
+			openSubState(new options.ControlsSubState());
 			case 'audio':
-				openSubState(new options.AudioSubState());
-
+				FlxG.camera.follow(null);
+			FlxG.camera.scroll.set(0, 0);
+			openSubState(new options.AudioSubState());
 			case 'graphics':
-				openSubState(new options.GraphicsSettingsSubState());
-
+				FlxG.camera.follow(null);
+			FlxG.camera.scroll.set(0, 0);
+			openSubState(new options.GraphicsSettingsSubState());
 			case 'visuals':
-				openSubState(new options.VisualsSettingsSubState());
-
+				FlxG.camera.follow(null);
+			FlxG.camera.scroll.set(0, 0);
+			openSubState(new options.VisualsSettingsSubState());
 			case 'gameplay':
-				openSubState(new options.GameplaySettingsSubState());
-
+				FlxG.camera.follow(null);
+			FlxG.camera.scroll.set(0, 0);
+			openSubState(new options.GameplaySettingsSubState());
 			case 'delay_combo':
 				removeTouchPad();
 				if (mobileManager != null) mobileManager.removeMobilePad();
 				MusicBeatState.switchState(new options.NoteOffsetState());
-
 			case 'mobile_settings':
-				openSubState(new mobile.options.MobileOptionsSubState());
-
+				FlxG.camera.follow(null);
+			FlxG.camera.scroll.set(0, 0);
+			openSubState(new mobile.options.MobileOptionsSubState());
 			case 'mobile_extra_control':
 				removeTouchPad();
 				if (mobileManager != null) mobileManager.removeMobilePad();
 				persistentUpdate = false;
 				controls.isInSubstate = true;
-				openSubState(new mobile.substates.MobileExtraControl());
-
+				FlxG.camera.follow(null);
+			FlxG.camera.scroll.set(0, 0);
+			openSubState(new mobile.substates.MobileExtraControl());
 			#if TRANSLATIONS_ALLOWED
 			case 'language':
-				openSubState(new options.LanguageSubState());
+				FlxG.camera.follow(null);
+			FlxG.camera.scroll.set(0, 0);
+			openSubState(new options.LanguageSubState());
 			#end
 		}
 	}
@@ -124,8 +133,9 @@ class OptionsState extends MusicBeatState
 
 	function isMouseOverPet():Bool
 	{
-		var mouseX:Float = FlxG.mouse.x;
-		var mouseY:Float = FlxG.mouse.y;
+		// Scroll factor 0 olan objeler için ekran koordinatı (screenX/Y) kullanılmalıdır.
+		var mouseX:Float = FlxG.mouse.screenX;
+		var mouseY:Float = FlxG.mouse.screenY;
 
 		return mouseX >= petHoverX && mouseX <= petHoverX + petHoverW
 			&& mouseY >= petHoverY && mouseY <= petHoverY + petHoverH;
@@ -164,7 +174,6 @@ class OptionsState extends MusicBeatState
 		#if mobile
 		FlxG.mouse.visible = false;
 		#end
-		FlxG.camera.scroll.set(0, 0);
 		FlxG.sound.play(Paths.sound('confirmMenu'));
 
 		removeTouchPad();
@@ -172,7 +181,9 @@ class OptionsState extends MusicBeatState
 		persistentUpdate = false;
 		controls.isInSubstate = true;
 
-		openSubState(new options.PetSettingsState());
+		FlxG.camera.follow(null);
+			FlxG.camera.scroll.set(0, 0);
+			openSubState(new options.PetSettingsState());
 	}
 
 	override function create()
@@ -188,11 +199,14 @@ class OptionsState extends MusicBeatState
 		bg.scrollFactor.set();
 		add(bg);
 		
-		// Fak yu Cursor
+		camFollow = new FlxObject(FlxG.width / 2, 0, 1, 1);
+		add(camFollow);
+		FlxG.camera.follow(camFollow, null, 0.15);
+		
 		FlxG.mouse.visible = #if mobile false #else true #end;
 
-		// Pet Sprite'ı en aşağıya (Açıklama barının üstüne) yerleştirildi
-		petButton = createPetButton(20, FlxG.height - 226 - 50);
+		// Pet Sprite'ı tekrar orta-sol hizaya alındı (Mobil kontroller sol altı kapladığı için)
+		petButton = createPetButton(20, (FlxG.height - 226) * 0.5);
 		petHoverX = petButton.x - 6;
 		petHoverY = petButton.y - 30;
 		petHoverW = 211;
@@ -267,7 +281,7 @@ class OptionsState extends MusicBeatState
 		#end
 		persistentUpdate = true;
 
-		FlxG.camera.scroll.set(0, 0);
+		FlxG.camera.follow(camFollow, null, 0.15);
 		layoutOptions();
 		changeSelection(0, false);
 
@@ -281,8 +295,6 @@ class OptionsState extends MusicBeatState
 
 	override function update(elapsed:Float)
 	{
-		// Android dokunması mouse click olarak da raporlanır. V-Slice editörü
-		// açıkken PET ve arkadaki bütün Options inputlarını update etme.
 		if (mobile.substates.VSliceControlEditorSubState.blocksOptionsInput) return;
 		super.update(elapsed);
 
@@ -290,11 +302,9 @@ class OptionsState extends MusicBeatState
 
 		if (updatePetButton()) return;
 
-		// Yön tuşlarının hareket algoritması (Yukarı/Aşağı için -2/+2 atlıyor)
-		if (controls.UI_LEFT_P) changeSelection(-1);
-		if (controls.UI_RIGHT_P) changeSelection(1);
-		if (controls.UI_UP_P) changeSelection(-2);
-		if (controls.UI_DOWN_P) changeSelection(2);
+		// Sadece dikey kaydırma mantığı, sağ-sol tuşlarını da dahil ettik
+		if (controls.UI_UP_P || controls.UI_LEFT_P) changeSelection(-1);
+		if (controls.UI_DOWN_P || controls.UI_RIGHT_P) changeSelection(1);
 
 		var mobileControlPressed:Bool = false;
 
@@ -302,22 +312,21 @@ class OptionsState extends MusicBeatState
 			mobileControlPressed = true;
 		}
 
-		// Fiziksel C/CTRL, mobil kontrol opaklığından bağımsız çalışmalıdır.
 		if (FlxG.keys.justPressed.CONTROL || FlxG.keys.justPressed.C) {
 			mobileControlPressed = true;
 		}
 
-		// Yeni FurtherPad sistemi legacy touchPad alanını kullanmaz.
 		if (mobileManager != null && mobileManager.mobilePad != null && mobileManager.mobilePad.buttonJustPressed('C')) {
 			mobileControlPressed = true;
 		}
 
 		if (mobileControlPressed) {
-			FlxG.camera.scroll.set(0, 0);
 			controls.isInSubstate = true;
 			persistentUpdate = false;
 			removeTouchPad();
 			if (mobileManager != null) mobileManager.removeMobilePad();
+			FlxG.camera.follow(null);
+			FlxG.camera.scroll.set(0, 0);
 			openSubState(new mobile.substates.MobileControlSelectSubState());
 			return;
 		}
@@ -345,37 +354,14 @@ class OptionsState extends MusicBeatState
 	{
 		if (grpOptions == null || grpOptions.members == null || grpOptions.members.length == 0) return;
 
-		var visibleTop:Float = TOP_MARGIN;
-		var visibleBottom:Float = FlxG.height - BOTTOM_MARGIN;
-		var visibleHeight:Float = visibleBottom - visibleTop;
-
-		// 2 sütunlu görünüm için toplam satır sayısını hesapla
-		var rows:Int = Std.int((entries.length + 1) / 2);
-
-		menuSpacing = ITEM_SPACING;
-		if (rows > 1) {
-			var maxSpacing:Float = visibleHeight / (rows - 1);
-			if (menuSpacing > maxSpacing) menuSpacing = maxSpacing;
-		}
-
-		// İtemleri yukarı almak için centering offsetini iptal ettik, direkt TOP_MARGIN hizasından başlıyor
-		var startY:Float = visibleTop;
+		var startY:Float = TOP_MARGIN;
 
 		for (num => item in grpOptions.members) {
 			if (item == null) continue;
 			
-			// 0 ise sol taraf, 1 ise sağ taraf
-			var col:Int = num % 2;
-			var row:Int = Std.int(num / 2);
-			
-			// Ekranı yarıya bölüp %25 ve %75 alanlarına ortala
-			if (col == 0) {
-				item.x = (FlxG.width * 0.25) - (item.width * 0.5);
-			} else {
-				item.x = (FlxG.width * 0.75) - (item.width * 0.5);
-			}
-			
-			item.y = startY + (row * menuSpacing);
+			// Tamamen dikey görünüm
+			item.x = (FlxG.width - item.width) * 0.5;
+			item.y = startY + (num * ITEM_SPACING);
 		}
 
 		refreshSelectors();
@@ -398,7 +384,7 @@ class OptionsState extends MusicBeatState
 
 	function changeSelection(change:Int = 0, playSound:Bool = true)
 	{
-		curSelected = FlxMath.wrap(curSelected + change, 0, entries.length - 1);
+		curSelected = flixel.math.FlxMath.wrap(curSelected + change, 0, entries.length - 1);
 
 		for (num => item in grpOptions.members) {
 			if (item == null) continue;
@@ -410,6 +396,12 @@ class OptionsState extends MusicBeatState
 		}
 
 		refreshSelectors();
+
+		// Kamera kaydırma
+		var selectedItem = grpOptions.members[curSelected];
+		if (selectedItem != null && camFollow != null) {
+			camFollow.y = selectedItem.getGraphicMidpoint().y;
+		}
 
 		if (playSound && change != 0) {
 			FlxG.sound.play(Paths.sound('scrollMenu'));

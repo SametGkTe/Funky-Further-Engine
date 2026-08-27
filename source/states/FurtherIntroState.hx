@@ -73,7 +73,7 @@ class FurtherIntroState extends FlxState
 			logo.alpha = 1;
 		}
 		else
-			trace('[FurtherIntroState] Missing assets/shared/images/further/title1.png; keeping title.png.');
+			trace('[FurtherIntroState] Missing assets/shared/images/further/title1.png');
 
 		if (Paths.fileExists('sounds/bf-yeah.${Paths.SOUND_EXT}', SOUND))
 			FlxG.sound.play(Paths.sound('bf-yeah'));
@@ -144,7 +144,7 @@ class FurtherIntroState extends FlxState
 	{
 		FlxTransitionableState.skipNextTransIn = true;
 		FlxTransitionableState.skipNextTransOut = true;
-		if (!ClientPrefs.data.setupWizardCompleted)
+		if (!ClientPrefs.data.setupWizardCompleted || SetupWizardState.debugMode)
 		{
 			SetupWizardState.returnToWizard = false;
 			FlxG.switchState(new SetupWizardState());

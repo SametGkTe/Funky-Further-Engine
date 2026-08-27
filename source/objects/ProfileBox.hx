@@ -815,7 +815,7 @@ class ProfileBox extends FlxSpriteGroup {
 		} else {
 			FlxG.sound.play(Paths.sound('confirmMenu'));
 			if (dropdownOpen) closeDropdown();
-			LinkSubState.requestURL("https://samedcan1234.github.io/Psych-Engine-Ultra-Android/", Language.getPhrase('profile_open_page', 'Profil sayfanızı açmak istiyor musunuz?'));
+			LinkSubState.requestURL("https://further-engine.github.io/", Language.getPhrase('profile_open_page', 'Profil sayfanızı açmak istiyor musunuz?'));
 		}
 	}
 
@@ -1017,7 +1017,7 @@ class ProfileBox extends FlxSpriteGroup {
 			if (_dropHoverIdx == 0) {
 				FlxG.sound.play(Paths.sound('confirmMenu'));
 				closeDropdown();
-				LinkSubState.requestURL("https://samedcan1234.github.io/Psych-Engine-Ultra-Android/settings", Language.getPhrase('profile_open_settings', 'Profilinizin ayarlarını açmak istiyor musunuz?'));
+				LinkSubState.requestURL("https://further-engine.github.io/", Language.getPhrase('profile_open_settings', 'Profilinizin ayarlarını açmak istiyor musunuz?'));
 			} else if (_dropHoverIdx == 1) {
 				FlxG.sound.play(Paths.sound('cancelMenu'));
 				closeDropdown();

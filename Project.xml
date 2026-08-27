@@ -33,7 +33,7 @@
 	
 	<define name="MULTITHREADED_LOADING" if="cpp" /> <!-- UNCOMMENTING THIS LINE WILL ENABLE MULTITHREADED LOADING, WHICH IMPROVES LOADING TIMES, BUT WITH A LOW CHANCE FOR THE GAME FREEZE ON SONG LOAD -->
 	<define name="SHOW_LOADING_SCREEN" />
-	<define name="STRICT_LOADING_SCREEN" /> <!-- Düşük bellekli cihazlar için katı yükleme ekranı (ayarı: strictLoadingScreen) -->
+	<define name="STRICT_LOADING_SCREEN" /> <!-- Loading Screen for bad devices
 	<define name="PSYCH_WATERMARKS"/> <!-- DELETE THIS TO REMOVE THE PSYCH LOGO FROM LOADING SCREEN -->
 	
 	<define name="TITLE_SCREEN_EASTER_EGG"/>
@@ -109,7 +109,6 @@
 		<assets path="mobile/assets"            rename="assets/mobile"/>
 		<assets path="mobile/DPadModes"         rename="assets/mobile/DPadModes"/>
 		<assets path="mobile/ActionModes"       rename="assets/mobile/ActionModes"/>
-		<!-- MobileConfig.init() reads assets/shared/mobile/MobilePad/*, not assets/mobile -->
 		<assets path="mobile/assets/MobilePad/ActionModes" rename="assets/shared/mobile/MobilePad/ActionModes"/>
 		<assets path="mobile/assets/MobilePad/DPadModes" rename="assets/shared/mobile/MobilePad/DPadModes"/>
 		<assets path="mobile/ActionModes"       rename="assets/shared/mobile/ActionModes"/>
@@ -123,8 +122,6 @@
 		<assets path="alsoft.txt" rename="plugins/alsoft.ini" type="text" if="windows"/>
 		<assets path="alsoft.txt" rename="plugins/alsoft.conf" type="text" unless="windows"/>
 	</section>
-	
-	<!-- V-Slice compatibility is handled by Further Engine converters. -->
 
 	<!-- _______________________________ Libraries ______________________________ -->
 
@@ -225,14 +222,13 @@
 	<config:ios category_type="public.app-category.music-games" />
 	<config:mac category_type="public.app-category.music-games" />
 
-	<!-- Allow Access to Engine Files in iOS / Android Files sidebar -->
+	<!-- Allow Access to Engine Files -->
 	<haxedef name="SHARE_MOBILE_FILES" if="ios || android" />
 
-	<!-- Official FNF-style DocumentsProvider (Files app sidebar) -->
+	<!-- DocumentsProvider -->
 	<section if="android">
 			<template path="templates" />
 			<java path="source/android/java" />
-			<!-- Oyun açık/arka plandayken gelen yeni share intent'ini yakala. -->
 			<config:android extension="furtherengine.util.ShareImportUtil" />
 			<config:android permission="android.permission.INTERNET" />
 		<config:android permission="android.permission.ACCESS_NETWORK_STATE" />
@@ -254,9 +250,7 @@
 	<!--Macro fixes-->
 	<haxeflag name="--macro" value="allowPackage('flash')" />
 	<haxeflag name="--macro" value="include('my.pack')" />
-	<!-- CODENAME ENGINE KÖPRÜSÜ: CNE haftaları reflection ile yüklendiği için paket derlemeye dahil edilir -->
 	<haxeflag name="--macro" value="include('cne.compatibility')" />
-	<!-- V-SLICE KÖPRÜSÜ: haftasız V-Slice şarkıları reflection ile yüklenir (alt paketler hariç) -->
 	<haxeflag name="--macro" value="include('vslice.compatibility', false)" />
 
 	<haxedef name="hscriptPos" if="HSCRIPT_ALLOWED" />

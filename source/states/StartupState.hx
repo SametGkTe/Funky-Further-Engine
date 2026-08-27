@@ -82,7 +82,7 @@ class StartupState extends FlxState
 		Log.infoLazy('boot', function() return 'Ayarlar yüklendi, menüye geçiliyor (guvenliMod=' + SafeMode.active + ')');
 		if (!ClientPrefs.data.disableIntroVideo)
 			FlxG.switchState(new FurtherIntroState());
-		else if (!ClientPrefs.data.setupWizardCompleted)
+		else if (!ClientPrefs.data.setupWizardCompleted || SetupWizardState.debugMode)
 			FlxG.switchState(new SetupWizardState());
 		else
 			FlxG.switchState(new TitleState());

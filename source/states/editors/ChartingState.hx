@@ -429,8 +429,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		#end
 
 		updateJsonData();
-		
-		// TABS
+
 		////// for main box
 		addChartingTab();
 		addDataTab();

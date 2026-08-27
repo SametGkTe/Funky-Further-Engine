@@ -30,6 +30,10 @@ class AudioMixer
 	public static function syncFromPrefs():Void
 	{
 		if (!_initialized) init();
+		
+		// Başlangıçta tüm sesleri kısmak için flixel'e bildir
+		FlxG.sound.muted = muted;
+
 		setPrefVolume(MASTER, getPrefField(MASTER));
 		setPrefVolume(MUSIC,  getPrefField(MUSIC));
 		setPrefVolume(INST,   getPrefField(INST));
@@ -71,9 +75,11 @@ class AudioMixer
 		if (!_initialized) init();
 		var clamped:Float = FlxMath.bound(v, MIN_VOLUME, MAX_VOLUME);
 		Reflect.setField(ClientPrefs.data, prefsKey(ch), clamped);
+		
 		if (ch == MASTER)
 		{
-			// master değişince tüm kanallar etkilenir
+			// MASTER ayarını anında Flixel Global Volume'a aktar
+			FlxG.sound.volume = FlxMath.bound(clamped, 0, 1);
 			for (other in _channelSounds.keys())
 			{
 				if (other != (cast MASTER:String)) _applyChannel(cast other);
@@ -92,6 +98,9 @@ class AudioMixer
 	static function set_muted(v:Bool):Bool
 	{
 		ClientPrefs.data.volumeMuted = v;
+		// TÜM SESLERİ KAPAT ayarını Flixel Global Mute'a aktar!
+		FlxG.sound.muted = v;
+		
 		for (key in _channelSounds.keys()) _applyChannel(cast key);
 		return v;
 	}
@@ -136,6 +145,18 @@ class AudioMixer
 	}
 	static function _applyChannel(ch:AudioChannel):Void
 	{
+		// MOTORA DOĞRUDAN ETKİ ETMESİ İÇİN FLIXEL NATIVE GRUPLARINI GÜNCELLE
+		// Çünkü oyun içindeki seslerin çoğu track() ile eklenmemiştir!
+		if (ch == MASTER) {
+			FlxG.sound.volume = FlxMath.bound(getVolume(MASTER), 0, 1);
+		} else if (ch == MUSIC) {
+			if (FlxG.sound.defaultMusicGroup != null)
+				FlxG.sound.defaultMusicGroup.volume = FlxMath.bound(getVolume(MUSIC), 0, 1);
+		} else if (ch == SFX) {
+			if (FlxG.sound.defaultSoundGroup != null)
+				FlxG.sound.defaultSoundGroup.volume = FlxMath.bound(getVolume(SFX), 0, 1);
+		}
+
 		var key:String = cast ch;
 		var list:Array<FlxSound> = _channelSounds.get(key);
 		if (list == null) return;

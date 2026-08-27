@@ -113,12 +113,7 @@ class PerformanceProfiler
 		}
 	}
 
-	/**
-	 * Donanımı tahmin ederek en uygun profili seç.
-	 * - 2 çekirdekli düşük RAM = PERFORMANCE
-	 * - 4+ çekirdek mobil/orta PC = BALANCED
-	 * - 6+ çekirdek PC / güçlü mobil = HIGH
-	 */
+	// Tahmin (%-1 Accuracy)
 	public static function detectBest():PerformanceProfile
 	{
 		try

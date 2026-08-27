@@ -60,7 +60,7 @@ class SongPrepareState extends MusicBeatState
 		if (cap == null)
 		{
 			UserErrorSubstate.makeMessage(
-				Language.getPhrase('error_song_load_title', 'Failed to load a song'),
+				Language.getPhrase('error_song_load_title', 'Şarkı yüklenemedi'),
 				'FreeplaySongData is null.'
 			);
 			return;
@@ -97,7 +97,7 @@ class SongPrepareState extends MusicBeatState
 			else
 			{
 				UserErrorSubstate.makeMessage(
-					Language.getPhrase('error_missing_inst_title', 'Missing instrumentals'),
+					Language.getPhrase('error_missing_inst_title', 'Eksik Inst (Instrumental)'),
 					Language.getPhrase('error_missing_inst_body',
 						'Couldn\'t find Inst in \nsongs/{1}\nMake sure that there is a Inst.ogg file')
 						.replace('{1}', instPath)

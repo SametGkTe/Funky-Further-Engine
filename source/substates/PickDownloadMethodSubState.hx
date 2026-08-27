@@ -8,26 +8,10 @@ import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import backend.MusicBeatSubstate;
 
-/**
- * Further Engine — İndirme Yöntemi Seçimi
- *
- * Kullanıcı detay ekranında bir indirme linkine bastığında açılır:
- *
- *   ┌─────────────────────────┐
- *   │  İNDİRME YÖNTEMİ SEÇİN  │
- *   │  <paket adı>            │
- *   │                         │
- *   │  [OTOMATİK]  [MANUEL]   │
- *   │  (Önerilir)             │
- *   └─────────────────────────┘
- *
- *  - OTOMATİK → onPick("auto")  → oyun içi indirme (basılan link üzerinden)
- *  - MANUEL   → onPick("manual") → tarayıcıda açılır
- */
 class PickDownloadMethodSubState extends MusicBeatSubstate {
 	var packName:String;
 	var onPick:String->Void;
-	var selected:Int = 0; // 0 = otomatik, 1 = manuel
+	var selected:Int = 0;
 
 	var box:FlxSprite;
 	var titleText:FlxText;
@@ -74,7 +58,6 @@ class PickDownloadMethodSubState extends MusicBeatSubstate {
 		packText.alpha = 0;
 		add(packText);
 
-		// ── OTOMATİK butonu ──
 		var btnW:Int = Std.int(boxW * 0.42);
 		var btnH:Int = 74;
 		var gap:Int = 16;
@@ -95,9 +78,7 @@ class PickDownloadMethodSubState extends MusicBeatSubstate {
 		autoSub.alpha = 0;
 		add(autoSub);
 
-		// ── MANUEL butonu ──
 		var manualX:Int = autoX + btnW + gap;
-
 		btnManual = new FlxSprite(manualX, btnsY).makeGraphic(btnW, btnH, 0xFF1F2937);
 		btnManual.alpha = 0;
 		add(btnManual);
@@ -112,7 +93,6 @@ class PickDownloadMethodSubState extends MusicBeatSubstate {
 		hintText.alpha = 0;
 		add(hintText);
 
-		// Giriş animasyonu
 		box.alpha = 0.95;
 		border.alpha = 1;
 		FlxTween.tween(titleText, {alpha: 1}, 0.15);
@@ -170,7 +150,6 @@ class PickDownloadMethodSubState extends MusicBeatSubstate {
 
 		if (closed) return;
 
-		// Klavye / gamepad
 		if (controls.UI_LEFT_P || controls.UI_RIGHT_P) {
 			selected = selected == 0 ? 1 : 0;
 			updateSelection();
@@ -185,7 +164,6 @@ class PickDownloadMethodSubState extends MusicBeatSubstate {
 			return;
 		}
 
-		// Mouse / dokunmatik
 		if (FlxG.mouse.overlaps(btnAuto)) {
 			if (selected != 0) {
 				selected = 0;

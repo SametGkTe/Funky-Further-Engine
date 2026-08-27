@@ -18,18 +18,8 @@ import backend.Log;
 import openfl.display.BitmapData;
 import openfl.display.Shape;
 
-/**
- * Kurulum Sihirbazı — FurtherIntroState'den sonra, TitleState'den önce açılır.
- * Tam ekran, scrollable, yumuşak köşeli kart sistemine dayalı kurulum:
- *   1. Dil seçimi (Türkçe, English, Português)
- *   2. Performans profili (otomatik algılanıp seçili gelir)
- *   3. Giriş yap / atla → Bitir
- *
- * Tamamlandığında setupWizardCompleted = true olarak kaydedilir.
- */
 class SetupWizardState extends MusicBeatState
 {
-	// ── Layout sabitleri ────────────────────────────────────────
 	static inline var SIDE_PAD:Float = 80;
 	static inline var SECTION_GAP:Float = 60;
 	static inline var TITLE_GAP:Float = 22;
@@ -50,6 +40,7 @@ class SetupWizardState extends MusicBeatState
 
 	// LoginState'den geri dönüş bayrağı (static: state değişiminde korunur)
 	public static var returnToWizard:Bool = false;
+	public static var debugMode:Bool = true; // Her açılışta setup wizard çıkmasını sağlayan debug modu
 
 	// ── Desteklenen diller ──────────────────────────────────────
 	static var LANG_DEFS:Array<{code:String, name:String, flag:String}> = [
@@ -115,6 +106,7 @@ class SetupWizardState extends MusicBeatState
 	override function create():Void
 	{
 		super.create();
+		flixel.FlxG.mouse.visible = true;
 		clipBottom = FlxG.height;
 		// Bu state'e LoginState'den dönülüyorsa return bayrağını temizle
 		returnToWizard = false;
@@ -218,7 +210,6 @@ class SetupWizardState extends MusicBeatState
 		addAt(logo, curY, cx - logo.width / 2);
 		curY += logo.height + 20;
 
-		// ── "Further" mor, "Engine" beyaz ─────────────────────
 		var furtherText = new FlxText(0, 0, FlxG.width, 'FURTHER');
 		furtherText.setFormat(Paths.font('vcr.ttf'), 88, 0xFFB14AFF, CENTER);
 		furtherText.antialiasing = ClientPrefs.data.antialiasing;
@@ -712,17 +703,23 @@ class SetupWizardState extends MusicBeatState
 
 		// Tıklamalar (fare + dokunma)
 		var clicked = FlxG.mouse.justPressed;
+		var mx:Float = FlxG.mouse.x;
+		var my:Float = FlxG.mouse.y;
+		
 		#if mobile
 		for (touch in FlxG.touches.list)
 		{
-			if (touch.justPressed) { clicked = true; FlxG.mouse.x = touch.x; FlxG.mouse.y = touch.y; break; }
+			if (touch.justPressed) {
+				clicked = true;
+				mx = touch.x;
+				my = touch.y;
+				break;
+			}
 		}
 		#end
+		
 		if (clicked)
 		{
-			var mx = FlxG.mouse.x;
-			var my = FlxG.mouse.y;
-
 			for (c in langCards)
 			{
 				if (hitTest(c.hit, mx, my))

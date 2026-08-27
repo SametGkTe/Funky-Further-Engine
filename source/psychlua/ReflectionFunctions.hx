@@ -92,7 +92,8 @@ class ReflectionFunctions
 								result = LuaUtils.getGroupStuff(leArray, variable, allowMaps);
 							return result;
 						}
-						FunkinLua.luaTrace('getPropertyFromGroup: Object #$index from group: $group doesn\'t exist!', false, false, FlxColor.RED);
+						if (substates.GameOverSubstate.instance == null || group != 'notes')
+							FunkinLua.luaTrace('getPropertyFromGroup: Group/Array $group doesn\'t exist!', false, false, FlxColor.RED); // Kodumun bokunu spamlıyor.
 
 					default: //Is Group
 						var result:Dynamic = LuaUtils.getGroupStuff(realObject.members[index], variable, allowMaps);

@@ -208,7 +208,7 @@ class GalleryState extends MusicBeatState {
 		},
 		{
 			fileName: "eternalsugar",
-			title: "External Sugar :D",
+			title: "Eternal Sugar :D",
 			description: "rlly like this char ngl",
 			type: IMAGE,
 			category: "Art",

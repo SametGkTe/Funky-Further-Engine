@@ -22,7 +22,6 @@ class PsychUIBox extends FlxSpriteGroup
 
 	public var bg:FlxSprite;
 
-	// MODERN PALET: seçili tab mavi vurgu, pasif tab koyu slate
 	public var selectedStyle:UIStyleData = {
 		bgColor: PsychUIButton.ACCENT,
 		textColor: FlxColor.WHITE,
