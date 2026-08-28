@@ -40,5 +40,9 @@ REM 0.16+ istemcileri 0.15 sunucusuyla UYUMSUZ - pinli birakin.
 haxelib install colyseus 0.15.4 --quiet
 haxelib install colyseus-websocket 1.0.12 --quiet
 
+REM tink_core: haxelib 1.26.0 kuruyor ama tink_io 0.9.0 v2 bekliyor,
+REM ayrica 1.26.0 Haxe 4.3 ile "Recursive implicit cast" veriyor.
+haxelib install tink_core 2.1.1 --quiet
+
 echo Finished!
 pause

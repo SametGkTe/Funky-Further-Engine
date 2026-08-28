@@ -88,6 +88,8 @@ jobs:
           haxelib set HtmlParser 3.4.0
           haxelib set colyseus 0.15.4
           haxelib set colyseus-websocket 1.0.12
+          haxelib install tink_core 2.1.1 --quiet --always
+          haxelib set tink_core 2.1.1
           echo "=== Haxelib List (after force set) ==="
           haxelib list
 

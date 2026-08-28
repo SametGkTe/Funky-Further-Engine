@@ -39,6 +39,10 @@ haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate --quiet
 haxelib install colyseus 0.15.4 --quiet
 haxelib install colyseus-websocket 1.0.12 --quiet
 
+# tink_core: haxelib 1.26.0 kuruyor ama tink_io 0.9.0 v2 bekliyor,
+# ayrica 1.26.0 Haxe 4.3 ile "Recursive implicit cast" veriyor.
+haxelib install tink_core 2.1.1 --quiet
+
 echo Forcing correct library versions...
 
 # Force selected versions after dependency installs
@@ -49,5 +53,6 @@ haxelib set openfl 9.4.1
 haxelib set HtmlParser 3.4.0
 haxelib set colyseus 0.15.4
 haxelib set colyseus-websocket 1.0.12
+haxelib set tink_core 2.1.1
 
 echo Finished!
