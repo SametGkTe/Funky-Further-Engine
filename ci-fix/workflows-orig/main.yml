@@ -74,7 +74,7 @@ jobs:
       setupCommand: ${{ matrix.setupCommand }}
       artifactName: ${{ matrix.artifactName }}
       artifactPath: ${{ matrix.artifactPath }}
-    secrets: inherit
+
   Releaser:
     name: Releaser
     needs: [get-commit-hash, Build]

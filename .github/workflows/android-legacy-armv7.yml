@@ -32,7 +32,7 @@ jobs:
       buildArgs: "android -ONLY_ARMV7"
       artifactName: Further-Engine-Android-ARMv7
       artifactPath: "export/release/android/bin/app/build/outputs/apk/release/*.apk"
-
+    secrets: inherit
   Releaser:
     needs: [get-commit-hash, build-android-armv7]
     runs-on: ubuntu-latest

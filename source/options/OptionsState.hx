@@ -8,50 +8,43 @@ typedef OptionEntry = {
 	label:String,
 	desc:String,
 	langKey:String,
+	icon:String
 }
 
 class OptionsState extends MusicBeatState
 {
 	var entries:Array<OptionEntry> = [
-		{ label: 'Nota Renkleri',     desc: 'Nota oklarının renklerini özelleştirin ve ayarlayın!',  langKey: 'note_colors'     },
-		{ label: 'Kontroller',        desc: 'Klavye ve oyun kumandası tuşlarını yeniden atayın.',    langKey: 'controls'        },
-		{ label: 'Gecikme & Kombo',   desc: 'Nota ofsetini ve gecikmeyi ayarlayın.',                langKey: 'delay_combo'     },
-		{ label: 'Grafikler',         desc: 'Performans ve işleme ayarları.',                       langKey: 'graphics'        },
-		{ label: 'Sesler',            desc: 'Ana ses, müzik, enstrüman, vokal ve efekt kanallarını ayarlayın.', langKey: 'audio'        },
-		{ label: 'Görünüş',           desc: 'HUD, efektler ve görsel tercihler.',                   langKey: 'visuals'         },
-		{ label: 'Oynanış',           desc: 'Ok Stili, Görsel efektleri ayarlayın.',                langKey: 'gameplay'        },
+		{ label: 'Nota Renkleri',     desc: 'Nota oklarının renklerini özelleştirin ve ayarlayın!',  langKey: 'note_colors',     icon: 'notecolors' },
+		{ label: 'Kontroller',        desc: 'Klavye ve oyun kumandası tuşlarını yeniden atayın.',    langKey: 'controls',        icon: 'controls' },
+		{ label: 'Gecikme & Kombo',   desc: 'Nota ofsetini ve gecikmeyi ayarlayın.',                langKey: 'delay_combo',     icon: 'comboanddelay' },
+		{ label: 'Grafikler',         desc: 'Performans ve işleme ayarları.',                       langKey: 'graphics',        icon: 'graphics' },
+		{ label: 'Sesler',            desc: 'Ana ses, müzik, enstrüman, vokal ve efekt kanallarını ayarlayın.', langKey: 'audio', icon: 'audio' },
+		{ label: 'Görünüş',           desc: 'HUD, efektler ve görsel tercihler.',                   langKey: 'visuals',         icon: 'visuals' },
+		{ label: 'Oynanış',           desc: 'Ok Stili, Görsel efektleri ayarlayın.',                langKey: 'gameplay',        icon: 'gameplay' },
 		#if TRANSLATIONS_ALLOWED
-		{ label: 'Dil',              desc: 'Dilinizi seçin!',                                      langKey: 'language'        },
+		{ label: 'Dil',              desc: 'Dilinizi seçin!',                                      langKey: 'language',        icon: 'language' },
 		#end
 		#if mobile
-		{ label: 'Mobil Ayarlar',    desc: 'Dokunmatik Kontrol Ayarları.',                          langKey: 'mobile_settings' },
-		{ label: 'Mobil Ekstra Tuşlar', desc: 'Ekstra tuş atamaları.',                              langKey: 'mobile_extra_control' },
+		{ label: 'Mobil Ayarlar',    desc: 'Dokunmatik Kontrol Ayarları.',                          langKey: 'mobile_settings', icon: 'mobilecontrols' },
+		{ label: 'Mobil Ekstra Tuşlar', desc: 'Ekstra tuş atamaları.',                              langKey: 'mobile_extra_control', icon: 'mobileextracontrols' },
 		#end
+		{ label: 'PET Ayarları',     desc: 'PET karakteri ve görünüm ayarlarını yapılandırın.',     langKey: 'pet_settings',    icon: 'pet' }
 	];
 
 	private var grpOptions:FlxTypedGroup<Alphabet>;
+	private var optionIcons:Array<FlxSprite> = [];
+	
 	private static var curSelected:Int = 0;
 	public static var onPlayState:Bool = false;
 
 	static inline var ITEM_SPACING:Float = 120;
 	static inline var TOP_MARGIN:Float = 200;
 
-	var menuSpacing:Float = 120;
-
 	var selectorLeft:Alphabet;
 	var selectorRight:Alphabet;
 	var descText:FlxText;
 	var descBg:FlxSprite;
 	var exiting:Bool = false;
-
-	var petButton:FlxSprite;
-	var petHovered:Bool = false;
-
-	var petHoverX:Float = 0;
-	var petHoverY:Float = 0;
-	var petHoverW:Float = 211;
-	var petHoverH:Float = 226;
-
 	var camFollow:FlxObject;
 
 	function openSelectedSubstate(langKey:String)
@@ -67,123 +60,37 @@ class OptionsState extends MusicBeatState
 			controls.isInSubstate = true;
 		}
 
+		FlxG.camera.follow(null);
+		FlxG.camera.scroll.set(0, 0);
+
 		switch (langKey) {
 			case 'note_colors':
-				FlxG.camera.follow(null);
-			FlxG.camera.scroll.set(0, 0);
-			openSubState(new options.NotesColorSubState());
+				openSubState(new options.NotesColorSubState());
 			case 'controls':
-				FlxG.camera.follow(null);
-			FlxG.camera.scroll.set(0, 0);
-			openSubState(new options.ControlsSubState());
+				openSubState(new options.ControlsSubState());
 			case 'audio':
-				FlxG.camera.follow(null);
-			FlxG.camera.scroll.set(0, 0);
-			openSubState(new options.AudioSubState());
+				openSubState(new options.AudioSubState());
 			case 'graphics':
-				FlxG.camera.follow(null);
-			FlxG.camera.scroll.set(0, 0);
-			openSubState(new options.GraphicsSettingsSubState());
+				openSubState(new options.GraphicsSettingsSubState());
 			case 'visuals':
-				FlxG.camera.follow(null);
-			FlxG.camera.scroll.set(0, 0);
-			openSubState(new options.VisualsSettingsSubState());
+				openSubState(new options.VisualsSettingsSubState());
 			case 'gameplay':
-				FlxG.camera.follow(null);
-			FlxG.camera.scroll.set(0, 0);
-			openSubState(new options.GameplaySettingsSubState());
+				openSubState(new options.GameplaySettingsSubState());
 			case 'delay_combo':
 				removeTouchPad();
 				if (mobileManager != null) mobileManager.removeMobilePad();
 				MusicBeatState.switchState(new options.NoteOffsetState());
 			case 'mobile_settings':
-				FlxG.camera.follow(null);
-			FlxG.camera.scroll.set(0, 0);
-			openSubState(new mobile.options.MobileOptionsSubState());
+				openSubState(new mobile.options.MobileOptionsSubState());
 			case 'mobile_extra_control':
-				removeTouchPad();
-				if (mobileManager != null) mobileManager.removeMobilePad();
-				persistentUpdate = false;
-				controls.isInSubstate = true;
-				FlxG.camera.follow(null);
-			FlxG.camera.scroll.set(0, 0);
-			openSubState(new mobile.substates.MobileExtraControl());
+				openSubState(new mobile.substates.MobileExtraControl());
+			case 'pet_settings':
+				openSubState(new options.PetSettingsState());
 			#if TRANSLATIONS_ALLOWED
 			case 'language':
-				FlxG.camera.follow(null);
-			FlxG.camera.scroll.set(0, 0);
-			openSubState(new options.LanguageSubState());
+				openSubState(new options.LanguageSubState());
 			#end
 		}
-	}
-
-	function createPetButton(x:Float, y:Float):FlxSprite
-	{
-		var spr:FlxSprite = new FlxSprite(x, y);
-		spr.frames = Paths.getSparrowAtlas('optionsmenu/option_pet');
-		spr.animation.addByPrefix('idle', 'pet idle', 24, true);
-		spr.animation.addByPrefix('selected', 'pet selected', 24, true);
-		spr.animation.play('idle');
-		spr.antialiasing = ClientPrefs.data.antialiasing;
-		spr.scrollFactor.set();
-		spr.updateHitbox();
-		add(spr);
-		return spr;
-	}
-
-	function isMouseOverPet():Bool
-	{
-		// Scroll factor 0 olan objeler için ekran koordinatı (screenX/Y) kullanılmalıdır.
-		var mouseX:Float = FlxG.mouse.screenX;
-		var mouseY:Float = FlxG.mouse.screenY;
-
-		return mouseX >= petHoverX && mouseX <= petHoverX + petHoverW
-			&& mouseY >= petHoverY && mouseY <= petHoverY + petHoverH;
-	}
-
-	function updatePetButton():Bool
-	{
-		if (petButton == null) return false;
-
-		var overPet:Bool = isMouseOverPet();
-
-		if (overPet && !petHovered)
-		{
-			petHovered = true;
-			petButton.animation.play('selected', true);
-		}
-		else if (!overPet && petHovered)
-		{
-			petHovered = false;
-			petButton.animation.play('idle', true);
-		}
-
-		if (overPet && FlxG.mouse.justPressed)
-		{
-			openPetSettings();
-			return true;
-		}
-
-		return false;
-	}
-
-	function openPetSettings()
-	{
-		if (exiting) return;
-
-		#if mobile
-		FlxG.mouse.visible = false;
-		#end
-		FlxG.sound.play(Paths.sound('confirmMenu'));
-
-		removeTouchPad();
-		if (mobileManager != null) mobileManager.removeMobilePad();
-		persistentUpdate = false;
-		controls.isInSubstate = true;
-
-		FlxG.camera.follow(null);
-			FlxG.camera.scroll.set(0, 0);
-			openSubState(new options.PetSettingsState());
 	}
 
 	override function create()
@@ -205,20 +112,28 @@ class OptionsState extends MusicBeatState
 		
 		FlxG.mouse.visible = #if mobile false #else true #end;
 
-		// Pet Sprite'ı tekrar orta-sol hizaya alındı (Mobil kontroller sol altı kapladığı için)
-		petButton = createPetButton(20, (FlxG.height - 226) * 0.5);
-		petHoverX = petButton.x - 6;
-		petHoverY = petButton.y - 30;
-		petHoverW = 211;
-		petHoverH = 226;
-
 		grpOptions = new FlxTypedGroup<Alphabet>();
 		add(grpOptions);
 
-		for (entry in entries) {
+		for (i in 0...entries.length) {
+			var entry = entries[i];
 			var displayLabel:String = Language.getPhrase('options_${entry.langKey}', entry.label);
+			
 			var optionText:Alphabet = new Alphabet(0, 0, displayLabel, true);
 			grpOptions.add(optionText);
+
+			var iconStr = 'further/options/' + entry.icon;
+			var icon:FlxSprite = new FlxSprite(0, 0);
+			
+			// Eger resim bulunamazsa oyun cokmesin diye beyaz kutu (placeholder) ekliyoruz
+			if (Paths.fileExists('images/' + iconStr + '.png', IMAGE)) {
+				icon.loadGraphic(Paths.image(iconStr));
+			} else {
+				icon.makeGraphic(80, 80, flixel.util.FlxColor.WHITE);
+			}
+			icon.antialiasing = ClientPrefs.data.antialiasing;
+			add(icon);
+			optionIcons.push(icon);
 		}
 
 		selectorLeft = new Alphabet(0, 0, '>', true);
@@ -232,7 +147,7 @@ class OptionsState extends MusicBeatState
 		add(descBg);
 
 		descText = new FlxText(0, FlxG.height - 28, FlxG.width, '', 14);
-		descText.setFormat('assets/fonts/vcr.ttf', 14, 0xFFea71fd, CENTER, FlxTextBorderStyle.NONE);
+		descText.setFormat('assets/fonts/vcr.ttf', 14, 0xFFea71fd, CENTER, flixel.text.FlxText.FlxTextBorderStyle.NONE);
 		descText.scrollFactor.set();
 		descText.antialiasing = ClientPrefs.data.antialiasing;
 		add(descText);
@@ -240,7 +155,7 @@ class OptionsState extends MusicBeatState
 		if (controls.mobileC) {
 			var tipText:FlxText = new FlxText(150, FlxG.height - 60, 0,
 				'Press ' + (FlxG.onMobile ? 'C' : 'CTRL or C') + ' for Mobile Controls', 12);
-			tipText.setFormat('assets/fonts/vcr.ttf', 12, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+			tipText.setFormat('assets/fonts/vcr.ttf', 12, flixel.util.FlxColor.WHITE, LEFT, flixel.text.FlxText.FlxTextBorderStyle.OUTLINE, flixel.util.FlxColor.BLACK);
 			tipText.borderSize = 1.25;
 			tipText.scrollFactor.set();
 			tipText.antialiasing = ClientPrefs.data.antialiasing;
@@ -285,9 +200,6 @@ class OptionsState extends MusicBeatState
 		layoutOptions();
 		changeSelection(0, false);
 
-		petHovered = false;
-		if (petButton != null) petButton.animation.play('idle', true);
-
 		#if mobile
 		FlxG.mouse.visible = false;
 		#end
@@ -300,9 +212,6 @@ class OptionsState extends MusicBeatState
 
 		if (exiting) return;
 
-		if (updatePetButton()) return;
-
-		// Sadece dikey kaydırma mantığı, sağ-sol tuşlarını da dahil ettik
 		if (controls.UI_UP_P || controls.UI_LEFT_P) changeSelection(-1);
 		if (controls.UI_DOWN_P || controls.UI_RIGHT_P) changeSelection(1);
 
@@ -325,6 +234,7 @@ class OptionsState extends MusicBeatState
 			persistentUpdate = false;
 			removeTouchPad();
 			if (mobileManager != null) mobileManager.removeMobilePad();
+			
 			FlxG.camera.follow(null);
 			FlxG.camera.scroll.set(0, 0);
 			openSubState(new mobile.substates.MobileControlSelectSubState());
@@ -358,9 +268,23 @@ class OptionsState extends MusicBeatState
 
 		for (num => item in grpOptions.members) {
 			if (item == null) continue;
+			var icon = optionIcons[num];
 			
-			// Tamamen dikey görünüm
-			item.x = (FlxG.width - item.width) * 0.5;
+			var totalWidth:Float = item.width;
+			if (icon != null) {
+			    totalWidth += icon.width + 20; // 20px ikon ve yazi arasi bosluk
+			}
+			
+			var startX:Float = (FlxG.width - totalWidth) * 0.5;
+
+            if (icon != null) {
+                icon.x = startX;
+                icon.y = startY + (num * ITEM_SPACING) + (item.height - icon.height) * 0.5;
+                item.x = icon.x + icon.width + 20;
+            } else {
+                item.x = startX;
+            }
+            
 			item.y = startY + (num * ITEM_SPACING);
 		}
 
@@ -373,9 +297,12 @@ class OptionsState extends MusicBeatState
 		if (curSelected < 0 || curSelected >= grpOptions.members.length) return;
 
 		var item = grpOptions.members[curSelected];
+		var icon = optionIcons[curSelected];
 		if (item == null) return;
 
-		selectorLeft.x = item.x - 63;
+        var leftTarget = (icon != null) ? icon : item;
+
+		selectorLeft.x = leftTarget.x - 63;
 		selectorLeft.y = item.y;
 
 		selectorRight.x = item.x + item.width + 15;
@@ -388,7 +315,12 @@ class OptionsState extends MusicBeatState
 
 		for (num => item in grpOptions.members) {
 			if (item == null) continue;
-			item.alpha = (num == curSelected) ? 1 : 0.45;
+			var isSel = (num == curSelected);
+			
+			item.alpha = isSel ? 1 : 0.45;
+			if (optionIcons[num] != null) {
+			    optionIcons[num].alpha = isSel ? 1 : 0.45;
+			}
 		}
 
 		if (descText != null) {
@@ -397,7 +329,6 @@ class OptionsState extends MusicBeatState
 
 		refreshSelectors();
 
-		// Kamera kaydırma
 		var selectedItem = grpOptions.members[curSelected];
 		if (selectedItem != null && camFollow != null) {
 			camFollow.y = selectedItem.getGraphicMidpoint().y;

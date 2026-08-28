@@ -6,8 +6,6 @@ APIStuff.hx
 *.keystore
 *.jks
 keystore.properties
-!key.keystore
-
 art/buildScripts/build_x32-officialrelease.bat
 art/buildScripts/build_x64-officialrelease.bat
 art/buildScripts/test_x64-debug-officialrelease.bat
@@ -32,3 +30,13 @@ vs_Community.exe
 !.vscode/extensions.json
 art/build_html.bat
 art/build_html-debug.bat
+
+### Android imzalama — ASLA commit etme
+*.p12
+keystore-out/
+keystore.base64.txt
+sha256-fingerprint.txt
+SECRETS.txt
+
+### ci-fix yamasının yedekleri
+*.bak

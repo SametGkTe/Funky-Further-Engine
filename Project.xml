@@ -216,7 +216,11 @@
 
 	<!-- Do whatever you want I'm tired uninstall and install everytime -->
 	<!-- Public upstream Android signing key. -->
-	<certificate path="key.keystore" password="psychengine" alias="psychport" alias-password="psychengine" if="android" unless="debug" />
+	<!-- İmzalama CI'da apksigner ile yapılıyor.
+	     Bkz. .github/workflows/build.yml → 'Sign Android APK' adımı.
+	     Bu etiketi geri açarsan Lime, şifre boşsa CI'da
+	     System.console().readLine() üretir ve build sonsuza kadar takılır. -->
+	<!-- <certificate path="key.keystore" password="psychengine" alias="psychport" alias-password="psychengine" if="android" unless="debug" /> -->
 
 	<!-- Category Type for Apple Systems -->
 	<config:ios category_type="public.app-category.music-games" />

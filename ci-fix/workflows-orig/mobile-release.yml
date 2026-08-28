@@ -62,7 +62,7 @@ jobs:
       buildArgs: ${{ matrix.buildArgs }}
       artifactName: ${{ matrix.artifactName }}
       artifactPath: ${{ matrix.artifactPath }}
-    secrets: inherit
+
   Releaser:
     needs: [get-commit-hash, build]
     runs-on: ubuntu-latest

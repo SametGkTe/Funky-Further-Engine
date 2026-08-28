@@ -1,6 +1,7 @@
-name: Android ARM64
+name: Android Legacy ARMv7
+
 on:
-  workflow_dispatch
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -20,37 +21,37 @@ jobs:
           commit_hash=${GITHUB_SHA::7}
           echo "COMMIT_HASH=$commit_hash" >> $GITHUB_OUTPUT
 
-  build-android-arm64:
-    name: Android ARM64
+  build-android-armv7:
+    name: Android Legacy ARMv7
     needs: get-commit-hash
     uses: ./.github/workflows/build.yml
     with:
       name: Android
       os: macos-15
       setupCommand: sh ./setup/unix.sh
-      buildArgs: "android -ONLY_ARM64"
-      artifactName: androidBuild-arm64
+      buildArgs: "android -ONLY_ARMV7"
+      artifactName: Further-Engine-Android-ARMv7
       artifactPath: "export/release/android/bin/app/build/outputs/apk/release/*.apk"
-    secrets: inherit
+
   Releaser:
-    needs: [get-commit-hash, build-android-arm64]
+    needs: [get-commit-hash, build-android-armv7]
     runs-on: ubuntu-latest
     permissions: write-all
     steps:
-      - name: Download Android ARM64 Build
+      - name: Download Android ARMv7 Build
         uses: actions/download-artifact@v4
         with:
-          name: androidBuild-arm64
+          name: Further-Engine-Android-ARMv7
           path: /home/runner/artifacts/android
 
       - name: Move Android APK
-        run: mv /home/runner/artifacts/android/*.apk /home/runner/${{ env.PROJECT_NAME }}-Android-ARM64.apk
+        run: mv /home/runner/artifacts/android/*.apk /home/runner/${{ env.PROJECT_NAME }}-Android-ARMv7.apk
 
       - name: Publish Release
         uses: softprops/action-gh-release@v2
         with:
-          name: "Android ARM64 ${{ needs.get-commit-hash.outputs.commit_hash }}"
-          tag_name: "android-arm64-${{ needs.get-commit-hash.outputs.commit_hash }}"
+          name: "Android ARMv7 ${{ needs.get-commit-hash.outputs.commit_hash }}"
+          tag_name: "android-armv7-${{ needs.get-commit-hash.outputs.commit_hash }}"
           prerelease: true
           files: |
-            /home/runner/${{ env.PROJECT_NAME }}-Android-ARM64.apk
+            /home/runner/${{ env.PROJECT_NAME }}-Android-ARMv7.apk

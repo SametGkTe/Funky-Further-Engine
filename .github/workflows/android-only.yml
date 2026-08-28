@@ -31,7 +31,7 @@ jobs:
       buildArgs: "android"
       artifactName: androidBuild
       artifactPath: "export/release/android/bin/app/build/outputs/apk/release/*.apk"
-
+    secrets: inherit
   Releaser:
     needs: [get-commit-hash, build-android]
     runs-on: ubuntu-latest
