@@ -33,6 +33,12 @@ haxelib git funkin.vis https://github.com/FunkinCrew/funkVis 22b1ce089dd924f15cd
 haxelib git grig.audio https://gitlab.com/haxe-grig/grig.audio.git cbf91e2180fd2e374924fe74844086aab7891666 --quiet
 haxelib git mobile-controls https://github.com/Prohack101010/mobile-controls-dev --quiet
 haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate --quiet
+# Further Online (Colyseus)
+# Surum, further-server/package.json (colyseus ^0.15.17) ile eslesmeli.
+# 0.16+ istemcileri 0.15 sunucusuyla UYUMSUZ - pinli birakin.
+haxelib install colyseus 0.15.4 --quiet
+haxelib install colyseus-websocket 1.0.12 --quiet
+
 echo Forcing correct library versions...
 
 # Force selected versions after dependency installs
@@ -41,5 +47,7 @@ haxelib set lime git
 haxelib set flixel git
 haxelib set openfl 9.4.1
 haxelib set HtmlParser 3.4.0
+haxelib set colyseus 0.15.4
+haxelib set colyseus-websocket 1.0.12
 
 echo Finished!

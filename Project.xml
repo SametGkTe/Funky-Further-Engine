@@ -128,8 +128,8 @@
 	<haxelib name="flixel"/>
 	<haxelib name="flixel-addons" version="3.3.2"/>
 	<!-- Further Online -->
-	<haxelib name="colyseus" if="FURTHER_ONLINE"/>
-	<haxelib name="colyseus-websocket" if="FURTHER_ONLINE"/>
+	<haxelib name="colyseus" version="0.15.4" if="FURTHER_ONLINE"/>
+	<haxelib name="colyseus-websocket" version="1.0.12" if="FURTHER_ONLINE"/>
 	<haxelib name="tjson" version="1.4.0"/>
 	
 	<haxelib name="HtmlParser" />

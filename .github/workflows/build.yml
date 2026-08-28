@@ -86,6 +86,8 @@ jobs:
           haxelib set flixel git
           haxelib set openfl 9.4.1
           haxelib set HtmlParser 3.4.0
+          haxelib set colyseus 0.15.4
+          haxelib set colyseus-websocket 1.0.12
           echo "=== Haxelib List (after force set) ==="
           haxelib list
 

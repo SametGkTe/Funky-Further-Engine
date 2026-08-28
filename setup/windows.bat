@@ -34,5 +34,11 @@ haxelib git grig.audio https://gitlab.com/haxe-grig/grig.audio.git cbf91e2180fd2
 haxelib git mobile-controls https://github.com/Prohack101010/mobile-controls-dev --quiet
 haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate --quiet
 
+REM Further Online (Colyseus)
+REM Surum, further-server/package.json (colyseus ^0.15.17) ile eslesmeli.
+REM 0.16+ istemcileri 0.15 sunucusuyla UYUMSUZ - pinli birakin.
+haxelib install colyseus 0.15.4 --quiet
+haxelib install colyseus-websocket 1.0.12 --quiet
+
 echo Finished!
 pause
