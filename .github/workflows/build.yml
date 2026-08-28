@@ -59,7 +59,7 @@ jobs:
           haxe-version: ${{ env.HAXE_VERSION }}
 
       - name: Setup Android NDK
-        if: inputs.name == 'Android'
+        if: success() && inputs.name == 'Android'
         id: setup-ndk
         uses: nttld/setup-ndk@v1
         with:
@@ -67,7 +67,7 @@ jobs:
           add-to-path: false
 
       - name: Install libVLC
-        if: contains(inputs.name, 'Linux')
+        if: success() && contains(inputs.name, 'Linux')
         run: sudo apt update && sudo apt install -y libvlc-dev libvlccore-dev
 
       - name: Install Libraries
@@ -94,7 +94,7 @@ jobs:
           haxelib list
 
       - name: Patch hxcpp for macOS 15 / Xcode 16
-        if: runner.os == 'macOS'
+        if: success() && runner.os == 'macOS'
         shell: bash
         run: |
           ZUTIL="$HOME/haxelib/hxcpp/git/project/thirdparty/zlib-1.2.13/zutil.h"
@@ -110,7 +110,7 @@ jobs:
           grep -n "fdopen" "$ZUTIL" || true
 
       - name: Configure Android
-        if: inputs.name == 'Android'
+        if: success() && inputs.name == 'Android'
         shell: bash
         run: |
           haxelib run lime config ANDROID_SDK $ANDROID_HOME
@@ -140,7 +140,7 @@ jobs:
           cat ~/.gradle/gradle.properties
 
       - name: Restore Compile Cache
-        if: inputs.name != 'Android' && inputs.name != 'iOS'
+        if: success() && inputs.name != 'Android' && inputs.name != 'iOS'
         id: compile-cache
         uses: actions/cache@v4
         with:
@@ -151,7 +151,7 @@ jobs:
             compile-${{ inputs.os }}-${{ inputs.buildArgs }}-
 
       - name: Clean iOS
-        if: inputs.name == 'iOS'
+        if: success() && inputs.name == 'iOS'
         run: haxelib run lime clean ios || true
 
       # --- HANG FIX ---
@@ -187,7 +187,7 @@ jobs:
       # Gradle hicbir signingConfig gormez -> prompt ihtimali sifir.
       # Secrets tanimli degilse adim sessizce atlanir (fork'lar / PR'lar icin).
       - name: Sign Android APK
-        if: inputs.name == 'Android'
+        if: success() && inputs.name == 'Android'
         shell: bash
         env:
           KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -198,8 +198,37 @@ jobs:
           set -euo pipefail
 
           APK_DIR="export/release/android/bin/app/build/outputs/apk/release"
-          echo "=== APK klasoru ==="
-          ls -la "$APK_DIR" || { echo "APK klasoru yok!"; exit 1; }
+
+          if [ ! -d "$APK_DIR" ]; then
+            echo "Beklenen APK klasoru yok: $APK_DIR"
+            echo "Alternatif yollar araniyor..."
+            FOUND=$(find export -type d -path "*outputs/apk/*" 2>/dev/null | head -n1 || true)
+            if [ -n "$FOUND" ]; then
+              echo "Bulundu: $FOUND"
+              APK_DIR="$FOUND"
+            else
+              echo ""
+              echo "############ TESHIS ############"
+              echo "--- export agaci (4 seviye) ---"
+              find export -maxdepth 4 -type d 2>/dev/null | head -n 60 || echo "(export klasoru yok)"
+              echo "--- tum .apk dosyalari ---"
+              find . -name "*.apk" -not -path "./.git/*" 2>/dev/null || echo "(hic apk yok)"
+              echo "--- tum .aab dosyalari ---"
+              find . -name "*.aab" -not -path "./.git/*" 2>/dev/null || echo "(hic aab yok)"
+              echo "--- gradle cikti klasorleri ---"
+              find export -type d -name "outputs" 2>/dev/null || echo "(outputs klasoru yok)"
+              echo "--- android bin icerigi ---"
+              ls -la export/release/android/bin 2>/dev/null || echo "(bin yok)"
+              echo "################################"
+              echo ""
+              echo "Compile basarili gorundu ama APK uretilmemis."
+              echo "Muhtemel sebep: lime Gradle assemble adimini calistirmadi."
+              exit 1
+            fi
+          fi
+
+          echo "=== APK klasoru: $APK_DIR ==="
+          ls -la "$APK_DIR"
 
           if [ -z "${KS_B64:-}" ]; then
             echo "ANDROID_KEYSTORE_BASE64 secret'i tanimli degil - imzalama atlaniyor."
@@ -241,7 +270,7 @@ jobs:
           ls -la "$APK_DIR"
 
       - name: Make IPA
-        if: inputs.name == 'iOS'
+        if: success() && inputs.name == 'iOS'
         run: |
           brew install ldid
           cd export/release/ios/build/Release-iphoneos/${{ env.PROJECT_NAME }}.app
