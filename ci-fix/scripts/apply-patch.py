@@ -133,6 +133,13 @@ def patch_build_yml(repo, dry):
     changes.append(".github/workflows/build.yml")
     log(S_OK, GRN, "build.yml yamalandı (stdin kapatma + apksigner + timeout)")
 
+    # apply-patch build.yml'i KOMPLE degistirir. add-colyseus.py daha once
+    # build.yml'e colyseus/tink_core satirlarini eklediyse, onlar silinir.
+    if "haxelib set colyseus" in dst_text and "haxelib set colyseus" not in src_text:
+        warnings.append(
+            "build.yml'deki colyseus/tink_core satirlari uzerine yazildi. "
+            "Geri getirmek icin SIMDI calistir:  python add-colyseus.py <repo>")
+
 
 # ──────────────────────────────────────────────────────────────
 # 2. secrets: inherit
