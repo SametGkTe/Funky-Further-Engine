@@ -156,6 +156,48 @@ jobs:
         if: success() && inputs.name == 'iOS'
         run: haxelib run lime clean ios || true
 
+      # --- GRADLE IMZALAMA HAZIRLIGI ---
+      # Lime'in build.gradle template'i, <certificate> yoksa
+      # app/signing.properties dosyasini arar. Yoksa bos bir signingConfig
+      # uretir ve packageRelease su hatayla duser:
+      #   SigningConfig "release" is missing required property "storeFile"
+      # signing.properties template'in parcasi degildir; Lime onu silmez,
+      # bu yuzden Compile'dan once yazmak guvenlidir.
+      - name: Prepare Android signing
+        if: success() && inputs.name == 'Android'
+        shell: bash
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KS_ALIAS_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${KS_B64:-}" ]; then
+            echo "Keystore secret'i tanimli degil."
+            echo "UYARI: packageRelease 'missing storeFile' hatasi verecek."
+            exit 0
+          fi
+
+          APP_DIR="export/release/android/bin/app"
+          mkdir -p "$APP_DIR"
+
+          printf '%s' "$KS_B64" | base64 --decode > /tmp/release.keystore
+          echo "keystore: $(wc -c < /tmp/release.keystore) bayt"
+
+          umask 077
+          {
+            printf 'KEY_STORE=%s\n'                "/tmp/release.keystore"
+            printf 'KEY_STORE_PASSWORD=%s\n'       "$KS_PASS"
+            printf 'KEY_STORE_ALIAS=%s\n'          "$KS_ALIAS"
+            printf 'KEY_STORE_ALIAS_PASSWORD=%s\n' "$KS_ALIAS_PASS"
+          } > "$APP_DIR/signing.properties"
+          chmod 600 "$APP_DIR/signing.properties"
+
+          echo "signing.properties yazildi (sifreler gizlendi):"
+          sed 's/\(PASSWORD=\).*/\1***/' "$APP_DIR/signing.properties"
+
       # --- HANG FIX ---
       # "< /dev/null": Gradle bir sifre promptu acarsa stdin kapali oldugu icin
       # sonsuza kadar beklemek yerine aninda EOF hatasiyla duser.
@@ -194,6 +236,11 @@ jobs:
       - name: Ensure release APK
         if: success() && inputs.name == 'Android'
         shell: bash
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KS_ALIAS_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
 
@@ -207,6 +254,22 @@ jobs:
           fi
 
           echo "Release APK yok - Gradle assembleRelease dogrudan calistiriliyor."
+
+          # signing.properties'i tazele - Lime bin/ klasorunu yenilemis olabilir
+          if [ -n "${KS_B64:-}" ]; then
+            mkdir -p "$GP/app"
+            umask 077
+            printf '%s' "$KS_B64" | base64 --decode > /tmp/release.keystore
+            {
+              printf 'KEY_STORE=%s\n'                "/tmp/release.keystore"
+              printf 'KEY_STORE_PASSWORD=%s\n'       "$KS_PASS"
+              printf 'KEY_STORE_ALIAS=%s\n'          "$KS_ALIAS"
+              printf 'KEY_STORE_ALIAS_PASSWORD=%s\n' "$KS_ALIAS_PASS"
+            } > "$GP/app/signing.properties"
+            chmod 600 "$GP/app/signing.properties"
+            echo "signing.properties tazelendi."
+          fi
+
 
           if [ ! -f "$GP/gradlew" ]; then
             echo "gradlew bulunamadi: $GP"
@@ -330,6 +393,7 @@ jobs:
           mv /tmp/signed.apk "$OUT"
 
           rm -f /tmp/release.keystore /tmp/aligned.apk
+          rm -f "export/release/android/bin/app/signing.properties" 2>/dev/null || true
           echo "=== son durum ==="
           ls -la "$APK_DIR"
 
