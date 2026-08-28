@@ -48,6 +48,8 @@ jobs:
       GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.internal.launcher.welcomeMessageEnabled=false"
       TERM: dumb
       CI: "true"
+      # Lime bunu okursa assembleDebug yerine release derler
+      ANDROID_GRADLE_TASK: assembleRelease
 
     steps:
       - name: Checkout
@@ -186,6 +188,45 @@ jobs:
       # release APK imzasiz cikar. Imzalamayi burada apksigner ile yapiyoruz:
       # Gradle hicbir signingConfig gormez -> prompt ihtimali sifir.
       # Secrets tanimli degilse adim sessizce atlanir (fork'lar / PR'lar icin).
+      # --- RELEASE APK GARANTISI ---
+      # Lime, <certificate> yoksa assembleDebug calistirir (AndroidPlatform.hx).
+      # Release APK uretilmediyse Gradle'i dogrudan biz cagiriyoruz.
+      - name: Ensure release APK
+        if: success() && inputs.name == 'Android'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REL="export/release/android/bin/app/build/outputs/apk/release"
+          GP="export/release/android/bin"
+
+          if ls "$REL"/*.apk >/dev/null 2>&1; then
+            echo "Release APK zaten uretilmis:"
+            ls -la "$REL"
+            exit 0
+          fi
+
+          echo "Release APK yok - Gradle assembleRelease dogrudan calistiriliyor."
+
+          if [ ! -f "$GP/gradlew" ]; then
+            echo "gradlew bulunamadi: $GP"
+            ls -la "$GP" 2>/dev/null || echo "(klasor yok)"
+            exit 1
+          fi
+
+          cd "$GP"
+          chmod +x gradlew
+          # < /dev/null: olasi prompt sonsuz beklemesin
+          ./gradlew assembleRelease --no-daemon --console=plain --stacktrace < /dev/null
+          cd - >/dev/null
+
+          echo "=== assembleRelease sonrasi ==="
+          if ! ls -la "$REL" 2>/dev/null; then
+            echo "Release klasoru hala yok. Bulunan tum APK'lar:"
+            find export -name "*.apk" 2>/dev/null || true
+            exit 1
+          fi
+
       - name: Sign Android APK
         if: success() && inputs.name == 'Android'
         shell: bash
@@ -236,13 +277,29 @@ jobs:
             exit 0
           fi
 
-          UNSIGNED=$(ls "$APK_DIR"/*-unsigned.apk 2>/dev/null | head -n1 || true)
-          if [ -z "$UNSIGNED" ]; then
-            echo "Imzasiz APK bulunamadi (Project.xml'de <certificate> hala acik olabilir)."
-            echo "Mevcut APK'lar yukarida. Imzalama atlaniyor."
-            exit 0
+          # Imzalanacak APK'yi sec.
+          # Oncelik: *-unsigned.apk  ->  diger release APK'lar
+          # Debug APK ASLA imzalanmaz (android:debuggable=true tasir).
+          TARGET=$(ls "$APK_DIR"/*-unsigned.apk 2>/dev/null | head -n1 || true)
+
+          if [ -z "$TARGET" ]; then
+            TARGET=$(ls "$APK_DIR"/*.apk 2>/dev/null | grep -v -- "-debug\.apk$" | head -n1 || true)
+            if [ -n "$TARGET" ]; then
+              echo "Imzasiz APK yok; mevcut release APK yeniden imzalanacak."
+              echo "(apksigner eski imzayi kaldirip yenisini uygular)"
+            fi
           fi
-          echo "Imzalanacak: $UNSIGNED"
+
+          if [ -z "$TARGET" ]; then
+            echo "Imzalanacak release APK bulunamadi."
+            echo "Klasordeki dosyalar:"
+            ls -la "$APK_DIR"
+            case "$APK_DIR" in
+              *"/debug") echo "UYARI: sadece DEBUG APK var. 'Ensure release APK' adimi calisti mi?" ;;
+            esac
+            exit 1
+          fi
+          echo "Imzalanacak: $TARGET"
 
           # Keystore'u workspace DISINA yaz - artifact'a sizmasin.
           printf '%s' "$KS_B64" | base64 --decode > /tmp/release.keystore
@@ -251,21 +308,28 @@ jobs:
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n1)
           echo "build-tools: $BT"
 
-          "$BT/zipalign" -p -f 4 "$UNSIGNED" /tmp/aligned.apk
+          OUT="$APK_DIR/${PROJECT_NAME}-release.apk"
+
+          "$BT/zipalign" -p -f 4 "$TARGET" /tmp/aligned.apk
 
           # --ks-pass env: -> sifre ne komut satirinda gorunur ne de prompt acilir.
+          # Once /tmp'ye imzala: TARGET ile OUT ayni dosya olabilir.
           "$BT/apksigner" sign \
             --ks /tmp/release.keystore \
             --ks-pass "env:KS_PASS" \
             --ks-key-alias "$KS_ALIAS" \
             --key-pass "env:KS_ALIAS_PASS" \
-            --out "$APK_DIR/${PROJECT_NAME}-release.apk" \
+            --out /tmp/signed.apk \
             /tmp/aligned.apk
 
           echo "=== imza dogrulama ==="
-          "$BT/apksigner" verify --print-certs "$APK_DIR/${PROJECT_NAME}-release.apk"
+          "$BT/apksigner" verify --print-certs /tmp/signed.apk
 
-          rm -f /tmp/release.keystore /tmp/aligned.apk "$UNSIGNED"
+          # Kaynak APK'yi kaldir, imzalanmisi yerine koy
+          rm -f "$TARGET"
+          mv /tmp/signed.apk "$OUT"
+
+          rm -f /tmp/release.keystore /tmp/aligned.apk
           echo "=== son durum ==="
           ls -la "$APK_DIR"
 
