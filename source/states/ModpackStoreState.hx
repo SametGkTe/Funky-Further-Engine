@@ -198,8 +198,13 @@ class ModpackStoreState extends MusicBeatState {
 		#if mobile
 		pageTip1.text = "Y - Önceki sayfa";
 		pageTip2.text = "Z - Sonraki sayfa";
-		mobileManager.addMobilePad("LEFT_FULL", "A_B_C_X_Y_Z");
-		mobileManager.addMobilePadCamera();
+		if (ClientPrefs.data.mobileControlType == 'Touch')
+			addTouchPad("LEFT_FULL", "A_B_C_X_Y_Z");
+		else
+		{
+			mobileManager.addMobilePad("LEFT_FULL", "A_B_C_X_Y_Z");
+			mobileManager.addMobilePadCamera();
+		}
 		#end
 	}
 

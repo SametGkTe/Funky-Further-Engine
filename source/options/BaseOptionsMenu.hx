@@ -883,6 +883,86 @@ class BaseOptionsMenu extends MusicBeatSubstate
 		option.text = text.replace('%v', val).replace('%d', def);
 	}
 
+	override function handleTouchTap(x:Float, y:Float):Bool
+	{
+		#if mobile
+		if (bindingKey || blockAfterClose > 0)
+			return true;
+
+		var cam = getMenuCamera();
+
+		if (dropdownOpen)
+		{
+			var bestSub:Int = -1;
+			var bestDist:Float = 60;
+			for (si => sub in dropdownSubItems)
+			{
+				if (sub == null || !sub.visible) continue;
+				var p = sub.getScreenPosition(cam);
+				var d:Float = Math.abs(y - (p.y + sub.height / 2));
+				if (d < bestDist && x > p.x - 120)
+				{
+					bestDist = d;
+					bestSub = si;
+				}
+				p.put();
+			}
+			if (bestSub >= 0)
+			{
+				var di:Int = -1;
+				for (k in 0...displayList.length)
+				{
+					var entry = displayList[k];
+					if (entry.type == SUB_ITEM && entry.optionIndex == dropdownOptionIndex && entry.subIndex == bestSub)
+					{
+						di = k;
+						break;
+					}
+				}
+				if (di >= 0 && di != curSelected)
+				{
+					curSelected = di;
+					updateSelectionVisuals();
+					FlxG.sound.play(Paths.sound('scrollMenu'));
+					return true;
+				}
+				if (di == curSelected)
+				{
+					selectDropdownSubItem();
+					return true;
+				}
+			}
+			return true;
+		}
+
+		var best:Int = -1;
+		var bestDist:Float = 60;
+		for (num => item in grpOptions.members)
+		{
+			if (item == null || !item.visible) continue;
+			var p = item.getScreenPosition(cam);
+			var d:Float = Math.abs(y - (p.y + item.height / 2));
+			if (d < bestDist && x > p.x - 120 && x < p.x + 1100)
+			{
+				bestDist = d;
+				best = num;
+			}
+			p.put();
+		}
+		if (best >= 0)
+		{
+			if (best != curSelected)
+			{
+				curSelected = best;
+				changeSelection(0);
+				return true;
+			}
+			return false;
+		}
+		#end
+		return false;
+	}
+
 	function changeSelection(change:Int = 0)
 	{
 		curSelected = FlxMath.wrap(curSelected + change, 0, optionsArray.length - 1);

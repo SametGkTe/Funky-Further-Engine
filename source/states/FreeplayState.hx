@@ -1298,6 +1298,41 @@ class FreeplayState extends MusicBeatState
 
 	var stopMusicPlay:Bool = false;
 
+	override public function handleTouchTap(x:Float, y:Float):Bool
+	{
+		#if mobile
+		if (blockInputFrames > 0)
+			return true;
+
+		if (player != null && player.playingMusic)
+			return false;
+
+		if (grpSongs != null)
+		{
+			for (i in 0...grpSongs.members.length)
+			{
+				var song:Alphabet = grpSongs.members[i];
+				if (song == null || !song.visible)
+					continue;
+				var pos = song.getScreenPosition(FlxG.camera);
+				var hit:Bool = x >= pos.x - 20 && x <= pos.x + song.width + 20
+					&& y >= pos.y - 8 && y <= pos.y + song.height + 8;
+				pos.put();
+				if (hit)
+				{
+					if (i != curSelected)
+					{
+						changeSelection(i - curSelected);
+						return true;
+					}
+					return false;
+				}
+			}
+		}
+		#end
+		return false;
+	}
+
 	override function update(elapsed:Float)
 	{
 		if (WeekData.weeksList.length < 1)

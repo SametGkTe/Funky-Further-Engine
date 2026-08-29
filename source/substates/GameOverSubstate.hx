@@ -133,7 +133,7 @@ class GameOverSubstate extends MusicBeatSubstate
 			}
 		}
 
-		addTouchPad('NONE', 'B');
+		addTouchPad('NONE', 'A_B');
 		addTouchPadCamera();
 
 		super.create();
@@ -159,18 +159,7 @@ class GameOverSubstate extends MusicBeatSubstate
 
 		if(!isEnding)
 		{
-			var isTouched:Bool = false;
-			#if mobile
-			for (touch in flixel.FlxG.touches.list) {
-				// Ekrana dokunulduğunda, eğer B butonuna basılmadıysa Enter say
-				if (touch.justPressed && (touchPad == null || touchPad.buttonB == null || !touchPad.buttonB.justPressed)) {
-					isTouched = true;
-					break;
-				}
-			}
-			#end
-			
-			if (controls.ACCEPT || isTouched || flixel.FlxG.mouse.justPressed)
+			if (controls.ACCEPT)
 			{
 				endBullshit();
 			}

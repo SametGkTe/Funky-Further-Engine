@@ -44,11 +44,28 @@ class MusicBeatState extends FlxState
 	public var touchPadCam:FlxCamera;
 	public var mobileControls:FMobileControls;
 	public var mobileControlsCam:FlxCamera;
+	var lastPadDPad:String = null;
+	var lastPadAction:String = null;
 
 	public function addTouchPad(DPad:String, Action:String)
 	{
+		lastPadDPad = DPad;
+		lastPadAction = Action;
+		#if mobile
+		if (!TouchControls.isEditorOwner(this) && TouchControls.canReplace(DPad, Action))
+		{
+			touchPad = new TouchControls(DPad, Action, this);
+			add(touchPad);
+			return;
+		}
+		#end
 		touchPad = new TouchPad(DPad, Action);
 		add(touchPad);
+	}
+
+	public function handleTouchTap(x:Float, y:Float):Bool
+	{
+		return false;
 	}
 
 	public function removeTouchPad()
@@ -64,6 +81,25 @@ class MusicBeatState extends FlxState
 			FlxG.cameras.remove(touchPadCam);
 			touchPadCam = FlxDestroyUtil.destroy(touchPadCam);
 		}
+	}
+
+	public function refreshTouchPad():Void
+	{
+		if (touchPad == null || lastPadDPad == null)
+			return;
+
+		var padCams:Array<FlxCamera> = touchPad.cameras;
+		remove(touchPad);
+		touchPad = FlxDestroyUtil.destroy(touchPad);
+		addTouchPad(lastPadDPad, lastPadAction);
+		if (padCams != null && touchPad != null)
+			touchPad.cameras = padCams;
+	}
+
+	override public function closeSubState():Void
+	{
+		super.closeSubState();
+		refreshTouchPad();
 	}
 
 	public function addMobileControls(defaultDrawTarget:Bool = false):Void

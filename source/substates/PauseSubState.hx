@@ -434,6 +434,38 @@ class PauseSubState extends MusicBeatSubstate
 		pauseMusic.destroy();
 		super.destroy();
 	}
+	
+	override function handleTouchTap(x:Float, y:Float):Bool // touch controls
+	{
+		#if mobile
+		var best:Int = -1;
+		var bestDist:Float = 60;
+		for (num => item in grpMenuShit.members)
+		{
+			if (item == null || !item.visible) continue;
+			var itemCam = (item.cameras != null && item.cameras.length > 0) ? item.cameras[0] : FlxG.camera;
+			var p = item.getScreenPosition(itemCam);
+			var d:Float = Math.abs(y - (p.y + item.height / 2));
+			if (d < bestDist && x > p.x - 120 && x < p.x + 1100)
+			{
+				bestDist = d;
+				best = num;
+			}
+			p.put();
+		}
+		if (best >= 0)
+		{
+			if (best != curSelected)
+			{
+				curSelected = best;
+				changeSelection(0);
+				return true;
+			}
+			return false;
+		}
+		#end
+		return false;
+	}
 
 	function changeSelection(change:Int = 0):Void
 	{

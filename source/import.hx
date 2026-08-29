@@ -55,6 +55,7 @@ import mobile.objects.FurtherPad;
 import mobile.objects.FurtherHitbox;
 import mobile.objects.UltraJoyStick;
 import mobile.substates.MobileExtraControl;
+import mobile.objects.TouchControls;
 import objects.AlertMgr;
 // Android
 #if android

@@ -130,6 +130,36 @@ class MobileOptionsSubState extends BaseOptionsMenu
 		addOption(option);
 
 	option = new Option(
+		'Kontrol Tipi',
+		'Menü ve gezinti kontrollerinin türünü seçin.\nTuşlu: ekran tuşları (A/B/ok padleri)\nDokunmatik: dokun = onay, kaydırma = gezinme, uzun basış = sıfırla',
+		'mobileControlType',
+		STRING,
+		['Buttons', 'Touch'],
+		'control_type'
+	);
+	option.displayOptions = ['Tuşlu', 'Dokunmatik'];
+	option.onChange = function():Void
+	{
+		refreshTouchPad();
+	};
+	addOption(option);
+
+	option = new Option(
+		'Scroll Hassasiyeti',
+		'Dokunmatik kaydırmanın hızını ayarlar.\nYüksek = daha çok öğe atlanır, düşük = daha yavaş kaydırma.',
+		'touchScrollSens',
+		INT,
+		null,
+		'scroll_sensitivity'
+	);
+	option.scrollSpeed = 1;
+	option.minValue = 25;
+	option.maxValue = 300;
+	option.changeValue = 5;
+	option.decimals = 0;
+	addOption(option);
+
+	option = new Option(
 		'V-Slice Kontrolleri',
 		'Etkinleştirildiğinde kontroller orijinal FNF gibi çalışır.\n(UYARI: Bu seçenek nota hareketleri gibi bazı mekanikleri bozabilir. Lütfen yalnızca temel modlarda kullanın.)',
 		'ogGameControls',

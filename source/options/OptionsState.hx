@@ -167,8 +167,13 @@ class OptionsState extends MusicBeatState
 
 		ClientPrefs.saveSettings();
 		#if mobile
-		mobileManager.addMobilePad('UP_DOWN', 'A_B_C');
-		mobileManager.addMobilePadCamera();
+		if (ClientPrefs.data.mobileControlType == 'Touch')
+			addTouchPad('UP_DOWN', 'A_B_C');
+		else
+		{
+			mobileManager.addMobilePad('UP_DOWN', 'A_B_C');
+			mobileManager.addMobilePadCamera();
+		}
 		#else
 		addTouchPad('UP_DOWN', 'A_B_C');
 		#end
@@ -189,8 +194,13 @@ class OptionsState extends MusicBeatState
 		removeTouchPad();
 		if (mobileManager != null) mobileManager.removeMobilePad();
 		#if mobile
-		mobileManager.addMobilePad('UP_DOWN', 'A_B_C');
-		mobileManager.addMobilePadCamera();
+		if (ClientPrefs.data.mobileControlType == 'Touch')
+			addTouchPad('UP_DOWN', 'A_B_C');
+		else
+		{
+			mobileManager.addMobilePad('UP_DOWN', 'A_B_C');
+			mobileManager.addMobilePadCamera();
+		}
 		#else
 		addTouchPad('UP_DOWN', 'A_B_C');
 		#end

@@ -1411,6 +1411,40 @@ class FreeplayState extends MusicBeatSubstate
 		}
 	}
 
+	override public function handleTouchTap(x:Float, y:Float):Bool
+	{
+		#if TOUCH_CONTROLS_ALLOWED
+		if (busy || blockInputFrames > 0)
+			return true;
+
+		if (diffSelLeft != null && diffSelLeft.visible && tapOnSprite(diffSelLeft, x, y))
+			return true;
+		if (diffSelRight != null && diffSelRight.visible && tapOnSprite(diffSelRight, x, y))
+			return true;
+
+		var barX:Float = (FlxG.width - SEARCH_BAR_WIDTH) / 2;
+		if (x >= barX && x <= barX + SEARCH_BAR_WIDTH && y >= SEARCH_BAR_MARGIN && y <= SEARCH_BAR_MARGIN + SEARCH_BAR_HEIGHT)
+			return true;
+
+		if (searchOpen)
+			return true;
+
+		var capsuleX:Float = (CUTOUT_WIDTH * SONGS_POS_MULTI) + 420;
+		if (x >= capsuleX && x <= capsuleX + 450 && y >= 260 && y <= 355)
+			return true;
+		#end
+		return false;
+	}
+
+	function tapOnSprite(spr:FlxSprite, x:Float, y:Float):Bool
+	{
+		var cam = (spr.cameras != null && spr.cameras.length > 0) ? spr.cameras[0] : FlxG.camera;
+		var p = spr.getScreenPosition(cam);
+		var hit:Bool = x >= p.x - 12 && x <= p.x + spr.width + 12 && y >= p.y - 12 && y <= p.y + spr.height + 12;
+		p.put();
+		return hit;
+	}
+
 	function checkSearchBarClick():Bool
 	{
 		var justClicked:Bool = FlxG.mouse.justPressed;

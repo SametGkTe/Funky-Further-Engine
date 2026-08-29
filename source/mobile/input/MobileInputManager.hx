@@ -92,7 +92,7 @@ class MobileInputManager extends FlxTypedSpriteGroup<TouchButton>
 	 * @param	buttonsArray 	An array of buttos names
 	 * @return	Whether at least one of the buttons passed in is pressed.
 	 */
-	public inline function anyPressed(buttonsArray:Array<MobileInputID>):Bool
+	public function anyPressed(buttonsArray:Array<MobileInputID>):Bool
 	{
 		return checkButtonArrayState(buttonsArray, PRESSED);
 	}
@@ -103,7 +103,7 @@ class MobileInputManager extends FlxTypedSpriteGroup<TouchButton>
 	 * @param	buttonsArray 	An array of buttons names
 	 * @return	Whether at least one of the buttons passed was just pressed.
 	 */
-	public inline function anyJustPressed(buttonsArray:Array<MobileInputID>):Bool
+	public function anyJustPressed(buttonsArray:Array<MobileInputID>):Bool
 	{
 		return checkButtonArrayState(buttonsArray, JUST_PRESSED);
 	}
@@ -114,7 +114,7 @@ class MobileInputManager extends FlxTypedSpriteGroup<TouchButton>
 	 * @param	buttonsArray 	An array of button names
 	 * @return	Whether at least one of the buttons passed was just released.
 	 */
-	public inline function anyJustReleased(buttonsArray:Array<MobileInputID>):Bool
+	public function anyJustReleased(buttonsArray:Array<MobileInputID>):Bool
 	{
 		return checkButtonArrayState(buttonsArray, JUST_RELEASED);
 	}

@@ -67,9 +67,9 @@ class SetupWizardState extends MusicBeatState
 	];
 
 	static var PERF_DEFS:Array<{id:PerformanceProfile, name:String, sub:String, color:Int, icon:String, ?iconImg:String}> = [
-		{id: PERFORMANCE, name: 'DÜŞÜK KALİTE',  sub: 'Düşük uç cihazlar\nEmülatör / eski telefon\n60 FPS (mobilde 30)',         color: 0xFFE74C3C, icon: '⚡', iconImg: 'further/wizard/perf_low'},
-		{id: BALANCED,    name: 'ORTA KALİTE',   sub: 'Çoğu bilgisayar / telefon\n60 FPS dengeli deneyim\nÖnerilen',        color: 0xFFF39C12, icon: '⚖', iconImg: 'further/wizard/perf_medium'},
-		{id: HIGH,        name: 'YÜKSEK KALİTE', sub: 'Güçlü PC / yeni telefon\nShaderlar ve efektler açık\nEkran hızında FPS (60-240)',      color: 0xFF2ECC71, icon: '✨', iconImg: 'further/wizard/perf_high'}
+		{id: PERFORMANCE, name: 'DÜŞÜK KALİTE',  sub: 'Düşük uç cihazlar\nEmülatör / eski telefon\nGölgeler ve anti-aliasing kapalı', color: 0xFFE74C3C, icon: '⚡', iconImg: 'further/wizard/perf_low'},
+		{id: BALANCED,    name: 'ORTA KALİTE',   sub: 'Çoğu bilgisayar / telefon\nÖnerilen\nTüm görsel ayarlar açık', color: 0xFFF39C12, icon: '⚖', iconImg: 'further/wizard/perf_medium'},
+		{id: HIGH,        name: 'YÜKSEK KALİTE', sub: 'Güçlü PC / yeni telefon\nTüm görsel ayarlar açık', color: 0xFF2ECC71, icon: '✨', iconImg: 'further/wizard/perf_high'}
 	];
 
 	static inline var FLAG_ICON_SIZE:Float = 80;
@@ -81,8 +81,14 @@ class SetupWizardState extends MusicBeatState
 		{name: 'V-SLICE KONTROLÜ', img: 'further/wizard/ctrl_vslice'}
 	];
 
+	static var TOUCH_DEFS:Array<{name:String, sub:String, color:Int, icon:String, ?iconImg:String}> = [
+		{name: 'TUŞLU',      sub: 'Menülerde ekran tuşları\nA/B butonları ve ok padleri', color: 0xFF3498DB, icon: '⌨', iconImg: 'further/wizard/ui_buttons'},
+		{name: 'DOKUNMATİK', sub: 'Dokun = onay, kaydırma = gezinme\nUzun basış = sıfırla\nTek GERİ butonu', color: 0xFF2ECC71, icon: '👆', iconImg: 'further/wizard/ui_touch'}
+	];
+
 	var selectedLang:Int = 0;
 	var selectedPerf:Int = 1;
+	var selectedTouch:Int = 0;
 	var selectedCtrl:Int = 0;
 	var loggedIn:Bool = false;
 	var loginSkipped:Bool = false;
@@ -118,6 +124,7 @@ class SetupWizardState extends MusicBeatState
 
 	var langCards:Array<Card> = [];
 	var perfCards:Array<Card> = [];
+	var touchCards:Array<Card> = [];
 	var ctrlCards:Array<Card> = [];
 	var ctrlDots:Array<{on:FlxSprite, off:FlxSprite}> = [];
 	var keyBoxes:Array<{action:String, border:FlxSprite, hit:FlxSprite, keyText:FlxText}> = [];
@@ -270,6 +277,7 @@ class SetupWizardState extends MusicBeatState
 		allElements = [];
 		langCards = [];
 		perfCards = [];
+		touchCards = [];
 		ctrlCards = [];
 		ctrlDots = [];
 		keyBoxes = [];
@@ -402,7 +410,43 @@ class SetupWizardState extends MusicBeatState
 		curY = perfCardY + PERF_CARD_H + SECTION_GAP;
 
 		#if mobile
-		curY = addSectionTitle('wizard_ctrl_title', '1.3  OYUN-İÇİ KONTROL', curY);
+		curY = addSectionTitle('wizard_ctouch_title', '1.3  KONTROLLER', curY);
+
+		totalCardsW = TOUCH_DEFS.length * PERF_CARD_W + (TOUCH_DEFS.length - 1) * CARD_GAP;
+		startX = cx - totalCardsW / 2;
+		var touchCardY:Float = curY;
+		for (i in 0...TOUCH_DEFS.length)
+		{
+			var def = TOUCH_DEFS[i];
+			var cardX = startX + i * (PERF_CARD_W + CARD_GAP);
+
+			var cardBg = buildRoundedCard(PERF_CARD_W, PERF_CARD_H, 0xFF241A3C);
+			var cardBorder = buildRoundedCard(PERF_CARD_W + BORDER_W * 2, PERF_CARD_H + BORDER_W * 2, def.color);
+			cardBorder.alpha = 0;
+			addAt(cardBorder, touchCardY - BORDER_W, cardX - BORDER_W);
+			addAt(cardBg, touchCardY, cardX);
+
+			var touchIcon = buildCardIcon(def.iconImg, def.icon, PERF_ICON_SIZE, FlxColor.fromInt(def.color), 48);
+			addAt(touchIcon, touchCardY + 22 + (90 - 22 - touchIcon.height) / 2, cardX + (PERF_CARD_W - touchIcon.width) / 2);
+
+			var nameText = new FlxText(0, 0, PERF_CARD_W, def.name);
+			nameText.setFormat(WIZ_FONT, 22, FlxColor.WHITE, CENTER);
+			nameText.antialiasing = ClientPrefs.data.antialiasing;
+			addAt(nameText, touchCardY + 90, cardX);
+
+			var subText = new FlxText(0, 0, PERF_CARD_W - 40, def.sub);
+			subText.setFormat(WIZ_FONT, 14, 0xFFC0C0D0, CENTER);
+			subText.antialiasing = ClientPrefs.data.antialiasing;
+			addAt(subText, touchCardY + 125, cardX + 20);
+
+			var hit = new FlxSprite(cardX, touchCardY).makeGraphic(Std.int(PERF_CARD_W), Std.int(PERF_CARD_H), 0x00FFFFFF);
+			addAt(hit, touchCardY, cardX);
+
+			touchCards.push({bg: cardBg, border: cardBorder, hit: hit});
+		}
+		curY = touchCardY + PERF_CARD_H + SECTION_GAP;
+
+		curY = addSectionTitle('wizard_ctrl_title', '1.4  OYUN-İÇİ KONTROL', curY);
 
 		totalCardsW = CTRL_DEFS.length * CTRL_CARD_W + (CTRL_DEFS.length - 1) * CARD_GAP;
 		startX = cx - totalCardsW / 2;
@@ -890,11 +934,13 @@ class SetupWizardState extends MusicBeatState
 		sectionTexts[0].text = tl('wizard_lang_title', '1.  DİLİNİZİ SEÇİN');
 		sectionTexts[1].text = tl('wizard_perf_title', '1.2  PERFORMANS PROFİLİ');
 		#if mobile
-		sectionTexts[2].text = tl('wizard_ctrl_title', '1.3  OYUN-İÇİ KONTROL');
+		sectionTexts[2].text = tl('wizard_ctouch_title', '1.3  KONTROLLER');
+		sectionTexts[3].text = tl('wizard_ctrl_title', '1.4  OYUN-İÇİ KONTROL');
+		sectionTexts[4].text = tl('wizard_account_title', '2.  OYUNA GİRİŞ YAP');
 		#else
 		sectionTexts[2].text = tl('wizard_keys_title', '1.3  TUŞ AYARLARI');
-		#end
 		sectionTexts[3].text = tl('wizard_account_title', '2.  OYUNA GİRİŞ YAP');
+		#end
 
 		if (loginTitleText != null)
 		{
@@ -941,6 +987,15 @@ class SetupWizardState extends MusicBeatState
 		{
 			var c = perfCards[i];
 			var sel = (i == selectedPerf);
+			if (c.border != null)
+				tweenCardAlpha(c.border, sel ? 1 : 0);
+			if (c.bg != null)
+				tweenCardAlpha(c.bg, sel ? 1 : 0.7);
+		}
+		for (i in 0...touchCards.length)
+		{
+			var c = touchCards[i];
+			var sel = (i == selectedTouch);
 			if (c.border != null)
 				tweenCardAlpha(c.border, sel ? 1 : 0);
 			if (c.bg != null)
@@ -1307,6 +1362,24 @@ class SetupWizardState extends MusicBeatState
 					return;
 				}
 			}
+			for (c in touchCards)
+			{
+				if (hitTest(c.hit, mx, my))
+				{
+					var idx = touchCards.indexOf(c);
+					if (selectedTouch != idx)
+					{
+						selectedTouch = idx;
+						FlxG.sound.play(Paths.sound('scrollMenu'));
+						updateCardVisuals();
+						#if TOUCH_CONTROLS_ALLOWED
+						ClientPrefs.data.mobileControlType = selectedTouch == 1 ? 'Touch' : 'Buttons';
+						refreshTouchPad();
+						#end
+					}
+					return;
+				}
+			}
 			for (c in ctrlCards)
 			{
 				if (hitTest(c.hit, mx, my))
@@ -1420,6 +1493,8 @@ class SetupWizardState extends MusicBeatState
 		PerformanceProfiler.applyRuntimeSettings();
 
 		#if mobile
+		ClientPrefs.data.mobileControlType = selectedTouch == 1 ? 'Touch' : 'Buttons';
+
 		if (selectedCtrl == 1)
 		{
 			ClientPrefs.data.ogGameControls = true;
