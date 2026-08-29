@@ -38,17 +38,12 @@ jobs:
   build:
     name: Build
     runs-on: ${{ inputs.os }}
-    # 210 -> 120: takilirsa 3.5 saat beklemek yerine daha erken haber al.
-    # Asil koruma asagidaki adim bazli timeout-minutes.
     timeout-minutes: ${{ inputs.name == 'Android' && 120 || 240 }}
 
     env:
-      # Gradle'i tamamen non-interaktif moda kilitle.
-      # Interaktif prompt = CI'da sonsuz hang.
       GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.internal.launcher.welcomeMessageEnabled=false"
       TERM: dumb
       CI: "true"
-      # Lime bunu okursa assembleDebug yerine release derler
       ANDROID_GRADLE_TASK: assembleRelease
 
     steps:
@@ -128,8 +123,6 @@ jobs:
 
           haxelib run lime config ANDROID_SETUP true
 
-          # --- HANG FIX ---
-          # Gradle'in daemon/console/prompt davranisini sabitle.
           mkdir -p ~/.gradle
           cat >> ~/.gradle/gradle.properties <<'EOF'
           org.gradle.daemon=false
@@ -155,14 +148,7 @@ jobs:
       - name: Clean iOS
         if: success() && inputs.name == 'iOS'
         run: haxelib run lime clean ios || true
-
-      # --- GRADLE IMZALAMA HAZIRLIGI ---
-      # Lime'in build.gradle template'i, <certificate> yoksa
-      # app/signing.properties dosyasini arar. Yoksa bos bir signingConfig
-      # uretir ve packageRelease su hatayla duser:
-      #   SigningConfig "release" is missing required property "storeFile"
-      # signing.properties template'in parcasi degildir; Lime onu silmez,
-      # bu yuzden Compile'dan once yazmak guvenlidir.
+        
       - name: Prepare Android signing
         if: success() && inputs.name == 'Android'
         shell: bash
@@ -198,10 +184,6 @@ jobs:
           echo "signing.properties yazildi (sifreler gizlendi):"
           sed 's/\(PASSWORD=\).*/\1***/' "$APP_DIR/signing.properties"
 
-      # --- HANG FIX ---
-      # "< /dev/null": Gradle bir sifre promptu acarsa stdin kapali oldugu icin
-      # sonsuza kadar beklemek yerine aninda EOF hatasiyla duser.
-      # Bu tek karakter dizisi, teshis edilemeyen hang'i okunabilir hataya cevirir.
       - name: Compile
         timeout-minutes: 75
         shell: bash
@@ -209,7 +191,6 @@ jobs:
           set -o pipefail
           haxelib run lime build ${{ inputs.buildArgs }} < /dev/null 2>&1 | tee /tmp/build.log
 
-      # Compile takilip timeout ile olduruldugunde, neyin blokladigini gor.
       - name: Diagnose hang (only on failure)
         if: failure() && inputs.name == 'Android'
         shell: bash
@@ -224,15 +205,6 @@ jobs:
             jstack "$p" 2>/dev/null | head -n 120 || true
           done
           echo "NOT: stack'te java.io.Console.readLine gorursen sebep keystore sifre promptudur."
-
-      # --- IMZALAMA ---
-      # Lime'in <certificate> etiketi Project.xml'den kaldirildigi icin
-      # release APK imzasiz cikar. Imzalamayi burada apksigner ile yapiyoruz:
-      # Gradle hicbir signingConfig gormez -> prompt ihtimali sifir.
-      # Secrets tanimli degilse adim sessizce atlanir (fork'lar / PR'lar icin).
-      # --- RELEASE APK GARANTISI ---
-      # Lime, <certificate> yoksa assembleDebug calistirir (AndroidPlatform.hx).
-      # Release APK uretilmediyse Gradle'i dogrudan biz cagiriyoruz.
       - name: Ensure release APK
         if: success() && inputs.name == 'Android'
         shell: bash
@@ -255,7 +227,6 @@ jobs:
 
           echo "Release APK yok - Gradle assembleRelease dogrudan calistiriliyor."
 
-          # signing.properties'i tazele - Lime bin/ klasorunu yenilemis olabilir
           if [ -n "${KS_B64:-}" ]; then
             mkdir -p "$GP/app"
             umask 077
@@ -279,7 +250,6 @@ jobs:
 
           cd "$GP"
           chmod +x gradlew
-          # < /dev/null: olasi prompt sonsuz beklemesin
           ./gradlew assembleRelease --no-daemon --console=plain --stacktrace < /dev/null
           cd - >/dev/null
 
@@ -340,9 +310,6 @@ jobs:
             exit 0
           fi
 
-          # Imzalanacak APK'yi sec.
-          # Oncelik: *-unsigned.apk  ->  diger release APK'lar
-          # Debug APK ASLA imzalanmaz (android:debuggable=true tasir).
           TARGET=$(ls "$APK_DIR"/*-unsigned.apk 2>/dev/null | head -n1 || true)
 
           if [ -z "$TARGET" ]; then
@@ -375,8 +342,6 @@ jobs:
 
           "$BT/zipalign" -p -f 4 "$TARGET" /tmp/aligned.apk
 
-          # --ks-pass env: -> sifre ne komut satirinda gorunur ne de prompt acilir.
-          # Once /tmp'ye imzala: TARGET ile OUT ayni dosya olabilir.
           "$BT/apksigner" sign \
             --ks /tmp/release.keystore \
             --ks-pass "env:KS_PASS" \

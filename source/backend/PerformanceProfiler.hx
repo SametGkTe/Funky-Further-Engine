@@ -1,24 +1,7 @@
 package backend;
 
-/**
- * Performans profili sistemi.
- *
- * Tek tıkla tüm grafik/performans ayarlarını ayarlayan presetler. Düşük kalitede
- * şantiyede 30FPS rahat çalışır; yüksek kalite güçlü masaüstlerinde 144FPS
- * hedefler.
- *
- * Kullanım:
- *   PerformanceProfiler.apply(PerformanceProfile.PERFORMANCE); // düşük kalite
- *   PerformanceProfiler.detectBest(); // otomatik profil (CPU çekirdeği + RAM + çözünürlük)
- */
 class PerformanceProfiler
 {
-	/**
-	 * Kullanıcı profil seçimine göre ClientPrefs'i günceller.
-	 *
-	 * @param profile    Uygulanacak profil
-	 * @param targetFps  Belirli bir FPS hedefi (0 = profile göre)
-	 */
 	public static function apply(profile:PerformanceProfile, ?targetFps:Int = 0):Void
 	{
 		var prefs = ClientPrefs.data;
@@ -28,7 +11,6 @@ class PerformanceProfiler
 				prefs.lowQuality       = true;
 				prefs.shaders          = false;
 				prefs.antialiasing     = false;
-				prefs.flashing         = false;
 				prefs.camZooms         = false;
 				prefs.camMovement      = false;
 				prefs.cacheOnGPU       = false;
@@ -37,16 +19,14 @@ class PerformanceProfiler
 				prefs.vsliceSmoothBar  = false;
 				prefs.vsliceResults    = false;
 				prefs.vsliceFreeplayColors = false;
-				prefs.vibrating        = false;
 				prefs.loadThreads      = 2;
-				prefs.framerate        = targetFps > 0 ? targetFps : (#if mobile 30 #else 60 #end);
-				Log.info('perf', 'Performans profili uygulandı (low quality, ${prefs.framerate} FPS)');
+				prefs.framerate        = targetFps > 0 ? targetFps : (#if mobile 60 #else 60 #end);
+				Log.info('perf', 'Performans uygulandı (low quality, ${prefs.framerate} FPS)');
 
 			case BALANCED:
 				prefs.lowQuality       = false;
 				prefs.shaders          = true;
 				prefs.antialiasing     = true;
-				prefs.flashing         = true;
 				prefs.camZooms         = true;
 				prefs.camMovement      = true;
 				prefs.cacheOnGPU       = #if mobile false #else true #end;
@@ -55,16 +35,14 @@ class PerformanceProfiler
 				prefs.vsliceSmoothBar  = true;
 				prefs.vsliceResults    = true;
 				prefs.vsliceFreeplayColors = true;
-				prefs.vibrating        = false;
 				prefs.loadThreads      = #if mobile 2 #else 4 #end;
-				prefs.framerate        = targetFps > 0 ? targetFps : (#if mobile 60 #else 60 #end);
+				prefs.framerate        = targetFps > 0 ? targetFps : 60;
 				Log.info('perf', 'Dengeli profil uygulandı');
 
 			case HIGH:
 				prefs.lowQuality       = false;
 				prefs.shaders          = true;
 				prefs.antialiasing     = true;
-				prefs.flashing         = true;
 				prefs.camZooms         = true;
 				prefs.camMovement      = true;
 				prefs.cacheOnGPU       = true;
@@ -75,9 +53,7 @@ class PerformanceProfiler
 				prefs.vsliceFreeplayColors = true;
 				prefs.vsliceSpecialCards = true;
 				prefs.vsliceNaughtyness = true;
-				prefs.vibrating        = true;
 				prefs.loadThreads      = Std.int(Math.min(4, Math.max(2, CoolUtil.getCPUThreadsCount() - 1)));
-				// Mümkünse monitör yenileme hızını hedefle, ama en az 60
 				var refresh = 60;
 				#if (!html5 && !switch)
 				try { refresh = Std.int(FlxMath.bound(FlxG.stage.application.window.displayMode.refreshRate, 60, 240)); } catch (e:Dynamic) {}
@@ -86,13 +62,11 @@ class PerformanceProfiler
 				Log.infoLazy('perf', function() return 'Yüksek profil uygulandı (' + prefs.framerate + ' FPS, ' + prefs.loadThreads + ' thread)');
 		}
 
-		// VSync: yüksek kalitede açık (yırtılma azalır), performansta kapalı
 		prefs.vsync = (profile == HIGH);
 		ClientPrefs.saveSettings();
 		applyRuntimeSettings();
 	}
 
-	/** Değişiklikleri çalışma zamanında uygula (oyun yeniden başlamadan). */
 	public static function applyRuntimeSettings():Void
 	{
 		var prefs = ClientPrefs.data;
@@ -113,7 +87,6 @@ class PerformanceProfiler
 		}
 	}
 
-	// Tahmin (%-1 Accuracy)
 	public static function detectBest():PerformanceProfile
 	{
 		try

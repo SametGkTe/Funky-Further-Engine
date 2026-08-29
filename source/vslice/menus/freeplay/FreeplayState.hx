@@ -211,7 +211,7 @@ class FreeplayState extends MusicBeatSubstate
 
 	function addFreeplayTouchPad(?skipAnim:Bool):Void
 	{
-		addTouchPad('LEFT_FULL', 'A_B_C_P_X_Y_Z');
+		addTouchPad('LEFT_FULL', 'A_B_C_O_X_Y_Z');
 		addTouchPadCamera();
 
 		if (skipAnim == true)
@@ -2423,7 +2423,7 @@ class FreeplayState extends MusicBeatSubstate
 
 		if (!busy)
 		{
-			if (!searchOpen && (FlxG.keys.justPressed.ALT #if TOUCH_CONTROLS_ALLOWED || touchPad?.buttonP.justPressed #end))
+			if (!searchOpen && (FlxG.keys.justPressed.ALT #if TOUCH_CONTROLS_ALLOWED || touchPad?.buttonO.justPressed #end))
 			{
 				openFreeplaySettings();
 			}

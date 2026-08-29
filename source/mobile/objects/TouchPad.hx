@@ -15,21 +15,6 @@ import sys.FileSystem;
 
 using StringTools;
 
-/**
- * TouchPad — COMPATIBILITY WRAPPER (eski API, yeni motor).
- *
- * Kullanım aynı kalır:
- *   addTouchPad('LEFT_FULL', 'A_B_C_X_Y_Z');
- *   touchPad.buttonZ.pressed / justPressed / ...;
- *   touchPad.anyPressed([MobileInputID.X]);
- *   touchPad.forEachAlive((button:TouchButton) -> ...);
- *
- * Ama butonlar artık YENİ sistemden gelir:
- *   - `mobile.MobileConfig` (yeni format JSON modları),
- *   - yeni 2-kareli dokular (MobilePad/Textures),
- *   - `TouchButton` (yeni `mobile.MobileButton` tabanlı),
- *   - sinyaller `justPressed`/`justReleased` izlenerek tam bir kez tetiklenir.
- */
 @:keep
 class TouchPad extends MobileInputManager implements FMobileControls
 {
@@ -74,15 +59,8 @@ class TouchPad extends MobileInputManager implements FMobileControls
 	public var onButtonDown:FlxTypedSignal<TouchButton->Void> = new FlxTypedSignal<TouchButton->Void>();
 	public var onButtonUp:FlxTypedSignal<TouchButton->Void> = new FlxTypedSignal<TouchButton->Void>();
 
-	/** Yeni sistemle uyumluluk: buton adı -> buton (getButton / Lua erişimi) */
 	public var buttonFromName:Map<String, TouchButton> = [];
 
-	/**
-	 * Create a gamepad.
-	 *
-	 * @param   DPadMode     The D-Pad mode. `LEFT_FULL` for example.
-	 * @param   ActionMode   The action buttons mode. `A_B_C_X_Y_Z` for example.
-	 */
 	public function new(DPad:String, Action:String, ?Extra:ExtraActions = NONE)
 	{
 		super();
@@ -124,7 +102,7 @@ class TouchPad extends MobileInputManager implements FMobileControls
 				add(buttonExtra = createButton(0, FlxG.height - 137, 's', 0xFF0066FF, [MobileInputID.EXTRA_1]));
 				add(buttonExtra2 = createButton(FlxG.width - 132, FlxG.height - 137, 'g', 0xA6FF00, [MobileInputID.EXTRA_2]));
 				setExtrasPos();
-			case NONE: // nothing
+			case NONE: 
 		}
 
 		alpha = ClientPrefs.data.controlsAlpha;
@@ -147,7 +125,7 @@ class TouchPad extends MobileInputManager implements FMobileControls
 			var id:MobileInputID = MobileInputID.fromString(strId);
 			if (id != MobileInputID.NONE && inputIDs.indexOf(id) == -1) inputIDs.push(id);
 		}
-		// JSON'da ID yoksa, önceden tanımlı alanın varsayılan ID'lerini kullan
+		
 		if (inputIDs.length == 0)
 		{
 			var existing:TouchButton = Reflect.field(this, buttonName);
@@ -166,9 +144,6 @@ class TouchPad extends MobileInputManager implements FMobileControls
 		add(button);
 	}
 
-	/**
-	 * Eski `getButton` uyumluluğu (yeni sistemdeki `mobilePad.getButton('buttonA')` gibi).
-	 */
 	public function getButton(btnName:String):TouchButton
 		return buttonFromName.get(btnName);
 
@@ -226,33 +201,46 @@ class TouchPad extends MobileInputManager implements FMobileControls
 		}
 	}
 
-	/**
-	 * Yeni (ArkoseLabs) tarzı buton oluşturma: MobilePad/Textures'daki 2 kareli
-	 * doku şeridini kullanır.
-	 */
 	private function createButton(X:Float, Y:Float, Graphic:String, ?Color:FlxColor = 0xFFFFFF,
 		?IDs:Array<MobileInputID> = null, ?scale:Float = 1.0, ?returned:String = null):TouchButton
 	{
 		var button = new TouchButton(X, Y, IDs);
 
-		var frames:FlxGraphic;
-		final path:String = MobileConfig.mobileFolderPath + 'MobilePad/Textures/${Graphic.toLowerCase()}.png';
+		var frames:FlxGraphic = null;
+		var graphicName:String = Graphic.toLowerCase();
+		var paths:Array<String> = [
+			MobileConfig.mobileFolderPath + 'MobilePad/Textures/$graphicName.png',
+			'assets/mobile/MobilePad/Textures/$graphicName.png',
+			MobileConfig.mobileFolderPath + 'MobilePad/Textures/default.png',
+			'assets/mobile/MobilePad/Textures/default.png'
+		];
 
 		#if MODS_ALLOWED
-		var modsPath:String = null;
-		for (folder in Mods.directoriesWithFile(Paths.getSharedPath(), 'mobile/MobilePad/Textures/')) {
-			var candidate:String = haxe.io.Path.join([folder, '${Graphic.toLowerCase()}.png']);
-			if (FileSystem.exists(candidate)) {
-				modsPath = candidate;
+		for (folder in Mods.directoriesWithFile(Paths.getSharedPath(), 'mobile/MobilePad/Textures/'))
+		{
+			var candidate:String = haxe.io.Path.join([folder, '$graphicName.png']);
+			if (FileSystem.exists(candidate))
+			{
+				frames = FlxGraphic.fromBitmapData(BitmapData.fromFile(candidate));
 				break;
 			}
 		}
-		if (modsPath != null)
-			frames = FlxGraphic.fromBitmapData(BitmapData.fromFile(modsPath));
-		else #end if (Assets.exists(path))
-			frames = FlxGraphic.fromBitmapData(Assets.getBitmapData(path));
-		else
-			frames = FlxGraphic.fromBitmapData(Assets.getBitmapData(MobileConfig.mobileFolderPath + 'MobilePad/Textures/default.png'));
+		#end
+
+		if (frames == null)
+		{
+			for (path in paths)
+			{
+				if (Assets.exists(path))
+				{
+					frames = FlxGraphic.fromBitmapData(Assets.getBitmapData(path));
+					break;
+				}
+			}
+		}
+
+		if (frames == null)
+			frames = FlxGraphic.fromBitmapData(new BitmapData(2, 1, true, 0));
 
 		button.scale.set(scale, scale);
 		button.frames = FlxTileFrames.fromGraphic(frames, FlxPoint.get(Std.int(frames.width / 2), frames.height));
@@ -270,8 +258,6 @@ class TouchPad extends MobileInputManager implements FMobileControls
 		button.color = Color;
 		button.returnedKey = returned;
 
-		// NOT: onDown/onUp callback'leri burada BAĞLANMAZ — sinyaller `update()`
-		// içindeki justPressed/justReleased izleyicisinden tam bir kez tetiklenir.
 		return button;
 	}
 

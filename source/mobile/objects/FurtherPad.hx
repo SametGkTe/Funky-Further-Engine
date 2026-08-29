@@ -16,35 +16,43 @@ import sys.FileSystem;
 
 using StringTools;
 
-/**
- * FurtherPad — Further Engine'in dokunmatik tuş takımı.
- * `mobile.MobileControlManager` tarafından kullanılır; doku ve düzenler
- * `FEMobileConfig`'ten (MobilePad/*.json) okunur, mod dokuları desteklenir.
- *
- * Tasarım temeli: MIT lisanslı mobile-controls (bkz. CREDITS.md).
- */
 class FurtherPad extends MobilePad {
-	// Her parmak için son basılan butonu hatırlar (çoklu dokunma takibi)
-
+	
 	override public function createVirtualButton(x:Float, y:Float, framePath:String, ?scale:Float = 1.0, ?ColorS:Int = 0xFFFFFF, ?returned:String):MobileButton {
-		var frames:FlxGraphic;
-		final path:String = MobileConfig.mobileFolderPath + 'MobilePad/Textures/$framePath.png';
+		var frames:FlxGraphic = null;
+		var paths:Array<String> = [
+			MobileConfig.mobileFolderPath + 'MobilePad/Textures/$framePath.png',
+			'assets/mobile/MobilePad/Textures/$framePath.png',
+			MobileConfig.mobileFolderPath + 'MobilePad/Textures/default.png',
+			'assets/mobile/MobilePad/Textures/default.png'
+		];
 
 		#if MODS_ALLOWED
-		var modsPath:String = null;
-		for (folder in Mods.directoriesWithFile(Paths.getSharedPath(), 'mobile/MobilePad/Textures/')) {
+		for (folder in Mods.directoriesWithFile(Paths.getSharedPath(), 'mobile/MobilePad/Textures/'))
+		{
 			var candidate:String = haxe.io.Path.join([folder, '$framePath.png']);
-			if (FileSystem.exists(candidate)) {
-				modsPath = candidate;
+			if (FileSystem.exists(candidate))
+			{
+				frames = FlxGraphic.fromBitmapData(BitmapData.fromFile(candidate));
 				break;
 			}
 		}
-		if (modsPath != null)
-			frames = FlxGraphic.fromBitmapData(BitmapData.fromFile(modsPath));
-		else #end if(Assets.exists(path))
-			frames = FlxGraphic.fromBitmapData(Assets.getBitmapData(path));
-		else
-			frames = FlxGraphic.fromBitmapData(Assets.getBitmapData(MobileConfig.mobileFolderPath + 'MobilePad/Textures/default.png'));
+		#end
+
+		if (frames == null)
+		{
+			for (path in paths)
+			{
+				if (Assets.exists(path))
+				{
+					frames = FlxGraphic.fromBitmapData(Assets.getBitmapData(path));
+					break;
+				}
+			}
+		}
+
+		if (frames == null)
+			frames = FlxGraphic.fromBitmapData(new BitmapData(2, 1, true, 0));
 
 		var button = new MobileButton(x, y, returned);
 		button.scale.set(scale, scale);
@@ -69,9 +77,6 @@ class FurtherPad extends MobilePad {
 		super(DPad, Action, globalAlpha);
 	}
 
-	// --- INPUT GÜNCELLEMESİ: her butonun durumunu izleyip SİNYALLERİ TAM OLARAK
-	// BİR KEZ tetikler (çift tetiklemeyi önler; kaydırma/slide desteği temel
-	// MobileButton tarafından `allowSwiping` ile sağlanır) ---
 	override function update(elapsed:Float)
 	{
 		super.update(elapsed);

@@ -4,7 +4,7 @@ class UpdateConfig {
 	public static inline var ENGINE_NAME:String = "Further Engine";
 	public static inline var CHECK_ON_STARTUP:Bool = true;
 	public static inline var DEBUG_FORCE_UPDATES:Bool = false;
-	public static inline var CURRENT_ENGINE_VERSION:String = "1.6.9";
+	public static inline var CURRENT_ENGINE_VERSION:String = "1.7.0";
 
 	public static inline var GITHUB_REPO_OWNER:String = "SametGkTe";
 	public static inline var GITHUB_REPO_NAME:String = "Funky-Further-Engine";
@@ -24,7 +24,6 @@ class UpdateConfig {
 		return MODPACK_JSON_URL;
 	}
 
-	/** raw.githubusercontent TR'de sık düşer; jsDelivr yedek. */
 	public static function modpackJsonUrls():Array<String>
 	{
 		var owner = GITHUB_REPO_OWNER;

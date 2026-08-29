@@ -1,0 +1,1 @@
+adb install ".\export\release\android\bin\app\build\outputs\apk\debug\FurtherEngine-debug.apk

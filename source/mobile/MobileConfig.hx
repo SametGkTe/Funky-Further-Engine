@@ -100,6 +100,8 @@ class MobileConfig {
 	}
 
 	public static inline var FREEPLAY_ACTION_MODE:String = 'A_B_C_P_X_Y_Z';
+	public static inline var FREEPLAY_O_ACTION_MODE:String = 'A_B_C_O_X_Y_Z';
+	public static inline var PAUSE_ACTION_MODE:String = 'PAUSE';
 
 	/**
 	 * Freeplay needs A_B_C_P_X_Y_Z. The JSON may live under assets/mobile
@@ -169,6 +171,62 @@ class MobileConfig {
 			]});
 		if (!actionModes.exists('A_B_C_X_Y_Z'))
 			actionModes.set('A_B_C_X_Y_Z', {buttons: defaultAbcxyzButtons()});
+
+		if (!actionModes.exists(PAUSE_ACTION_MODE))
+		{
+			var pDef:ButtonsData = null;
+			if (actionModes.exists('P') && actionModes.get('P').buttons != null)
+			{
+				for (b in actionModes.get('P').buttons)
+				{
+					if (b != null && b.button == 'buttonP')
+					{
+						pDef = b;
+						break;
+					}
+				}
+			}
+			actionModes.set(PAUSE_ACTION_MODE, {buttons: [
+				makeButton('buttonP', 'pause', pDef != null ? pDef.x : 1156, pDef != null ? pDef.y : 348, pDef != null ? pDef.color : '0xE5DE00', ['P'])
+			]});
+		}
+
+		if (!actionModes.exists(FREEPLAY_O_ACTION_MODE))
+		{
+			var buttons:Array<ButtonsData> = [];
+			if (actionModes.exists(FREEPLAY_ACTION_MODE) && actionModes.get(FREEPLAY_ACTION_MODE).buttons != null)
+			{
+				for (b in actionModes.get(FREEPLAY_ACTION_MODE).buttons)
+				{
+					if (b != null && b.button != 'buttonP')
+						buttons.push(b);
+				}
+			}
+			else if (actionModes.exists('A_B_C_X_Y_Z') && actionModes.get('A_B_C_X_Y_Z').buttons != null)
+			{
+				for (b in actionModes.get('A_B_C_X_Y_Z').buttons)
+					buttons.push(b);
+			}
+			else
+			{
+				buttons = defaultAbcxyzButtons();
+			}
+
+			var oRef:ButtonsData = null;
+			if (actionModes.exists(FREEPLAY_ACTION_MODE) && actionModes.get(FREEPLAY_ACTION_MODE).buttons != null)
+			{
+				for (b in actionModes.get(FREEPLAY_ACTION_MODE).buttons)
+				{
+					if (b != null && b.button == 'buttonP')
+					{
+						oRef = b;
+						break;
+					}
+				}
+			}
+			buttons.push(makeButton('buttonO', 'o', oRef != null ? oRef.x : 1156, oRef != null ? oRef.y : 348, oRef != null ? oRef.color : '0xE5DE00', ['O']));
+			actionModes.set(FREEPLAY_O_ACTION_MODE, {buttons: buttons});
+		}
 	}
 
 	public static function ensureBuiltinDpadModes():Void

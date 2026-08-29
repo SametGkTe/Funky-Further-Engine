@@ -104,17 +104,15 @@ import states.TitleState;
 	public var splashSkin:String = 'Psych';
 	public var splashAlpha:Float = 0.6;
 	public var holdSkin:String = 'Vanilla';
-	public var holdSplashAlpha:Float = #if mobile 0.45 #else 0.6 #end; // Mobilde fillrate tasarrufu
+	public var holdSplashAlpha:Float = #if mobile 0.45 #else 0.6 #end;
 	public var lowQuality:Bool = false;
 	public var shaders:Bool = true;
-	public var strictLoadingScreen:Bool = true; // Düşük bellek: önce UI boşalt, sonra şarkıyı yükle (P-Slice)
+	public var strictLoadingScreen:Bool = true;
 	public var cacheOnGPU:Bool = #if !switch false #else true #end; // GPU Caching made by Raltyro
-	// NovaFlare'ın kontrollü preload yaklaşımından uyarlanmıştır. Çok fazla thread
-	// özellikle Android'de RAM baskısını ve native kapanma riskini artırır.
 	public var loadThreads:Int = #if mobile 2 #else 4 #end;
 	public var framerate:Int = 60;
 	public var camZooms:Bool = true;
-	public var camMovement:Bool = true; // Kamera karaktere hareket etsin mi (CDEV'den)
+	public var camMovement:Bool = true;
 	public var hideHud:Bool = false;
 	public var noteOffset:Int = 0;
 	public var arrowRGB:Array<Array<FlxColor>> = [

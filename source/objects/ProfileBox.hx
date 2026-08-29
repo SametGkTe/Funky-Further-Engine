@@ -43,6 +43,7 @@ class ProfileBox extends FlxSpriteGroup {
 	var dropdownBg:FlxSprite;
 	var dropdownAccent:FlxSprite;
 	var dropdownBorder:FlxSprite;
+	public var noStateSwitch:Bool = false;
 
 	var dropSettingsIcon:FlxSprite;
 	var dropSettingsBg:FlxSprite;
@@ -1022,7 +1023,8 @@ class ProfileBox extends FlxSpriteGroup {
 				FlxG.sound.play(Paths.sound('cancelMenu'));
 				closeDropdown();
 				onLogout();
-				MusicBeatState.switchState(new states.MainMenuState());
+				if (!noStateSwitch)
+					MusicBeatState.switchState(new states.MainMenuState());
 			} else if (!isMouseOver() && !isDropdownHovered()) {
 				closeDropdown();
 			}

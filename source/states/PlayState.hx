@@ -783,7 +783,7 @@ class PlayState extends MusicBeatState
 		splash.kill(); // Precache nesnesini havuzda yeniden kullanılabilir bırak.
 
 		#if mobile
-		addTouchPad('NONE', 'P');
+		addTouchPad('NONE', 'PAUSE');
 		addTouchPadCamera();
 		#end
 		

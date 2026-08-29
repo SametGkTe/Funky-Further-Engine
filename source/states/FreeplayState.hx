@@ -253,7 +253,7 @@ class FreeplayState extends MusicBeatState
 		changeSelection();
 		updateTexts();
 
-		addTouchPad('LEFT_FULL', 'A_B_C_P_X_Y_Z');
+		addTouchPad('LEFT_FULL', 'A_B_C_O_X_Y_Z');
 
 		FlxG.stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyDown);
 
@@ -1105,7 +1105,7 @@ class FreeplayState extends MusicBeatState
 		persistentUpdate = true;
 		super.closeSubState();
 		removeTouchPad();
-		addTouchPad('LEFT_FULL', 'A_B_C_P_X_Y_Z');
+		addTouchPad('LEFT_FULL', 'A_B_C_O_X_Y_Z');
 		blockInputFrames = 12;
 
 		if (pendingRankAnim && !rankAnimDone)
@@ -1452,7 +1452,7 @@ class FreeplayState extends MusicBeatState
 			}
 		}
 
-		if ((FlxG.keys.justPressed.ALT || (touchPad != null && touchPad.buttonP != null && touchPad.buttonP.justPressed))
+		if ((FlxG.keys.justPressed.ALT || (touchPad != null && touchPad.buttonO != null && touchPad.buttonO.justPressed))
 			&& !player.playingMusic && !searchOpen)
 		{
 			openFreeplaySettings();
