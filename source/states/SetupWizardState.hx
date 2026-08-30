@@ -1518,6 +1518,7 @@ class SetupWizardState extends MusicBeatState
 		}
 
 		PerformanceProfiler.apply(PERF_DEFS[selectedPerf].id);
+		ClientPrefs.data.perfProfile = PERF_DEFS[selectedPerf].id;
 		AudioMixer.init();
 		AudioMixer.syncFromPrefs();
 		PerformanceProfiler.applyRuntimeSettings();

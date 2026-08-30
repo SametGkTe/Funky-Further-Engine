@@ -47,14 +47,25 @@ class AchievementSync {
             return;
         }
 
-        var body = Json.stringify({
+        var bodyObj = {
             player_id: AuthManager.currentUserId,
             achievement_id: achievementId,
             game_version: GAME_VERSION,
             platform: PLATFORM
-        });
+        };
+        var body = Json.stringify(bodyObj);
 
         #if sys
+        #if ios
+        SupabaseClient.postAsync('/rest/v1/player_achievements', bodyObj, token, function(status:Int, data:String) {
+            if (status >= 200 && status < 300) {
+                trace('[AchSync] OK: $achievementId');
+            } else {
+                trace('[AchSync] Status $status: $achievementId');
+                if (!fromQueue) _queue(achievementId);
+            }
+        }, ['Prefer' => 'resolution=ignore-duplicates']);
+        #else
         sys.thread.Thread.create(function() {
             try {
                 var http = new haxe.Http('${SupabaseClient.URL}/rest/v1/player_achievements');
@@ -100,6 +111,7 @@ class AchievementSync {
                 });
             }
         });
+        #end
         #end
     }
 

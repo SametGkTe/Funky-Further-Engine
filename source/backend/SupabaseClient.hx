@@ -220,17 +220,23 @@ class SupabaseClient {
     // ============================================
     // HTTP - POST ASYNC
     // ============================================
-    public static function postAsync(endpoint:String, body:Dynamic, token:String = "", callback:Int->String->Void):Void {
+    public static function postAsync(endpoint:String, body:Dynamic, token:String = "", callback:Int->String->Void, ?extraHeaders:Map<String, String>):Void {
         #if sys
+        var fullUrl = '${URL}${endpoint}';
+        trace("POST ASYNC -> " + fullUrl);
+        #if ios
+        requestIOS("POST", fullUrl, body != null ? haxe.Json.stringify(body) : null, token, extraHeaders, callback);
+        #else
         sys.thread.Thread.create(function() {
-            var fullUrl = '${URL}${endpoint}';
-            trace("POST ASYNC -> " + fullUrl);
             try {
                 var http = new haxe.Http(fullUrl);
                 http.setHeader("apikey", ANON_KEY);
                 http.setHeader("Content-Type", "application/json");
                 http.setHeader("Accept", "application/json");
                 if (token != "") http.setHeader("Authorization", 'Bearer ${token}');
+                if (extraHeaders != null) {
+                    for (k in extraHeaders.keys()) http.setHeader(k, extraHeaders.get(k));
+                }
 
                 var responseStatus = 0;
                 var responseDone = false;
@@ -255,6 +261,7 @@ class SupabaseClient {
             }
         });
         #end
+        #end
     }
 
     // ============================================
@@ -262,9 +269,12 @@ class SupabaseClient {
     // ============================================
     public static function getAsync(endpoint:String, token:String = "", callback:Int->String->Void):Void {
         #if sys
+        var fullUrl = '${URL}${endpoint}';
+        trace("GET ASYNC -> " + fullUrl);
+        #if ios
+        requestIOS("GET", fullUrl, null, token, null, callback);
+        #else
         sys.thread.Thread.create(function() {
-            var fullUrl = '${URL}${endpoint}';
-            trace("GET ASYNC -> " + fullUrl);
             try {
                 var http = new haxe.Http(fullUrl);
                 http.setHeader("apikey", ANON_KEY);
@@ -293,7 +303,37 @@ class SupabaseClient {
             }
         });
         #end
+        #end
     }
+
+    #if ios
+    static function requestIOS(methodStr:String, fullUrl:String, body:String, token:String, extraHeaders:Map<String, String>, callback:Int->String->Void):Void {
+        try {
+            var req = new lime.net.HTTPRequest<String>();
+            req.timeout = 15000;
+            req.method = methodStr;
+            if (body != null) {
+                req.contentType = "application/json";
+                req.data = haxe.io.Bytes.ofString(body);
+            }
+            req.headers = [
+                new lime.net.HTTPRequestHeader("apikey", ANON_KEY),
+                new lime.net.HTTPRequestHeader("Accept", "application/json")
+            ];
+            if (token != "") req.headers.push(new lime.net.HTTPRequestHeader("Authorization", 'Bearer ${token}'));
+            if (extraHeaders != null) {
+                for (k in extraHeaders.keys()) req.headers.push(new lime.net.HTTPRequestHeader(k, extraHeaders.get(k)));
+            }
+            req.load(fullUrl).onComplete(function(d:String) {
+                callback(req.responseStatus, d != null ? d : "");
+            }).onError(function(e:Dynamic) {
+                callback(req.responseStatus, Std.string(e));
+            });
+        } catch (e:Dynamic) {
+            callback(0, Std.string(e));
+        }
+    }
+    #end
 
     // ============================================
     // HTTP - POST SYNC

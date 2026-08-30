@@ -85,7 +85,14 @@ class Main extends Sprite
 		#end
 
 		#if VIDEOS_ALLOWED
-		hxvlc.util.Handle.init(#if (hxvlc >= "1.8.0")  ['--no-lua'] #end);
+		try
+		{
+			hxvlc.util.Handle.init(#if (hxvlc >= "1.8.0")  ['--no-lua'] #end);
+		}
+		catch (e:Dynamic)
+		{
+			trace('Video hazirligi atlandi: $e');
+		}
 		#end
 		
 		#if ios

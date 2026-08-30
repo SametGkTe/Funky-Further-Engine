@@ -397,6 +397,36 @@ class ProfileBox extends FlxSpriteGroup {
 		_avatarDownloading = true;
 
 		#if sys
+		#if ios
+		try {
+			var req = new lime.net.HTTPRequest<haxe.io.Bytes>();
+			req.timeout = 15000;
+			req.load(url).onComplete(function(data:haxe.io.Bytes) {
+				if (data != null && data.length > 100) {
+					trace('[ProfileBox] Avatar downloaded: ${data.length} bytes');
+					_avatarBytes = data;
+					_avatarDownloadDone = true;
+					_avatarDownloading = false;
+					_avatarDownloadFailed = false;
+
+					_cachedAvatarBytes = data;
+					_cachedAvatarUrl = AuthManager.currentAvatarUrl;
+				} else {
+					trace('[ProfileBox] Avatar download empty');
+					_avatarDownloading = false;
+					_avatarDownloadFailed = true;
+				}
+			}).onError(function(error:Dynamic) {
+				trace('[ProfileBox] HTTP onError (ignorable): ' + error);
+				_avatarDownloading = false;
+				_avatarDownloadFailed = true;
+			});
+		} catch (e:Dynamic) {
+			trace('[ProfileBox] Avatar download exception: ' + e);
+			_avatarDownloading = false;
+			_avatarDownloadFailed = true;
+		}
+		#else
 		sys.thread.Thread.create(function() {
 			try {
 				var http = new haxe.Http(url);
@@ -430,6 +460,7 @@ class ProfileBox extends FlxSpriteGroup {
 				_avatarDownloadFailed = true;
 			}
 		});
+		#end
 		#else
 		_avatarDownloading = false;
 		_avatarDownloadFailed = true;

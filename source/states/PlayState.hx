@@ -2341,7 +2341,10 @@ class PlayState extends MusicBeatState
 
 		health = value;
 		var newPercent:Null<Float> = FlxMath.remapToRange(FlxMath.bound(healthBar.valueFunction(), healthBar.bounds.min, healthBar.bounds.max), healthBar.bounds.min, healthBar.bounds.max, 0, 100);
-		healthBar.percent = (newPercent != null ? newPercent : 0);
+		var targetPercent:Float = (newPercent != null ? newPercent : 0);
+		if (ClientPrefs.data.vsliceSmoothBar)
+			targetPercent = FlxMath.lerp(healthBar.percent, targetPercent, 0.15);
+		healthBar.percent = targetPercent;
 
 		iconP1.animation.curAnim.curFrame = (healthBar.percent < 20) ? 1 : 0; //If health is under 20%, change player icon to frame 1 (losing icon), otherwise, frame 0 (normal)
 		iconP2.animation.curAnim.curFrame = (healthBar.percent > 80) ? 1 : 0; //If health is over 80%, change opponent icon to frame 1 (losing icon), otherwise, frame 0 (normal)

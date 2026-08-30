@@ -49,7 +49,7 @@ class ExtraSettingsState extends BaseOptionsMenu
 			BOOL);
 		addOption(option);
 
-		var option:Option = new Option('Yeni Etiketini Zorla',
+		var option:Option = new Option('YENİ Etiketini Zorla',
 			'Yeni Freeplay listesinde YENİ etiketinin her şarkıda görünmesini sağlar.',
 			'vsliceForceNewTag',
 			BOOL);

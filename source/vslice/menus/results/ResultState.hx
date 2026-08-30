@@ -721,6 +721,8 @@ class ResultState extends MusicBeatSubState
 
   var movingSongStuff:Bool = false;
   var speedOfTween:FlxPoint = FlxPoint.get(-1, 1);
+  var resultsAutoSkipTimer:Float = 0;
+  var resultsAutoSkipFired:Bool = false;
 
   override function draw():Void
   {
@@ -756,7 +758,19 @@ class ResultState extends MusicBeatSubState
       speedOfTween.x -= 0.1;
     }
 
-    if (TouchUtil.justPressed || controls.PAUSE)
+    var autoSkipTrigger:Bool = false;
+    var autoSkip:Int = ClientPrefs.data.resultsAutoSkip;
+    if (autoSkip > 0 && !resultsAutoSkipFired)
+    {
+      resultsAutoSkipTimer += elapsed;
+      if (resultsAutoSkipTimer >= autoSkip)
+      {
+        resultsAutoSkipFired = true;
+        autoSkipTrigger = true;
+      }
+    }
+
+    if (TouchUtil.justPressed || controls.PAUSE || autoSkipTrigger)
     {
       if (FlxG.sound.music != null)
       {
