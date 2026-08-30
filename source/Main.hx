@@ -233,7 +233,10 @@ class Main extends Sprite
 		LimeSystem.allowScreenTimeout = ClientPrefs.data.screensaver;
 		#end
 
+		// iOS: resmî lime'da window.vsync alanı yok; iOS'ta vsync sistem tarafından zorunlu.
+		#if !ios
 		Application.current.window.vsync = ClientPrefs.data.vsync;
+		#end
 		FlxG.signals.preStateCreate.add(function(_) {
 			FlxG.mouse.visible = false;
 		});

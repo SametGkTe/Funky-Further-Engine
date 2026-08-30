@@ -44,7 +44,9 @@ class PerformanceProfiler
 	public static function applyRuntimeSettings():Void
 	{
 		var prefs = ClientPrefs.data;
-		#if (!html5 && !switch)
+		// iOS: resmî lime'da window.vsync alanı yok; iOS'ta vsync zaten
+		// sistem tarafından zorunlu tutulur, atlamak işlev kaybı yaratmaz.
+		#if (!html5 && !switch && !ios)
 		try
 		{
 			FlxG.stage.window.vsync = prefs.vsync;

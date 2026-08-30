@@ -314,6 +314,11 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 	}
 	#if native
 	function onChangeVSync()
+	{
+		// iOS: resmî lime'da window.vsync alanı yok; iOS vsync'i zaten zorunlu tutar.
+		#if !ios
 		lime.app.Application.current.window.vsync = ClientPrefs.data.vsync;
+		#end
+	}
 	#end
 }
