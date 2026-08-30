@@ -87,12 +87,19 @@ jobs:
           haxelib set colyseus-websocket 1.0.12
           haxelib install tink_core 2.1.1 --quiet --always
           haxelib set tink_core 2.1.1
-          if [ "${{ inputs.name }}" = "iOS" ]; then
-            haxelib install lime 8.3.2 --quiet --always
-            haxelib set lime 8.3.2
-          fi
           echo "=== Haxelib List (after force set) ==="
           haxelib list
+
+      # iOS: resmî lime 8.3.2 (SDL 2.30.x — harici klavye + iOS ağ çökmesi
+      # düzeltmeleri). Adım koşulu Actions katmanında değerlendirilir; satır içi
+      # bash koşulu Windows'ta PowerShell'e takılıyordu.
+      - name: iOS lime 8.3.2
+        if: success() && inputs.name == 'iOS'
+        shell: bash
+        run: |
+          haxelib install lime 8.3.2 --quiet --always
+          haxelib set lime 8.3.2
+          haxelib list | grep -i lime || true
 
       - name: Patch hxcpp for macOS 15 / Xcode 16
         if: success() && runner.os == 'macOS'
