@@ -570,7 +570,6 @@ class ModPorterState extends MusicBeatState
 		var stageScripts:Int = countFilesWithExt(stageDir, ['.hx']);
 		if (stageScripts > 0) prog.report.push('Atlanan sahne scripti (.hx): ' + stageScripts);
 
-		// --- Şarkılar ---
 		prog.stage = 'Şarkılar';
 		var songs:Array<String> = cne.compatibility.CNECompat.listSongs(mod);
 		prog.total = songs.length;
@@ -858,7 +857,6 @@ class ModPorterState extends MusicBeatState
 		}
 		prog.report.push('Sahne: ' + stageCount + ' dönüştürüldü');
 
-		// --- Şarkılar ---
 		prog.stage = 'Şarkılar';
 		var songDirs:Array<String> = [];
 		for (d in listDir(base + '/data/songs/'))
@@ -1243,7 +1241,6 @@ class ModPorterState extends MusicBeatState
 				copiedAssets += copyTree(base + '/' + af + '/', out + af + '/');
 		prog.report.push('Asset kopyalandı: ' + copiedAssets);
 
-		// --- Lua scriptler dönüştürülemez: raporla ---
 		prog.stage = 'Script kontrolü';
 		var luaSkipped:Int = countFilesWithExt(base + '/scripts/', ['.lua']);
 		luaSkipped += countFilesWithExt(base + '/custom_events/', ['.lua']);
@@ -1534,7 +1531,6 @@ class ModPorterState extends MusicBeatState
 		}
 		prog.report.push('Sahne: ' + stageCount + ' dönüştürüldü');
 
-		// --- Şarkılar ---
 		prog.stage = 'Şarkılar';
 		var songCharts:Map<String, Array<String>> = findPsychCharts(base);
 		var songIds:Array<String> = [for (k in songCharts.keys()) k];

@@ -106,16 +106,14 @@ class TitleState extends MusicBeatState
 			ClientPrefs.loadPrefs();
 			Language.reloadPhrases();
 		}
-
-		// AlertMgr, Main tarafından FlxGame'den sonra eklenir. Kısa gecikme hem
-		// güvenli mod bildirimini hem pack.json uyumluluk uyarılarını garanti eder.
+		
 		new FlxTimer().start(0.55, function(_)
 		{
 			if (backend.SafeMode.consumeNotice())
 			{
 				objects.AlertMgr.AlertMsg.show(
 					'Dikkat',
-					'Oyunu Güvenli Mod (Shift) ile açtınız, oyun Modları yüklemeyecek, Çoğu özellik çalışmayacaktır,',
+					'Oyunu Güvenli Mod ile açtınız, oyun Modları yüklemeyecek, Çoğu özellik çalışmayacaktır,',
 					10,
 					objects.AlertMgr.AlertMessage.COLOR_WARNING
 				);
@@ -157,14 +155,7 @@ class TitleState extends MusicBeatState
 		#elseif CHARTING
 		MusicBeatState.switchState(new ChartingState());
 		#else
-		if (HelloState.shouldShow())
-		{
-			controls.isInSubstate = false;
-			FlxTransitionableState.skipNextTransIn = true;
-			FlxTransitionableState.skipNextTransOut = true;
-			MusicBeatState.switchState(new HelloState());
-		}
-		else if(FlxG.save.data.flashing == null && !FlashingState.leftState)
+		if(FlxG.save.data.flashing == null && !FlashingState.leftState)
 		{
 			controls.isInSubstate = false;
 			FlxTransitionableState.skipNextTransIn = true;
@@ -192,9 +183,6 @@ class TitleState extends MusicBeatState
 		#if TITLE_SCREEN_EASTER_EGG easterEggData(); #end
 		Conductor.bpm = musicBPM;
 
-		// Intro starts from black, then Further Engine's title background fades in.
-		// Both sprites stay alive after the intro so titlebg remains behind the
-		// logo, GF and the "Press Enter" prompt.
 		blackScreen = new FlxSprite().makeGraphic(1, 1, FlxColor.BLACK);
 		blackScreen.scale.set(FlxG.width, FlxG.height);
 		blackScreen.updateHitbox();

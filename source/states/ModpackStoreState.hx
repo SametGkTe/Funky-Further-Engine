@@ -144,7 +144,6 @@ class ModpackStoreState extends MusicBeatState {
 
 		add(cards);
 
-		// ── Sayfa bilgisi + ipuçları (GameBanana tarzı) ──
 		pageInfo = new FlxText(0, 0, FlxG.width);
 		pageInfo.text = "< Sayfa 1 >";
 		pageInfo.setFormat("VCR OSD Mono", 20, FlxColor.WHITE, CENTER);
@@ -820,7 +819,6 @@ class ModpackStoreState extends MusicBeatState {
 	function startPackDownload(link:String):Void {
 		if (currentPack == null) return;
 
-		// ── Mod-bazlı (delta) güncelleme yolu ──
 		// Paket girişinde contentCatalogUrl varsa full ZIP yerine içerik kataloğu
 		// üzerinden SADECE eksik/değişen modlar indirilir.
 		var mpCheck:Dynamic = currentPack;
@@ -1271,7 +1269,6 @@ class ModpackStoreState extends MusicBeatState {
 			FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
 		}
 
-		// Mouse: kart hover → seç
 		for (card in cards.members) {
 			if (card == null || !card.visible) continue;
 			if (FlxG.mouse.overlaps(card.bg)) {

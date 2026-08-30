@@ -14,12 +14,12 @@ typedef OptionEntry = {
 class OptionsState extends MusicBeatState
 {
 	var entries:Array<OptionEntry> = [
-		{ label: 'Nota Renkleri',     desc: 'Nota oklarının renklerini özelleştirin ve ayarlayın!',  langKey: 'note_colors',     icon: 'notecolors' },
+		{ label: 'Nota Renkleri',     desc: 'Nota oklarının renklerini özelleştirin ve ayarlayın!',  langKey: 'note_colors',     icon: 'note_colors' },
 		{ label: 'Kontroller',        desc: 'Klavye ve oyun kumandası tuşlarını yeniden atayın.',    langKey: 'controls',        icon: 'controls' },
-		{ label: 'Gecikme & Kombo',   desc: 'Nota ofsetini ve gecikmeyi ayarlayın.',                langKey: 'delay_combo',     icon: 'comboanddelay' },
-		{ label: 'Grafikler',         desc: 'Performans ve işleme ayarları.',                       langKey: 'graphics',        icon: 'graphics' },
-		{ label: 'Sesler',            desc: 'Ana ses, müzik, enstrüman, vokal ve efekt kanallarını ayarlayın.', langKey: 'audio', icon: 'audio' },
-		{ label: 'Görünüş',           desc: 'HUD, efektler ve görsel tercihler.',                   langKey: 'visuals',         icon: 'visuals' },
+		{ label: 'Gecikme & Kombo',   desc: 'Nota ofsetini ve gecikmeyi ayarlayın.',                langKey: 'delay_combo',     icon: 'delay_and_combo' },
+		{ label: 'Grafik ve Performans',         desc: 'Performans ve işleme ayarları.',                       langKey: 'graphics',        icon: 'graphics_and_performance' },
+		{ label: 'Sesler',            desc: 'Ana ses, müzik, enstrüman, vokal ve efekt kanallarını ayarlayın.', langKey: 'audio', icon: 'music' },
+		{ label: 'Arayüz & Görünüş',           desc: 'HUD, efektler ve görsel tercihler.',                   langKey: 'visuals',         icon: 'interface_and_visuals' },
 		{ label: 'Oynanış',           desc: 'Ok Stili, Görsel efektleri ayarlayın.',                langKey: 'gameplay',        icon: 'gameplay' },
 		#if TRANSLATIONS_ALLOWED
 		{ label: 'Dil',              desc: 'Dilinizi seçin!',                                      langKey: 'language',        icon: 'language' },
@@ -168,7 +168,10 @@ class OptionsState extends MusicBeatState
 		ClientPrefs.saveSettings();
 		#if mobile
 		if (ClientPrefs.data.mobileControlType == 'Touch')
+		{
 			addTouchPad('UP_DOWN', 'A_B_C');
+			addTouchPadCamera();
+		}
 		else
 		{
 			mobileManager.addMobilePad('UP_DOWN', 'A_B_C');
@@ -195,7 +198,10 @@ class OptionsState extends MusicBeatState
 		if (mobileManager != null) mobileManager.removeMobilePad();
 		#if mobile
 		if (ClientPrefs.data.mobileControlType == 'Touch')
+		{
 			addTouchPad('UP_DOWN', 'A_B_C');
+			addTouchPadCamera();
+		}
 		else
 		{
 			mobileManager.addMobilePad('UP_DOWN', 'A_B_C');

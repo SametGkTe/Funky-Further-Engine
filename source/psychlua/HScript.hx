@@ -278,7 +278,6 @@ class HScript extends SScript
 		});
 		#end
 
-		// Diğer fonksiyonlar
 		set('keyJustPressed', function(name:String = '') { return false; });
 		set('keyPressed', function(name:String = '') { return false; });
 		set('keyReleased', function(name:String = '') { return false; });

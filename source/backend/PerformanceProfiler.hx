@@ -11,13 +11,22 @@ class PerformanceProfiler
 				prefs.lowQuality   = true;
 				prefs.shaders      = false;
 				prefs.antialiasing = false;
+				prefs.framerate    = 60;
 				Log.info('perf', 'Düşük kalite profili uygulandı');
 
-			case BALANCED, HIGH:
+			case BALANCED:
+				prefs.lowQuality   = false;
+				prefs.shaders      = false;
+				prefs.antialiasing = true;
+				prefs.framerate    = 60;
+				Log.info('perf', 'Orta kalite profili uygulandı');
+
+			case HIGH:
 				prefs.lowQuality   = false;
 				prefs.shaders      = true;
 				prefs.antialiasing = true;
-				Log.info('perf', 'Görsel ayarlar tam açık uygulandı');
+				prefs.framerate    = 120;
+				Log.info('perf', 'Yüksek kalite profili uygulandı');
 		}
 
 		prefs.camZooms             = true;

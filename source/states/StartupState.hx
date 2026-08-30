@@ -23,14 +23,11 @@ class StartupState extends FlxState
 	{
 		super.create();
 		#if android
-		// FlxG.save artık bağlı: storage seçimini modlar taranmadan önce gerçek
-		// runtime yolu ve storagetype.txt ile eşitle.
 		mobile.backend.StorageUtil.syncStorageTypeFromSave();
 		backend.PolymodHandler.MODS_FOLDER = mobile.backend.StorageUtil.getExternalStorageDirectory() + 'mods';
 		#end
 		SafeMode.detectPersistentRequest();
 
-		// ── Core sistemleri başlangıçtan önce başlat ─────────────────
 		AudioMixer.init();
 		Log.info('boot', 'Further Engine başlıyor...');
 	}
@@ -56,8 +53,6 @@ class StartupState extends FlxState
 
 		if (!SafeMode.active)
 		{
-			// FPS Plus'ın "yüklemeden önce metadata doğrulama" yaklaşımından
-			// bağımsız olarak uyarlandı. Uyumsuz mod scripti çalışmadan engellenir.
 			backend.ModCompatibility.preflightEnabledMods();
 			#if LUA_ALLOWED
 			Mods.pushGlobalMods();
@@ -75,7 +70,6 @@ class StartupState extends FlxState
 		ClientPrefs.loadPrefs();
 		MobileConfig.initDefault();
 
-		// Performans profili uygulandıysa runtime ayarlarını yaşat
 		PerformanceProfiler.applyRuntimeSettings();
 		AudioMixer.syncFromPrefs();
 

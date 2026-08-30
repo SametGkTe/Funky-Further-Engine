@@ -271,7 +271,6 @@ class Song
 					try rawData = Assets.getText(_lastPath) catch(e:Dynamic) rawData = null;
 				}
 
-		// ---------- CODENAME ENGINE KÖPRÜSÜ ----------
 		// Psych chart yoksa, aktif modlarda CNE chart'ı ara
 		// (mods/<mod>/assets/songs/<song>/charts/<difficulty>.json) ve
 		// runtime'da Psych formatına çevir.
@@ -287,7 +286,6 @@ class Song
 		}
 		#end
 
-		// ---------- V-SLICE KÖPRÜSÜ ----------
 		// Psych chart yoksa, V-Slice mod path'ini dene (mods/<mod>/data/songs/<song>/<song>-chart.json)
 		if (rawData == null)
 		{

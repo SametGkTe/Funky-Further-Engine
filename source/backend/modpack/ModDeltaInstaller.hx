@@ -435,7 +435,6 @@ class ModDeltaInstaller {
 			return result;
 		}
 
-		// bloke eden çıkarma
 		var done:Bool = false;
 
 		_extractor.extract(zipPath, extractRoot, {

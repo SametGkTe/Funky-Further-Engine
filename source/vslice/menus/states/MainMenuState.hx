@@ -791,7 +791,7 @@ class MainMenuState extends MusicBeatState
             case 'credits':
                 MenuStyleRouter.goToCredits();
             case 'options':
-                OptionsState.onPlayState = false;
+                options.OptionsState.onPlayState = false;
                 MenuStyleRouter.goToOptions();
                 if (PlayState.SONG != null)
                 {

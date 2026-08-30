@@ -45,7 +45,6 @@ class UpdateState extends MusicBeatState {
 	// ─── UI ───
 	var bg:FlxSprite;
 
-	// Ortadaki ana yazılar
 	var phaseText:FlxText;
 	var packNameText:FlxText;
 	var detailText:FlxText;
@@ -58,10 +57,8 @@ class UpdateState extends MusicBeatState {
 	var speedText:FlxText;
 	var percentText:FlxText;
 
-	// Üst bilgi
 	var queueText:FlxText;
 
-	// İptal onay
 	var cancelOverlay:FlxSprite;
 	var cancelText:FlxText;
 
@@ -97,19 +94,16 @@ class UpdateState extends MusicBeatState {
 		bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, 0xFF000000);
 		add(bg);
 
-		// ── Üst: kuyruk bilgisi ──
 		queueText = new FlxText(0, 20, FlxG.width, "", 13);
 		queueText.setFormat("VCR OSD Mono", 13, 0xFF555555, CENTER);
 		add(queueText);
 
-		// ── Orta: faz yazısı ──
 		phaseText = new FlxText(0, 0, FlxG.width, "Hazırlanıyor...", 36);
 		phaseText.setFormat("VCR OSD Mono", 36, FlxColor.WHITE, CENTER);
 		phaseText.screenCenter();
 		phaseText.y -= 40;
 		add(phaseText);
 
-		// ── Orta: modpack adı ──
 		packNameText = new FlxText(0, 0, FlxG.width, "", 16);
 		packNameText.setFormat("VCR OSD Mono", 16, 0xFF888888, CENTER);
 		packNameText.screenCenter();
@@ -140,12 +134,10 @@ class UpdateState extends MusicBeatState {
 		barFill = new FlxSprite(BAR_MARGIN, barY).makeGraphic(1, BAR_HEIGHT, ACCENT);
 		add(barFill);
 
-		// Yüzde (barın üstünde ortada)
 		percentText = new FlxText(0, barY - 22, FlxG.width, "0%", 14);
 		percentText.setFormat("VCR OSD Mono", 14, FlxColor.WHITE, CENTER);
 		add(percentText);
 
-		// Boyut (barın sağında)
 		sizeText = new FlxText(0, barY + BAR_HEIGHT + 6, FlxG.width - BAR_MARGIN, "", 12);
 		sizeText.setFormat("VCR OSD Mono", 12, 0xFF555555, RIGHT);
 		add(sizeText);
@@ -155,7 +147,6 @@ class UpdateState extends MusicBeatState {
 		speedText.setFormat("VCR OSD Mono", 12, 0xFF555555, LEFT);
 		add(speedText);
 
-		// ── İptal onay overlay ──
 		cancelOverlay = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, 0xCC000000);
 		cancelOverlay.visible = false;
 		add(cancelOverlay);
@@ -167,7 +158,6 @@ class UpdateState extends MusicBeatState {
 		add(cancelText);
 		addTouchPad('LEFT_FULL', 'A_B');
 
-		// ── Başla ──
 		FlxG.camera.fade(FlxColor.BLACK, 0.3, true);
 
 		if (modpackQueue.length == 0) {
@@ -191,7 +181,6 @@ class UpdateState extends MusicBeatState {
 
 		updateBarVisual();
 
-		// ── İptal onay modu ──
 		if (cancelConfirm) {
 			if (controls.ACCEPT) {
 				cancelConfirm = false;
@@ -206,7 +195,6 @@ class UpdateState extends MusicBeatState {
 			return;
 		}
 
-		// ── Faz bazlı girdi ──
 		switch (phase) {
 			case Starting:
 				// bekle
@@ -215,7 +203,6 @@ class UpdateState extends MusicBeatState {
 					showCancelConfirm();
 				}
 			case Done:
-				// otomatik geçiş timer ile yapılıyor
 			case Failed:
 				if (controls.ACCEPT) {
 					// Tekrar dene
@@ -310,13 +297,11 @@ class UpdateState extends MusicBeatState {
 				totalMB = progress.totalBytes > 0 ? progress.totalBytes / (1024 * 1024) : 0;
 				downloadSpeed = progress.speed;
 
-				// Boyut gösterimi
 				if (totalMB > 0)
 					sizeText.text = '${formatMB(downloadedMB)} / ${formatMB(totalMB)} MB';
 				else
 					sizeText.text = '${formatMB(downloadedMB)} MB';
 
-				// Hız gösterimi
 				if (downloadSpeed > 0) {
 					if (downloadSpeed > 1024 * 1024)
 						speedText.text = '${formatMB(downloadSpeed / (1024 * 1024))} MB/s';
@@ -355,14 +340,12 @@ class UpdateState extends MusicBeatState {
 			onProgress: function(progress:ModpackInstallProgress) {
 				targetProgress = progress.overallProgress;
 
-				// Kurulum detayı
 				if (progress.currentFile.length > 0)
 					sizeText.text = progress.currentFile;
 				else
 					sizeText.text = progress.message;
 			},
 			onComplete: function(manifest:ModpackManifest) {
-				// ZIP'i sil
 				#if sys
 				try {
 					if (sys.FileSystem.exists(zipPath))
@@ -372,10 +355,8 @@ class UpdateState extends MusicBeatState {
 
 				trace('[UpdateState] Kurulum tamamlandı: ${manifest.displayName} v${manifest.version}');
 
-				// Sıradaki var mı?
 				currentIndex++;
 				if (currentIndex < modpackQueue.length) {
-					// Kısa bekleme sonra sıradakine geç
 					new FlxTimer().start(0.5, function(_) {
 						resetUI();
 						startNextInQueue();
@@ -422,7 +403,6 @@ class UpdateState extends MusicBeatState {
 		currentProgress = 1.0;
 		updateBarVisual();
 
-		// Bar'ı yeşil yap
 		var barWidth:Int = FlxG.width - (BAR_MARGIN * 2);
 		barFill.makeGraphic(barWidth, BAR_HEIGHT, SUCCESS_COLOR);
 
@@ -439,7 +419,6 @@ class UpdateState extends MusicBeatState {
 	function setPhase(newPhase:UpdatePhase, ?errorMsg:String):Void {
 		phase = newPhase;
 
-		// Yazıları fade ile güncelle
 		FlxTween.cancelTweensOf(phaseText);
 		phaseText.alpha = 0;
 		FlxTween.tween(phaseText, {alpha: 1}, 0.3);
@@ -485,7 +464,6 @@ class UpdateState extends MusicBeatState {
 				speedText.x = 0;
 				speedText.fieldWidth = FlxG.width;
 
-				// Bar kırmızı
 				var barWidth:Int = FlxG.width - (BAR_MARGIN * 2);
 				barFill.makeGraphic(Std.int(Math.max(1, barWidth * 0.15)), BAR_HEIGHT, ERROR_COLOR);
 

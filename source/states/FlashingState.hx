@@ -371,7 +371,6 @@ class FlashingState extends MusicBeatState
 			ease: FlxEase.quadOut,
 			onComplete: function(_)
 			{
-				// === DEĞİŞİKLİK BURADA ===
 				MusicBeatState.switchState(new BetaWarningState());
 				// Eskisi: MusicBeatState.switchState(new TitleState());
 			}

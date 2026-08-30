@@ -37,7 +37,6 @@ class SupabaseClient {
         if (dir == null || dir == "")
             dir = "./";
 
-        // Sondaki slash kontrolü
         if (!StringTools.endsWith(dir, "/") && !StringTools.endsWith(dir, "\\"))
             dir += "/";
 

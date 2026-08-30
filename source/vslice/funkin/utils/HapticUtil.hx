@@ -15,7 +15,12 @@ class HapticUtil
    * Tween that is used in increasingVibrate function for tweening vibration amplitude.
    */
   public static var amplitudeTween:FlxTween;
-  public static final hapticsIntensityMultiplier:Float = 1;
+  public static var hapticsIntensityMultiplier(get, never):Float;
+
+  static function get_hapticsIntensityMultiplier():Float
+  {
+    return FlxMath.bound(ClientPrefs.data.vibrationIntensity, 0, 1);
+  }
 
   /**
    * A default vibration preset.

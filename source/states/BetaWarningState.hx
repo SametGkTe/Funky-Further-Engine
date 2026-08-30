@@ -472,13 +472,11 @@ class BetaWarningState extends MusicBeatState
 		FlxG.sound.play(Paths.sound("confirmMenu"));
 		skipTransitions();
 
-		// ---- Yazıları hemen fade out ----
 		fadeOutTexts();
 
 		// ---- Center image fade out ----
 		FlxTween.tween(centerImage, {alpha: 0}, EXIT_TEXT_FADE, {ease: FlxEase.quadIn});
 
-		// ---- Parçacıkları merkeze çek ve kaybet ----
 		suckParticlesIn();
 
 		// ---- Vignette fade out ----
@@ -487,7 +485,6 @@ class BetaWarningState extends MusicBeatState
 		// ---- Mobile pad fade out ----
 		FlxTween.tween(touchPad, {alpha: 0}, EXIT_TEXT_FADE * 0.6, {ease: FlxEase.quadIn});
 
-		// ---- Portal: zoom in (scale büyür) ----
 		tweenShaderFloat(currentPortalScale, EXIT_ZOOM_TARGET_SCALE, EXIT_ZOOM_TIME, FlxEase.quadInOut,
 			function(v:Float)
 			{
@@ -517,12 +514,10 @@ class BetaWarningState extends MusicBeatState
 				});
 		});
 
-		// ---- Tam süre bitince siyah ekran + geçiş ----
 		final totalExitTime = fadeStartDelay + EXIT_FADE_TIME;
 
 		new FlxTimer().start(totalExitTime, function(_)
 		{
-			// Blackout'u en üste getir
 			remove(blackout, true);
 			add(blackout);
 

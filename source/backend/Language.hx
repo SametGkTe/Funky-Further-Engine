@@ -122,7 +122,6 @@ class Language
 			return;
 		}
 
-		// Dosyayı yükle
 		var loadedText:Array<String> = Mods.mergeAllTextsNamed('data/$langFile.lang');
 
 		var hasPhrases:Bool = false;

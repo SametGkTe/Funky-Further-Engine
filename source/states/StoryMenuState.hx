@@ -415,8 +415,6 @@ class StoryMenuState extends MusicBeatState
 		var difficultyKey:String = Paths.formatToSongPath(diff);
 		var difficultyPath:String = 'images/menudifficulties/$difficultyKey.png';
 		var newImage:FlxGraphic = null;
-		// Özel zorluk görseli yoksa Paths.image(null) uyarısı ve loadGraphic(null)
-		// üretmek yerine güvenli biçimde normal görseline dön.
 		if (Paths.fileExists(difficultyPath, IMAGE))
 			newImage = Paths.image('menudifficulties/$difficultyKey');
 		else

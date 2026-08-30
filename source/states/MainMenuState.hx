@@ -17,7 +17,6 @@ enum MainMenuColumn {
 class MainMenuState extends MusicBeatState
 {
 	public static var psychEngineVersion:String = UpdateConfig.CURRENT_ENGINE_VERSION; // This is also used for Discord RPC
-	public static var furtherVersion:String = 'Beta';
 	public static var curSelected:Int = 0;
 	public static var curColumn:MainMenuColumn = CENTER;
 	var allowMouse:Bool = true; //Turn this off to block mouse movement in menus
@@ -43,8 +42,6 @@ class MainMenuState extends MusicBeatState
 
 	#if FURTHER_ONLINE
 	#end
-
-	// ── Further Engine: güncelleme uyarısı tek sefer gösterilir (zamanlama güvenceli) ──
 	var updateWarningHandled:Bool = false;
 
 	function tryShowUpdateWarning():Void
@@ -64,7 +61,6 @@ class MainMenuState extends MusicBeatState
 		}
 	}
 
-	// ── Further Engine: MODPACK GÜNCELLEMESİ rozeti ──
 	var modpackBadge:FlxSprite;
 	var modpackBadgeText:FlxText;
 	var modpackBadgeShown:Bool = false;
@@ -83,9 +79,6 @@ class MainMenuState extends MusicBeatState
 		Mods.pushGlobalMods();
 		#end
 		Mods.loadTopMod();
-
-		// MÜZİK GARANTİSİ: Bazı state'lerden (editörler vb.) gelirken menü müziği
-		// çalmıyor olabilir; music null iken update'teki volume ramp'ı çöküyordu.
 		if (FlxG.sound.music == null)
 		{
 			var menuMusic:String = TitleState.getMenuMusicName();
@@ -164,11 +157,7 @@ class MainMenuState extends MusicBeatState
 		Achievements.reloadList();
 		#end
 		#end
-
-		// Further Engine: GitHub Releases kontrolü (ReleaseChecker) — gerçek release var mı?
-		// Not: orijinal #if CHECK_FOR_UPDATES define'i projede tanımlı değildi → bu blok hiç
-		// derlenmiyordu. Artık her zaman aktif; "Check for Updates" ayarıyla kapatılabilir.
-		// Zamanlama: check henüz bitmediyse update()'te tekrar denenir (tryShowUpdateWarning).
+		
 		tryShowUpdateWarning();
 
 		FlxG.camera.follow(camFollow, null, 0.15);
@@ -182,27 +171,22 @@ class MainMenuState extends MusicBeatState
 		
 		addTouchPad('NONE', 'E');
 
-		// ── Further Engine: modpack güncelleme rozeti ──
 		if (UpdateChecker.instance.hasPendingModpackUpdates)
 			setupModpackBadge();
 	}
 
 	function setupModpackBadge():Void
 	{
-		// Her ana menü girişinde yeniden gösterilir (güncelleme yapılana kadar)
 		modpackBadgeShown = false;
 		modpackBadgeDone = false;
 		modpackBadgeTimer = 0;
 		modpackBadgeIdleTimer = 0;
 
-		// MODS itemini bul (optionShit index'iyle)
 		var modsIndex:Int = optionShit.indexOf('mods');
 		if (modsIndex < 0 || modsIndex >= menuItems.members.length) return;
 		var modsItem:FlxSprite = menuItems.members[modsIndex];
 		if (modsItem == null) return;
 
-		// Rozet: inter.png (assets/shared/images/other/inter.png)
-		// Kaynak görsel 512x512 — ekranda küçük (44px) gösterilir.
 		if (modpackBadge == null)
 		{
 			modpackBadge = new FlxSprite();
@@ -223,12 +207,10 @@ class MainMenuState extends MusicBeatState
 		modpackBadge.updateHitbox();
 		modpackBadge.alpha = 1;
 
-		// Konum: MODS iteminin ALTINDA, ortalanmış
 		modpackBadge.x = modsItem.x + modsItem.width / 2 - modpackBadge.width / 2;
 		modpackBadge.y = modsItem.y + modsItem.height + 8;
 		modpackBadge.visible = false;
 
-		// Yorum (mesaj) yazısı — rozetin ALTINDA ortalanır
 		if (modpackBadgeText == null)
 		{
 			modpackBadgeText = new FlxText(0, 0, 240, "MODPACK GÜNCELLEMESİ VAR", 13);
@@ -252,22 +234,18 @@ class MainMenuState extends MusicBeatState
 		modpackBadge.visible = true;
 		modpackBadgeText.visible = true;
 
-		// Son konum (aşağı inince duracağı yer)
 		modpackBadgeFinalX = modpackBadge.x;
 		modpackBadgeFinalY = modpackBadge.y + 18;
 
-		// 1) Zıpla (aşağıdan yukarı zıplayıp final konuma in)
 		modpackBadge.y = modpackBadgeFinalY + 30;
 		FlxTween.tween(modpackBadge, {y: modpackBadgeFinalY}, 0.3, {ease: FlxEase.backOut});
 
-		// 2) Sağa-sola sallan (3 sallanma) — x ekseninde
 		var swingAmount:Float = 16;
 		FlxTween.tween(modpackBadge, {x: modpackBadgeFinalX + swingAmount}, 0.14, {ease: FlxEase.quadInOut, startDelay: 0.35});
 		FlxTween.tween(modpackBadge, {x: modpackBadgeFinalX - swingAmount}, 0.14, {ease: FlxEase.quadInOut, startDelay: 0.49});
 		FlxTween.tween(modpackBadge, {x: modpackBadgeFinalX + swingAmount * 0.6}, 0.14, {ease: FlxEase.quadInOut, startDelay: 0.63});
 		FlxTween.tween(modpackBadge, {x: modpackBadgeFinalX}, 0.14, {ease: FlxEase.quadInOut, startDelay: 0.77});
 
-		// 3) Yazı da aşağı iner (rozetin altında ortalanmış)
 		modpackBadgeText.x = modpackBadgeFinalX + (modpackBadge.width - modpackBadgeText.width) / 2;
 		modpackBadgeText.y = modpackBadgeFinalY + modpackBadge.height + 4;
 		FlxTween.tween(modpackBadgeText, {y: modpackBadgeText.y}, 0.4, {ease: FlxEase.backOut, startDelay: 0.91});
@@ -293,16 +271,12 @@ class MainMenuState extends MusicBeatState
 	var timeNotMoving:Float = 0;
 	override function update(elapsed:Float)
 	{
-		// Further Engine: release kontrolü henüz bitmediyse bitince uyarıyı göster
 		if (!updateWarningHandled)
 			tryShowUpdateWarning();
-
-		// ── Modpack güncelleme rozeti: giriş animasyonu → ünlem sürekli zıplar, 5sn sonra İKİSİ BİRDEN söner ──
 		if (modpackBadge != null && !modpackBadgeDone)
 		{
 			if (!modpackBadgeShown)
 			{
-				// Menü itemleri giriş animasyonunu bitirdikten sonra göster (~0.6sn)
 				modpackBadgeTimer += elapsed;
 				if (modpackBadgeTimer >= 0.6)
 					showModpackBadge();
@@ -311,14 +285,12 @@ class MainMenuState extends MusicBeatState
 			{
 				modpackBadgeTimer += elapsed;
 
-				// Giriş animasyonu bittikten sonra ünlem SÜREKLİ hafif zıplar (kaybolmaz)
 				if (modpackBadgeTimer >= 1.0)
 				{
 					modpackBadgeIdleTimer += elapsed;
 					modpackBadge.y = modpackBadgeFinalY + Math.sin(modpackBadgeIdleTimer * 3) * 5;
 				}
 
-				// 5 saniye sonra ünlem + yazı BİRLİKTE fade out olur
 				if (modpackBadgeTimer >= 5.0)
 				{
 					modpackBadgeDone = true;

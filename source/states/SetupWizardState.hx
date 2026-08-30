@@ -57,7 +57,7 @@ class SetupWizardState extends MusicBeatState
 	static inline var PROFILE_BOX_H:Float = 108;
 
 	public static var returnToWizard:Bool = false;
-	public static var debugMode:Bool = true;
+	public static var debugMode:Bool = false;
 	static var wizardMusicActive:Bool = false;
 
 	static var LANG_DEFS:Array<{code:String, name:String, flag:String, ?flagImg:String}> = [
@@ -67,9 +67,9 @@ class SetupWizardState extends MusicBeatState
 	];
 
 	static var PERF_DEFS:Array<{id:PerformanceProfile, name:String, sub:String, color:Int, icon:String, ?iconImg:String}> = [
-		{id: PERFORMANCE, name: 'DÜŞÜK KALİTE',  sub: 'Düşük uç cihazlar\nEmülatör / eski telefon\nGölgeler ve anti-aliasing kapalı', color: 0xFFE74C3C, icon: '⚡', iconImg: 'further/wizard/perf_low'},
-		{id: BALANCED,    name: 'ORTA KALİTE',   sub: 'Çoğu bilgisayar / telefon\nÖnerilen\nTüm görsel ayarlar açık', color: 0xFFF39C12, icon: '⚖', iconImg: 'further/wizard/perf_medium'},
-		{id: HIGH,        name: 'YÜKSEK KALİTE', sub: 'Güçlü PC / yeni telefon\nTüm görsel ayarlar açık', color: 0xFF2ECC71, icon: '✨', iconImg: 'further/wizard/perf_high'}
+		{id: PERFORMANCE, name: 'DÜŞÜK KALİTE',  sub: 'Genel cihazlar, Eski Telefonlar\nGölgeler ve anti-aliasing kapalı', color: 0xFFE74C3C, icon: '⚡', iconImg: 'further/wizard/perf_low'},
+		{id: BALANCED,    name: 'ORTA KALİTE',   sub: 'Ortalama bilgisayar / telefon\nGölgeler kapalı', color: 0xFFF39C12, icon: '⚖', iconImg: 'further/wizard/perf_medium'},
+		{id: HIGH,        name: 'YÜKSEK KALİTE', sub: 'Güçlü PC / Yeni telefon\nTüm Kalite ayarları açık', color: 0xFF2ECC71, icon: '✨', iconImg: 'further/wizard/perf_high'}
 	];
 
 	static inline var FLAG_ICON_SIZE:Float = 80;
@@ -82,8 +82,8 @@ class SetupWizardState extends MusicBeatState
 	];
 
 	static var TOUCH_DEFS:Array<{name:String, sub:String, color:Int, icon:String, ?iconImg:String}> = [
-		{name: 'TUŞLU',      sub: 'Menülerde ekran tuşları\nA/B butonları ve ok padleri', color: 0xFF3498DB, icon: '⌨', iconImg: 'further/wizard/ui_buttons'},
-		{name: 'DOKUNMATİK', sub: 'Dokun = onay, kaydırma = gezinme\nUzun basış = sıfırla\nTek GERİ butonu', color: 0xFF2ECC71, icon: '👆', iconImg: 'further/wizard/ui_touch'}
+		{name: 'TUŞLU',      sub: 'Menülerde mobil tuşlar\nbutonlar ve ok padleri', color: 0xFF3498DB, icon: '⌨', iconImg: 'further/wizard/ui_buttons'},
+		{name: 'DOKUNMATİK', sub: 'Komple dokunmatik. Kaydırma vs.\nBazı Mobil Tuşlar korunur\nSadece GERİ butonu', color: 0xFF2ECC71, icon: '👆', iconImg: 'further/wizard/ui_touch'}
 	];
 
 	var selectedLang:Int = 0;
@@ -103,6 +103,9 @@ class SetupWizardState extends MusicBeatState
 	var totalContentHeight:Float = 0;
 	var scrollBar:FlxSprite;
 	var scrollBarBg:FlxSprite;
+	var scrollHintText:FlxText;
+	var scrollHintArrow:FlxSprite;
+	var scrollHintArrowY:Float = 0;
 	var scrollBarAlpha:Float = 0;
 	var scrollBarTimer:Float = 0;
 	var scrollBarVisible:Bool = false;
@@ -184,7 +187,7 @@ class SetupWizardState extends MusicBeatState
 		glow.scrollFactor.set();
 		add(glow);
 
-		selectedPerf = autodetectPerfIndex();
+		selectedPerf = 0;
 		selectedLang = detectInitialLang();
 		selectedCtrl = ClientPrefs.data.ogGameControls ? 1 : 0;
 
@@ -192,10 +195,10 @@ class SetupWizardState extends MusicBeatState
 
 		if (!wizardMusicActive)
 		{
-			var wizMusic:Sound = Paths.returnSound('music/further/wizard_theme', null, true, false);
+			var wizMusic:Sound = Paths.returnSound('music/breakfast', null, true, false);
 			if (wizMusic == null)
 			{
-				Log.warn('wizard', 'Wizard muzigi bulunamadi: assets/shared/music/further/wizard_theme.ogg');
+				Log.warn('wizard', 'Müzik bulunamadi: assets/shared/music/further/wizard_theme.ogg');
 				wizMusic = Paths.returnSound('music/freakyMenu', null, true, false);
 			}
 			if (wizMusic != null)
@@ -232,11 +235,35 @@ class SetupWizardState extends MusicBeatState
 		scrollBar.alpha = 0;
 		add(scrollBar);
 
+		scrollHintText = new FlxText(0, 24, 0, tl('wizard_scroll_hint', 'Aşağı Kaydır'));
+		scrollHintText.setFormat(WIZ_FONT, 18, FlxColor.WHITE, RIGHT);
+		scrollHintText.antialiasing = ClientPrefs.data.antialiasing;
+		scrollHintText.x = FlxG.width - scrollHintText.width - 40;
+		add(scrollHintText);
+
+		var arrowGraphic = Paths.image('further/wizard/arrow');
+		if (arrowGraphic != null)
+		{
+			scrollHintArrow = new FlxSprite();
+			scrollHintArrow.loadGraphic(arrowGraphic);
+			var arrowScale:Float = 40 / scrollHintArrow.height;
+			scrollHintArrow.setGraphicSize(Std.int(scrollHintArrow.width * arrowScale), 40);
+			scrollHintArrow.updateHitbox();
+			scrollHintArrow.antialiasing = ClientPrefs.data.antialiasing;
+			scrollHintArrow.x = scrollHintText.x + (scrollHintText.width - scrollHintArrow.width) / 2;
+			scrollHintArrowY = scrollHintText.y + scrollHintText.height + 8;
+			scrollHintArrow.y = scrollHintArrowY;
+			add(scrollHintArrow);
+			FlxTween.tween(scrollHintArrow, {y: scrollHintArrowY + 14}, 0.7, {type: PINGPONG, ease: FlxEase.sineInOut});
+		}
+		else
+			Log.warn('wizard', 'PNG bulunamadi: images/further/wizard/arrow.png');
+
 		updatePositions();
 		updateCardVisuals();
 
 		#if TOUCH_CONTROLS_ALLOWED
-		addTouchPad('UP_DOWN', 'A_B');
+		addTouchPad('UP_DOWN', 'NONE');
 		addTouchPadCamera();
 		#end
 
@@ -1324,6 +1351,11 @@ class SetupWizardState extends MusicBeatState
 
 		updateScrollBar();
 
+		var hintAlpha:Float = (maxScrollY > 2 && scrollY < 24) ? 1 : 0;
+		scrollHintText.alpha = FlxMath.lerp(scrollHintText.alpha, hintAlpha, 0.12);
+		if (scrollHintArrow != null)
+			scrollHintArrow.alpha = scrollHintText.alpha;
+
 		if (scrollBarVisible && !scrollBarFading && wheel == 0 && !keyUp && !keyDown && !pointerDown)
 		{
 			scrollBarTimer += elapsed;
@@ -1422,8 +1454,6 @@ class SetupWizardState extends MusicBeatState
 				return;
 			}
 		}
-
-		if (controls.ACCEPT) finishWizard();
 	}
 
 	function touchOverlapsPad(touch:FlxTouch):Bool
@@ -1511,7 +1541,7 @@ class SetupWizardState extends MusicBeatState
 		ClientPrefs.saveSettings();
 		returnToWizard = false;
 
-		Log.infoLazy('wizard', function() return 'Kurulum tamamlandi: lang=' + langCode + ', perf=' + PERF_DEFS[selectedPerf].id);
+		Log.infoLazy('wizard', function() return 'Kurulum tamamlandı: lang=' + langCode + ', perf=' + PERF_DEFS[selectedPerf].id);
 
 		FlxTween.num(1, 0, 0.4, {ease: FlxEase.quadIn, onComplete: function(_)
 		{

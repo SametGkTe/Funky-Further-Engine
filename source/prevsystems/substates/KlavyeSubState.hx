@@ -92,7 +92,6 @@ class KlavyeSubState extends MusicBeatSubstate {
 		panelBot.scrollFactor.set();
 		add(panelBot);
 
-		// Başlık
 		var titleText = new FlxText(panelX, panelY + 15, PANEL_WIDTH, "Bir insan");
 		titleText.setFormat(Paths.font('vcr.ttf'), 24, FlxColor.fromRGB(150, 150, 160), CENTER);
 		titleText.scrollFactor.set();
@@ -146,7 +145,7 @@ class KlavyeSubState extends MusicBeatSubstate {
 		bodyText.antialiasing = true;
 		add(bodyText);
 		allContentElements.push({sprite: bodyText, offsetY: curY, baseX: contentStartX});
-		curY += bodyText.height + 25; // Alt boşluk
+		curY += bodyText.height + 25;
 
 		totalContentHeight = curY;
 		maxScrollY = Math.max(0, totalContentHeight - contentAreaHeight + 15);

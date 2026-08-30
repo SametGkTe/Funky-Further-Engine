@@ -102,7 +102,6 @@ class UpdatePromptState extends MusicBeatState
 	{
 		final centerX = FlxG.width * 0.5;
 
-		// Başlık
 		titleText = new FlxText(SIDE_MARGIN, 0, FlxG.width - (SIDE_MARGIN * 2), "Modpack Güncellemesi Mevcut!", 28);
 		titleText.setFormat(Paths.font(FONT_PATH), 28, 0xFF14B8A6, CENTER);
 		titleText.y = FlxG.height * 0.18;
@@ -136,7 +135,6 @@ class UpdatePromptState extends MusicBeatState
 		noButton.setFormat(Paths.font(FONT_PATH), 32, FlxColor.WHITE, CENTER);
 		add(noButton);
 
-		// İpucu
 		var hintStr = controls.mobileC
 			? "[SOL / SAĞ] Seç   [A] Kabul Et   [B] Atla"
 			: "[← →] Seç   [ENTER] Kabul Et   [ESC] Atla";
@@ -145,7 +143,6 @@ class UpdatePromptState extends MusicBeatState
 		hintText.setFormat(Paths.font(FONT_PATH), 16, 0xFFBFBFBF, CENTER);
 		add(hintText);
 
-		// Geri sayım
 		countdownText = new FlxText(0, FlxG.height - 58, FlxG.width, "", 14);
 		countdownText.setFormat(Paths.font(FONT_PATH), 14, 0xFF8F8F8F, CENTER);
 		add(countdownText);
@@ -357,7 +354,6 @@ class UpdatePromptState extends MusicBeatState
 				}
 				else
 				{
-					// Hayır → Ana menüye git
 					goToMainMenu();
 				}
 			});
@@ -475,7 +471,6 @@ class UpdatePromptState extends MusicBeatState
 			names.push(entry);
 		}
 
-		// Çok fazlaysa kısalt
 		if (names.length > 5)
 		{
 			var shown = names.slice(0, 4);

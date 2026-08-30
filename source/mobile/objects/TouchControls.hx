@@ -297,8 +297,13 @@ class TouchControls extends TouchPad
 			if (touch.justPressed)
 			{
 				repeatActive = false;
-				var onBack:Bool = allowBack && hitBack(touch.x, touch.y);
-				var onButton:Bool = !onBack && hitExtraButton(touch.x, touch.y);
+				var padCam:FlxCamera = (cameras != null && cameras.length > 0) ? cameras[0] : FlxG.camera;
+				var padPoint:FlxPoint = touch.getWorldPosition(padCam);
+				padPoint.x -= padCam.scroll.x;
+				padPoint.y -= padCam.scroll.y;
+				var onBack:Bool = allowBack && hitBack(padPoint.x, padPoint.y);
+				var onButton:Bool = !onBack && hitExtraButton(padPoint.x, padPoint.y);
+				padPoint.put();
 				trackedTouches.set(touch.touchPointID, {
 					x: touch.x,
 					y: touch.y,
@@ -389,7 +394,13 @@ class TouchControls extends TouchPad
 					else if (!info.fired)
 					{
 						if (info.moved < TAP_MAX_DIST && info.time < TAP_MAX_TIME)
-							handleTap(touch.x, touch.y);
+						{
+							var gamePoint:FlxPoint = touch.getWorldPosition(FlxG.camera);
+							gamePoint.x -= FlxG.camera.scroll.x;
+							gamePoint.y -= FlxG.camera.scroll.y;
+							handleTap(gamePoint.x, gamePoint.y);
+							gamePoint.put();
+						}
 						else if (info.moved >= SWIPE_MIN_DIST && Math.abs(dx) > Math.abs(dy))
 							handleHorizontalSwipe(dx);
 					}

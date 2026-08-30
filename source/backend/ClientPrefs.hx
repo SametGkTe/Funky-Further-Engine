@@ -25,6 +25,8 @@ import states.TitleState;
 	public var vsliceResults:Bool = true;
 	public var vsliceSpecialCards:Bool = true;
 	public var vsliceSmoothBar:Bool = true;
+	public var resultsAutoSkip:Int = 0;
+	public var vibrationIntensity:Float = 1;
 	public var loggingType:String = "None";
 	public var vsliceLegacyBar:Bool = false;
 	public var vsliceNaughtyness:Bool = #if mobile false #else true #end;
@@ -50,6 +52,7 @@ import states.TitleState;
 	public var hitboxAlpha:Float = #if mobile 0.7 #else 0 #end;
 	public var hitboxMode:String = 'Normal (New)';
 	public var extraKeys:Int = 0;
+	public var touchScrollSens:Int = 100;
 	public var hitboxLocation:String = 'Bottom';
 	public var hitboxHint:Bool = false;
 	public var showTouches:Bool = false;
@@ -58,7 +61,6 @@ import states.TitleState;
 	public var pinnedHud:Bool = false;
 	public var ogAutoPinDone:Bool = false;
 	public var vSliceSpacing:Float = 0.1;
-	// Normalize edilmiş V-Slice dokunma alanları (0..1).
 	public var vSliceCustomX:Bool = false;
 	public var vSliceCustomZones:Bool = false;
 	public var vSliceCustomWidth:Bool = false;
@@ -67,10 +69,6 @@ import states.TitleState;
 	public var vSliceButtonWidth:Array<Float> = [0.1171875, 0.1171875, 0.1171875, 0.1171875];
 	public var vSliceButtonHeight:Array<Float> = [1.0, 1.0, 1.0, 1.0];
 	public var mobileExtraKeyReturns:Array<String> = ['SHIFT', 'SPACE', 'Q', 'E'];
-	// ── Audio Mixer kanal hacimleri ───────────────────────────────────
-	// Değişken isimleri Options sistemi ile uyumlu olsun diye volume_<ch> formatında
-	// (bkz. options/AudioSubState.hx ve backend/AudioMixer.hx)
-	// (0.0 sessiz – 1.0 varsayılan – 2.0 iki kat)
 	public var volume_master:Float = 1.0;
 	public var volume_music:Float  = 0.8;
 	public var volume_inst:Float   = 1.0;
@@ -80,8 +78,7 @@ import states.TitleState;
 	public var volume_sfx:Float    = 1.0;
 	public var volumeMuted:Bool    = false;
 
-	// ── İlk açılış kurulum sihirbazı ─────────────────────────────
-	// true ise wizard bir kere tamamlanmış demektir; doğrudan TitleState açılır.
+	// StartWizard
 	public var setupWizardCompleted:Bool = false;
 	#if android
 	public var storageType:String = "EXTERNAL_PE";
@@ -89,6 +86,7 @@ import states.TitleState;
 	#end
 	public var popUpRating:Bool = true;
 	public var vsync:Bool = false;
+	public var perfProfile:String = 'balanced';
 	public var gameOverVibration:Bool = false;
 	public var fpsRework:Bool = false;
 	public var mania:Int = 4;
@@ -137,7 +135,6 @@ import states.TitleState;
 	public var pauseMusic:String = 'Tea Time';
 	public var checkForUpdates:Bool = true;
 	public var comboStacking:Bool = true;
-	public var touchScrollSens:Int = 100;
 	public var gameplaySettings:Map<String, Dynamic> = [
 		'scrollspeed' => 1.0,
 		'scrolltype' => 'multiplicative', 

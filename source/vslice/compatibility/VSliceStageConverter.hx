@@ -74,7 +74,6 @@ class VSliceStageConverter
 			var isPixel:Dynamic = Reflect.field(p, 'isPixel');
 			if (isPixel != null) o.antialiasing = (isPixel == true) ? false : true;
 
-			// animasyonları çevir
 			var anims:Array<Dynamic> = cast Reflect.field(p, 'animations');
 			if (anims != null && anims.length > 0)
 			{

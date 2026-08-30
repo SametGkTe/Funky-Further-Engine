@@ -37,11 +37,6 @@ class MenuStyleRouter
 
 	public static function getOptions():FlxState
 	{
-		if (isNewStyle())
-		{
-			var state = new vslice.menus.states.OptionsState();
-			return cast state;
-		}
 		return new options.OptionsState();
 	}
 

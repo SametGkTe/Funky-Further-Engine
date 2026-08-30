@@ -84,7 +84,6 @@ class ModpackCard extends FlxSpriteGroup
 		tierText.borderSize = 1.2;
 		add(tierText);
 
-		// ── Boyut etiketi (üst sağ) ──
 		sizeText = new FlxText(0, 10, Std.int(cardW * 0.48), sizeLabel, 13);
 		sizeText.setFormat("VCR OSD Mono", 13, 0xFFDDDDDD, RIGHT);
 		sizeText.borderStyle = OUTLINE;
@@ -93,7 +92,6 @@ class ModpackCard extends FlxSpriteGroup
 		sizeText.x = cardW - sizeText.width - 10;
 		add(sizeText);
 
-		// ── İsim (alt, ortalanmış) ──
 		nameText = new FlxText(4, _thumbH + 2, cardW - 8, packName, 18);
 		nameText.setFormat("VCR OSD Mono", 18, FlxColor.WHITE, CENTER);
 		nameText.borderStyle = OUTLINE;
@@ -102,7 +100,6 @@ class ModpackCard extends FlxSpriteGroup
 		nameText.y = _thumbH + 2;
 		add(nameText);
 
-	// ── İndirme sayısı rozeti (alt sağ, ismin altında) ──
 	// (dlCountText field'ı class gövdesinde tanımlıdır — constructor içinde değil)
 
 	function createDownloadCount():Void
@@ -115,7 +112,6 @@ class ModpackCard extends FlxSpriteGroup
 		add(dlCountText);
 	}
 
-		// ── Butonlar (alt sağ; seçiliyken görünür) ──
 		var btnW:Int = 52;
 		var btnH:Int = 32;
 		var btnY:Float = _thumbH + 18;

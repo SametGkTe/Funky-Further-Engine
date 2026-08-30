@@ -329,7 +329,6 @@ class ControlsSubState extends MusicBeatSubstate
 				}
 				else
 				{
-					// Varsayılana Sıfırla
 					ClientPrefs.resetKeys(!onKeyboardMode);
 					ClientPrefs.reloadVolumeKeys();
 					var lastSel:Int = curSelected;

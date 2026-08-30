@@ -780,7 +780,7 @@ class PlayState extends MusicBeatState
 		var splash:NoteSplash = new NoteSplash();
 		grpNoteSplashes.add(splash);
 		splash.alpha = 0.000001; //cant make it invisible or it won't allow precaching
-		splash.kill(); // Precache nesnesini havuzda yeniden kullanılabilir bırak.
+		splash.kill();
 
 		#if mobile
 		addTouchPad('NONE', 'PAUSE');
@@ -790,9 +790,6 @@ class PlayState extends MusicBeatState
 		if (ClientPrefs.data.petwatermark) createPETWatermark();
 
 		super.create();
-		// PlayState kurulumu biter bitmez cache temizlemek mod/script tarafından
-		// yeni bağlanan atlasları yanlışlıkla serbest bırakabiliyordu. Temizlik
-		// güvenli state geçişlerinde yapılır.
 
 		cacheCountdown();
 		cachePopUpScore();
@@ -1046,7 +1043,6 @@ class PlayState extends MusicBeatState
 					videoCutscene = null;
 					canPause = true;
 
-			// SUSTAIN SPLASH (P-Slice): hold cover ayarları
 			SustainSplash.startCrochet = Conductor.stepCrochet;
 			SustainSplash.frameRate = Math.floor(24 / 100 * SONG.bpm);
 					inCutscene = false;
@@ -1063,9 +1059,9 @@ class PlayState extends MusicBeatState
 			return videoCutscene;
 		}
 		#if (LUA_ALLOWED || HSCRIPT_ALLOWED)
-		else addTextToDebug("Video not found: " + fileName, FlxColor.RED);
+		else addTextToDebug("Video bulunamadı: " + fileName, FlxColor.RED);
 		#else
-		else FlxG.log.error("Video not found: " + fileName);
+		else FlxG.log.error("Video bulunamadı: " + fileName);
 		#end
 		#else
 		FlxG.log.warn('Platform desteklenmiyor!');
@@ -1110,7 +1106,7 @@ class PlayState extends MusicBeatState
 			psychDialogue.cameras = [camHUD];
 			add(psychDialogue);
 		} else {
-			FlxG.log.warn('Your diyalog dosyasının formatı yanlış!');
+			FlxG.log.warn('diyalog dosyanızın formatı yanlış!');
 			startAndEnd();
 		}
 	}
@@ -1179,9 +1175,7 @@ class PlayState extends MusicBeatState
 
 				if (ClientPrefs.data.ogGameControls) enableVSliceControls();
 
-				// Sabitlenmiş Notalar: dizilim (V-Slice dahil) son halini aldı, değerleri sabitle
 				PinnedNotes.capture(this);
-				// Sabitlenmiş HUD: HUD parçalarının konumunu yakala
 				PinnedNotes.captureHud(this);
 
 			startedCountdown = true;
@@ -1914,7 +1908,6 @@ class PlayState extends MusicBeatState
 			strumLineNotes.add(babyArrow);
 			babyArrow.playerPosition();
 
-			// MANIA: şeridi oyuncunun yarısında eşit aralıkla yerleştir
 			if (totalColumns > 4) babyArrow.x = getManiaStrumX(i, player);
 		}
 	}
@@ -1924,7 +1917,7 @@ class PlayState extends MusicBeatState
 		if (totalColumns < 5 || col >= 4) return col;
 		return switch (totalColumns)
 		{
-			case 6: [0, 1, 3, 4][col]; // 3+3 düzen, ortada boşluk
+			case 6: [0, 1, 3, 4][col];
 			default: col;
 		};
 	}
@@ -2006,7 +1999,6 @@ class PlayState extends MusicBeatState
 		#if FURTHER_ONLINE
 		if (GameClient.isConnected())
 		{
-			// Keep song + sync thread running while tabbed out
 			FlxG.autoPause = false;
 			shutdownThread = false;
 			return;
@@ -2312,12 +2304,9 @@ class PlayState extends MusicBeatState
 		setOnScripts('botPlay', cpuControlled);
 		callOnScripts('onUpdatePost', [elapsed]);
 
-		// Sabitlenmiş Notalar: karenin EN SONUNDA uygula — modlar onUpdatePost'ta
-		// ne yazdıysa üzerine yazıp strum'ları, notaları ve prefs'i geri koyar
 		if (PinnedNotes.active)
 			PinnedNotes.enforce(this, (60 / SONG.bpm) * 1000, songSpeed / playbackRate);
 
-		// Sabitlenmiş HUD: modun taşıdığı HUD parçalarını geri koy (bağımsız ayar)
 		if (PinnedNotes.hudActive())
 			PinnedNotes.enforceHud(this);
 	}
@@ -2893,7 +2882,7 @@ class PlayState extends MusicBeatState
 	
 	public function moveCameraToGirlfriend()
 	{
-		if(!ClientPrefs.data.camMovement) return; // Kamera hareketi kapalı
+		if(!ClientPrefs.data.camMovement) return;
 
 		camFollow.setPosition(gf.getMidpoint().x, gf.getMidpoint().y);
 		camFollow.x += gf.cameraPosition[0] + girlfriendCameraOffset[0];
@@ -2904,7 +2893,7 @@ class PlayState extends MusicBeatState
 	var cameraTwn:FlxTween;
 	public function moveCamera(isDad:Bool)
 	{
-		if(!ClientPrefs.data.camMovement) return; // Kamera hareketi kapalı
+		if(!ClientPrefs.data.camMovement) return;
 
 		if(isDad)
 		{
@@ -3633,13 +3622,11 @@ class PlayState extends MusicBeatState
 		var subtract:Float = pressMissDamage;
 		if(note != null) subtract = note.missHealth;
 
-		// Sustain note ise hasar çok daha az olsun
 		if (note != null && note.isSustainNote && note.parent != null && note.parent.wasGoodHit)
 		{
-			subtract *= 0.25; // Sustain miss hasarı %75 azalt
+			subtract *= 0.25;
 		}
 
-		// GUITAR HERO SUSTAIN CHECK LOL!!!!
 		if (note != null && guitarHeroSustains && note.parent == null) {
 			if(note.tail.length > 0) {
 				note.alpha = 0.35;
@@ -3686,7 +3673,7 @@ class PlayState extends MusicBeatState
 
 		var lastCombo:Int = combo;
 
-		// Sustain note'u bırakmak combo kırmasın
+		// Sustain note kombo kırmıyor yeeey
 		var breakCombo:Bool = true;
 		if (note != null && note.isSustainNote && note.parent != null && note.parent.wasGoodHit)
 			breakCombo = false;
@@ -3947,7 +3934,6 @@ class PlayState extends MusicBeatState
 		var strum:StrumNote = (note.mustPress ? playerStrums : opponentStrums).members[note.noteData];
 		var splash:SustainSplash = null;
 		#if mobile
-		// MOBİL OPTİMİZASYONU: Aynı lane'e yeni splash üretme, yaşayanı yeniden başlat
 		for (candidate in grpHoldSplashes.members)
 		{
 			if (candidate != null && candidate.alive && candidate.strumNote == strum)
@@ -3973,9 +3959,6 @@ class PlayState extends MusicBeatState
 	public function spawnNoteSplash(x:Float = 0, y:Float = 0, ?data:Int = 0, ?note:Note, ?strum:StrumNote) {
 		var splash:NoteSplash = null;
 		#if mobile
-		// Jack/spam chartlarda aynı lane için onlarca shader'lı splash üst üste
-		// oluşturmak yerine o lane'in yaşayan splash'ını yeniden başlat. En fazla
-		// dört aktif gameplay splash'ı kalır.
 		for (candidate in grpNoteSplashes.members)
 		{
 			if (candidate != null && candidate.alive && candidate.noteData % Note.colArray.length == data % Note.colArray.length)
@@ -3996,7 +3979,6 @@ class PlayState extends MusicBeatState
 		#if FURTHER_ONLINE
 		PlayStateSync.unbind();
 		#end
-		// Sabitlenmiş Notalar: prefs'i orijinal değerlerine döndür ve temizle
 		PinnedNotes.restorePrefs();
 		PinnedNotes.clear();
 
@@ -4722,7 +4704,6 @@ class PlayState extends MusicBeatState
 
 	public function getVSliceSpacing():Float
 	{
-		// Özel X preset'i kullanıldığında otomatik kontrol aralığı uygulanmaz.
 		if (ClientPrefs.data.vSliceCustomX) return 0;
 		var spacing:Float = ClientPrefs.data.vSliceSpacing;
 		if (spacing < 0) spacing = 0;
@@ -4769,7 +4750,6 @@ class PlayState extends MusicBeatState
 		}
 		else
 		{
-			// Mania: oklar zaten mania düzeninde; spacing ile hafifçe yay
 			applyVSliceSpacingToMania(spacing);
 			for (i in 0...totalColumns) {
 				if (playerStrums.members[i] != null)
@@ -4863,8 +4843,6 @@ class PlayState extends MusicBeatState
 				manager.hitbox?.onButtonUp?.add((button:MobileButton, ids:Array<String>, unique:Int) -> mobileKeyFromIDs(ids, false));
 		}
 	}
-
-	// New Mobile Transport
 	function mobileKeyFromIDs(ids:Array<String>, pressed:Bool):Void
 	{
 		if (ids == null || ids.length == 0) return;

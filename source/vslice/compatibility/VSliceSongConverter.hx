@@ -95,7 +95,6 @@ class VSliceSongConverter
 			if (s != null) speed = Std.parseFloat(Std.string(s));
 		}
 
-		// Notaları topla
 		var notesMap:Dynamic = Reflect.field(chart, 'notes');
 		var diffKey:String = diff;
 		// diff anahtarını case-insensitive bul (easy/Easy, hard/Hard ...)
@@ -114,7 +113,6 @@ class VSliceSongConverter
 		var rawNotes:Array<Dynamic> = cast Reflect.field(notesMap, diffKey);
 		if (rawNotes == null) rawNotes = [];
 
-		// Sections'a çevir
 		var sections:Array<backend.Song.SwagSection> = buildSections(rawNotes, timeChanges);
 
 		var player1:String = 'bf';
@@ -134,7 +132,6 @@ class VSliceSongConverter
 			if (st != null && Std.string(st) != 'null' && Std.string(st).length > 0) stage = Std.string(st);
 		}
 
-		// ---- V-SLICE EVENTLERİ ----
 		// {t, e: "İsim", v: veri} -> Psych [time, [[isim, v1, v2]]]
 		var psychEvents:Array<Dynamic> = [];
 		if (Reflect.hasField(chart, 'events') && Std.isOfType(Reflect.field(chart, 'events'), Array))
@@ -166,7 +163,6 @@ class VSliceSongConverter
 			}
 		}
 
-		// ---- BPM DEĞİŞİMLERİ ----
 		// Her section'ın gerçek başlangıç ms'sine göre bpm + changeBPM işlenir.
 		var accMs:Float = 0;
 		var prevBpm:Null<Float> = null;

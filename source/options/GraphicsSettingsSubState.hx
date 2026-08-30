@@ -1,6 +1,7 @@
 package options;
 
 import objects.Character;
+import backend.PerformanceProfiler;
 
 class GraphicsSettingsSubState extends BaseOptionsMenu
 {
@@ -17,6 +18,15 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 		boyfriend.dance();
 		boyfriend.animation.finishCallback = function (name:String) boyfriend.dance();
 		boyfriend.visible = false;
+
+		var option:Option = new Option('Performans Profili',
+			'Tek tıkla hazır kalite profili uygular.\nDüşük: 60 FPS, En ideal ayarlar\nOrta: 60 FPS, gölgeler kapalı\nYüksek: 120 FPS, tüm kaliteli ayarlar açık',
+			'perfProfile',
+			STRING,
+			['performance', 'balanced', 'high']);
+		option.displayOptions = ['Düşük', 'Orta', 'Yüksek'];
+		option.onChange = onChangePerfProfile;
+		addOption(option);
 
 		var option:Option = new Option('Düşük Kalite',
 			'Aktif edildiğinde, bazı arka plan detaylarını devre dışı bırakır,\nyükleme sürelerini kısaltır ve performansı artırır. ÖNERİ: AÇIK',
@@ -46,7 +56,7 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 
 		#if !html5
 		var option:Option = new Option('FPS:',
-			'Bence gayet açık?',
+			'gayet açık değil mi?',
 			'framerate',
 			INT);
 		addOption(option);
@@ -61,7 +71,7 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 
 		#if cpp
 		var option:Option = new Option('Yükleme iş Parçacığı',
-			'Şarkı varlıklarını aynı anda yükleyen iş sayısı. Çok yüksek değerler özellikle mobilde RAM taşmasına neden olabilir.',
+			'Şarkı varlıklarını aynı anda yükleyen iş yükü sayısı. yüksek değerler özellikle mobilde RAM taşmasına neden olur.',
 			'loadThreads',
 			INT);
 		option.minValue = 1;
@@ -73,7 +83,7 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 		#end
 
 		var option:Option = new Option('Katı Yükleme Ekranı',
-		'İşaretlenirse oyun önce arayüz varlıklarını boşaltıp sonra şarkı verisini yükler.\nDüşük bellekli cihazlarda (özellikle mobil) daha güvenlidir.',
+		'Aktif edildiğinde oyun önce önbelleklenen varlıklar boşaltıp sonra şarkı verisini yükler.\nDüşük RAM li cihazlarda (özellikle mobil) daha güvenlidir.',
 		'strictLoadingScreen',
 		BOOL);
 		addOption(option);
@@ -86,6 +96,11 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 
 		super();
 		insert(1, boyfriend);
+	}
+
+	function onChangePerfProfile()
+	{
+		PerformanceProfiler.apply(ClientPrefs.data.perfProfile);
 	}
 
 	function onChangeAntiAliasing()
