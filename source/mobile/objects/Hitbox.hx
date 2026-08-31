@@ -49,7 +49,7 @@ class Hitbox extends MobileInputManager implements FMobileControls
 
 		globalAlpha = ClientPrefs.data.hitboxAlpha;
 
-		var mania:Int = 4;
+		var mania:Int = PlayState.getManiaColumns();
 		var extraKeys:Int = PlayState.getExtraKeys(); // 0 = otomatik (şarkıya göre), 1-4 = manuel
 		if (extraMode == SINGLE && extraKeys < 1) extraKeys = 1;
 		if (extraMode == DOUBLE && extraKeys < 2) extraKeys = 2;

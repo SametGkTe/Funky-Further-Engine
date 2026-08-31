@@ -23,6 +23,14 @@
 	<define name="MODS_ALLOWED" if="desktop || mobile" />
 	<define name="HSCRIPT_ALLOWED" if="desktop || mobile" />
 	<define name="LUA_ALLOWED" if="cpp" />
+	<!-- CNE HScript desteği (hscript-improved vendored: source/cne/compatibility, ek haxelib gerekmez) -->
+	<define name="HSC_ALLOWED" if="desktop || mobile" />
+	<define name="CUSTOM_CLASSES" if="HSC_ALLOWED" />
+	<haxedef name="HSCRIPT_ABSTRACT_SUPPORT" if="HSC_ALLOWED" />
+	<haxedef name="hscriptPos" if="HSC_ALLOWED" />
+	<haxeflag name="--macro" value="keep('IntIterator')" if="HSC_ALLOWED" />
+	<haxeflag name="--macro" value="cne.compatibility.codenamecrew.hscript.macros.AbstractHandler.init()" if="HSC_ALLOWED" />
+	<haxeflag name="--macro" value="cne.compatibility.codenamecrew.hscript.macros.ClassExtendMacro.init()" if="HSC_ALLOWED" />
 	<define name="ACHIEVEMENTS_ALLOWED" />
 	<!-- Further Online 1v1 (Colyseus). Remove define to disable multiplayer compile. -->
 	<define name="FURTHER_ONLINE" />
@@ -33,7 +41,7 @@
 	
 	<define name="MULTITHREADED_LOADING" if="cpp" /> <!-- UNCOMMENTING THIS LINE WILL ENABLE MULTITHREADED LOADING, WHICH IMPROVES LOADING TIMES, BUT WITH A LOW CHANCE FOR THE GAME FREEZE ON SONG LOAD -->
 	<define name="SHOW_LOADING_SCREEN" />
-	<define name="STRICT_LOADING_SCREEN" /> <!-- Loading Screen for bad devices
+	<define name="STRICT_LOADING_SCREEN" /> <!-- Loading Screen for bad devices -->
 	<define name="PSYCH_WATERMARKS"/> <!-- DELETE THIS TO REMOVE THE PSYCH LOGO FROM LOADING SCREEN -->
 	
 	<define name="TITLE_SCREEN_EASTER_EGG"/>

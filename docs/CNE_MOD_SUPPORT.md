@@ -14,7 +14,8 @@ Engine mod sistemini **hiç bozmadan** çalışmasıdır.
 | Şarkılar (`assets/songs/<şarkı>/charts/*.json` + `meta.json`) | ✅ Çevrilir |
 | Haftalar (`assets/data/weeks/weeks/*.xml`) | ✅ Çevrilir |
 | Haftasız CNE şarkıları (serbest oynatma) | ✅ Sentetik hafta ile listelenir |
-| hscript scriptler (şarkı/sahne/karakter/ModState) | ❌ Kapsam dışı |
+| hscript scriptler | ⚠️ Şarkı + state scriptleri v1 destekli (bkz. `CNE_HSCRIPT_SUPPORT.md`); sahne/karakter scriptleri desteklenmez |
+| Mania chart'ları (5K-9K) | ✅ Oyuncu 4K üstü tuşları lane 8+ olarak aktarılır; `mania` bildirilir, Mania Modu otomatik açılır |
 | ZIP (.zip/.cba) modlar | ❌ Kapsam dışı (yalnız klasör modlar) |
 | CNE addon'ları (`addons/`, addon.json) | ❌ Kapsam dışı |
 
@@ -71,9 +72,10 @@ Karakter scriptleri (`.hx`) yok sayılır.
 `songs/<şarkı>/charts/<zorluk>.json` + `meta.json` → Psych chart'ı:
 
 - İstenen zorluk yoksa sırayla `normal > hard > easy > ilk chart` kullanılır
-- PLAYER notları lane 0-3, OPPONENT notları lane 4-7'ye maplenir (Psych'in
-  psych_v1 semantiği: lane < 4 = oyuncu). ADDITIONAL strumline'lar karşı
-  tarafa eklenir; 4k üstü notlar atlanır)
+- PLAYER notları: id 0-3 → lane 0-3, id 4-7 → lane 8-11 (mania ekstra tuşları).
+  OPPONENT notları: id 0-3 → lane 4-7 (4K üstü rakip desteklenmez).
+- Oyuncu strumline'ında 4K üstü id varsa şarkı `mania` değeri bildirir
+  (örn. id 5 → mania 6) ve PlayState Mania Modu'nu otomatik açar.
 - İkonlar: CNE karakter XML'indeki `icon` attribute'u HealthIcon tarafından
   çözülür (ikon adı karakter adından farklı olabilir)
 - `noteTypes[type-1]` → Psych not tipi adı
@@ -141,9 +143,10 @@ scriptleri çalışmaz.
 
 ## Bilinen sınırlamalar
 
-- Script davranışı gerektiren CNE modları (sahne/karakter/şarkı `.hx` scriptleri,
-  `use-extension`, ModState menüleri) yalnızca **asset ve veri** düzeyinde çalışır.
-- CNE'nin 4k dışı chartları desteklenmez.
+- Script davranışı gerektiren CNE modlarında sahne/karakter `.hx` scriptleri ve
+  `use-extension` çalışmaz (şarkı scriptleri çalışır, bkz. `CNE_HSCRIPT_SUPPORT.md`).
+- Rakip strumline'ı 4K üstü CNE chart'ları desteklenmez (oyuncu tarafı 9K'ya kadar
+  desteklenir — Mania Modu ile).
 - GF görünürlüğü sahne XML'ine göre karar verilir (CNE'de chart'a bağlı olduğu
   durumlar birebir yansımaz).
 - Chart editöründe CNE şarkısı açılırsa Psych formatında görünür; kaydetmek

@@ -39,7 +39,7 @@ class GameplaySettingsSubState extends BaseOptionsMenu
 		addOption(option);
 		
 		var option:Option = new Option('Mania Modu',
-			'Şarkıyı mania düzenine çevirir (4K/5K/6K/7K/8K/9K). Notalar geniş şeritlere yayılır, oklar ve hitbox mania düzenine geçer.',
+			'Şarkıyı mania düzenine çevirir (5K/6K/7K/8K/9K). Ekstra tuşlar oyuncu tarafına eşit aralıklarla eklenir, rakip tarafı hep 4K kalır. Şarkı kendi mania değerini bildiriyorsa (CNE mania chart\'ları dahil) ayar otomatik olarak onu kullanır.',
 			'mania',
 			INT);
 		option.scrollSpeed = 1;

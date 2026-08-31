@@ -31,6 +31,8 @@ typedef SwagSong =
 
 	@:optional var arrowSkin:String;
 	@:optional var splashSkin:String;
+
+	@:optional var mania:Null<Int>; // Şarkının bildirdiği toplam oyuncu tuş sayısı (5-9). CNE mania chart'ları bunu kullanır.
 }
 
 typedef SwagSection =

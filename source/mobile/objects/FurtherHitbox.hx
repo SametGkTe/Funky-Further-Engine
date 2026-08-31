@@ -20,7 +20,7 @@ using StringTools;
  *
  * Adapted from Psych Engine Online Mobile for Further Engine:
  *  - no `FunkinFileSystem` dependency (mod files via `Mods`/`Paths`),
- *  - Further Engine is 4K only, so `Note.maniaKeys` is replaced with 4,
+ *  - mania key count resolved via `PlayState.getManiaColumns()` (ayar + şarkı bildirimi),
  *  - `PlayState.hitboxPositions` is computed locally.
  */
 class FurtherHitbox extends mobile.Hitbox {
@@ -34,7 +34,7 @@ class FurtherHitbox extends mobile.Hitbox {
 		currentMode = mode;
 		this.showHints = showHints;
 
-		var mania:Int = ClientPrefs.data.mania >= 5 ? ClientPrefs.data.mania : 4;
+		var mania:Int = PlayState.getManiaColumns();
 
 		var effMode:String = mode != null ? mode : ClientPrefs.data.hitboxMode;
 		if (effMode == 'V Slice')

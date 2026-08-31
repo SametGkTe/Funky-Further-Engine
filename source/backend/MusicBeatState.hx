@@ -2,10 +2,25 @@ package backend;
 
 import flixel.FlxState;
 import backend.PsychCamera;
+#if HSC_ALLOWED
+import funkin.backend.scripting.HScript.ScriptPack;
+import funkin.backend.scripting.ScriptLoader;
+import funkin.backend.scripting.EventManager;
+import funkin.backend.scripting.events.CancellableEvent;
+import flixel.util.FlxDestroyUtil;
+#end
 
 class MusicBeatState extends FlxState
 {
 	public var mobileManager:MobileControlManager;
+
+	#if HSC_ALLOWED
+	/** CNE tarzı state scripti: data/states/<StateAdı>.hx / .hscript / .hxs / .hxc / .hsc */
+	public var stateScripts:ScriptPack;
+	public static var lastScriptName:String = null;
+	public static var lastStateName:String = null;
+	public var scriptName:String = null;
+	#end
 	//makes code less messy & easier to write (yeni sistem yardımcıları)
 	public inline function mobileButtonJustPressed(buttons:Dynamic):Bool {
 		return mobileManager?.mobilePad?.justPressed(buttons);
@@ -24,6 +39,10 @@ class MusicBeatState extends FlxState
 	{
 		super();
 		mobileManager = new MobileControlManager(this);
+		#if HSC_ALLOWED
+		EventManager.init();
+		loadStateScripts();
+		#end
 	}
 
 	private var curSection:Int = 0;
@@ -161,6 +180,10 @@ class MusicBeatState extends FlxState
 		removeTouchPad();
 		removeMobileControls();
 		if (mobileManager != null) mobileManager.destroy();
+		#if HSC_ALLOWED
+		call('destroy');
+		stateScripts = FlxDestroyUtil.destroy(stateScripts);
+		#end
 		
 		super.destroy();
 	}
@@ -170,6 +193,43 @@ class MusicBeatState extends FlxState
 	public var variables:Map<String, Dynamic> = new Map<String, Dynamic>();
 	public static function getVariables()
 		return getState().variables;
+
+	#if HSC_ALLOWED
+	/** data/states/<StateAdı> scriptini mod klasörlerinden yükler */
+	function loadStateScripts()
+	{
+		var className = Type.getClassName(Type.getClass(this));
+		if (stateScripts == null)
+			(stateScripts = new ScriptPack(className)).setParent(this);
+		if (stateScripts.scripts.length == 0)
+		{
+			var shortName = className.substr(className.lastIndexOf(".") + 1);
+			var script = ScriptLoader.create('data/states/' + shortName);
+			if (script != null)
+			{
+				stateScripts.add(script);
+				script.load();
+				call('create');
+			}
+		}
+	}
+
+	/** State scriptine fonksiyon çağrısı */
+	public function call(name:String, ?args:Array<Dynamic>, ?defaultVal:Dynamic):Dynamic
+	{
+		if (stateScripts != null)
+			return stateScripts.call(name, args);
+		return defaultVal;
+	}
+
+	/** State scriptine event gönderimi */
+	public function event(name:String, event:CancellableEvent):CancellableEvent
+	{
+		if (stateScripts != null)
+			stateScripts.call(name, [event]);
+		return event;
+	}
+	#end
 
 	override function create() {
 		var skip:Bool = FlxTransitionableState.skipNextTransOut;
@@ -228,6 +288,11 @@ class MusicBeatState extends FlxState
 		stagesFunc(function(stage:BaseStage) {
 			stage.update(elapsed);
 		});
+
+		#if HSC_ALLOWED
+		call('update', [elapsed]);
+		call('postUpdate', [elapsed]);
+		#end
 
 		super.update(elapsed);
 	}

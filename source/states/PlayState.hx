@@ -23,6 +23,15 @@ import flixel.FlxBasic;
 import flixel.FlxObject;
 import flixel.FlxSubState;
 import flixel.util.FlxSort;
+
+#if HSC_ALLOWED
+import funkin.backend.scripting.HScript.ScriptPack;
+import funkin.backend.scripting.ScriptLoader;
+import funkin.backend.scripting.EventManager;
+import funkin.backend.scripting.StrumLineCompat;
+import funkin.backend.scripting.StrumLineCompat.StrumLineCompatMember;
+import funkin.backend.scripting.events.NoteHitEvent;
+#end
 import flixel.util.FlxStringUtil;
 import flixel.util.FlxSave;
 import flixel.input.keyboard.FlxKey;
@@ -323,6 +332,11 @@ class PlayState extends MusicBeatState
 	var boyfriendIdled:Bool = false;
 
 	public static var instance:PlayState;
+
+	#if HSC_ALLOWED
+	/** CNE (Codename Engine) HScript şarkı scriptleri */
+	public var cneScripts:ScriptPack;
+	#end
 	#if LUA_ALLOWED public var luaArray:Array<FunkinLua> = []; #end
 
 	#if (LUA_ALLOWED || HSCRIPT_ALLOWED)
@@ -732,6 +746,16 @@ class PlayState extends MusicBeatState
 			}
 		}
 		#end
+		#end
+		#if HSC_ALLOWED
+		// CNE HSCRIPT KÖPRÜSÜ: songs/<şarkı>/scripts/*.{hx,hscript,hxs,hxc,hsc} + codenameScripts/
+		loadCneHScripts();
+		cneScripts.set('dad', dad);
+		cneScripts.set('boyfriend', boyfriend);
+		cneScripts.set('gf', gf);
+		cneScripts.set('strumLines', buildCneStrumLines());
+		cneScripts.setupPlayState();
+		cneScripts.call('create');
 		#end
 		addMobileControls();
 		if (mobileControls != null)
@@ -1162,6 +1186,11 @@ class PlayState extends MusicBeatState
 			generateStaticArrows(0);
 			generateStaticArrows(1);
 
+			// Mania dahil: her oyuncu şeridi için blok bayrağı (noteData 8'e kadar erişilebilir)
+			strumsBlocked = [];
+			for (i in 0...playerStrums.length)
+				strumsBlocked.push(false);
+
 			for (i in 0...playerStrums.length) {
 				setOnScripts('defaultPlayerStrumX' + i, playerStrums.members[i].x);
 				setOnScripts('defaultPlayerStrumY' + i, playerStrums.members[i].y);
@@ -1527,7 +1556,24 @@ class PlayState extends MusicBeatState
 
 	private var noteTypes:Array<String> = [];
 	private var eventsPushed:Array<String> = [];
-	private var totalColumns: Int = ClientPrefs.data.mania >= 5 ? ClientPrefs.data.mania : 4;
+	public var totalColumns: Int = resolveTotalColumns();
+
+	static function resolveTotalColumns():Int
+	{
+		var cols:Int = ClientPrefs.data.mania >= 5 ? ClientPrefs.data.mania : 4;
+		// Şarkı kendi mania değerini bildiriyorsa (CNE mania chart'ları dahil) ayar onu kullanır
+		if (PlayState.SONG != null && PlayState.SONG.mania != null && PlayState.SONG.mania > 4)
+			cols = PlayState.SONG.mania;
+		return Std.int(Math.min(9, Math.max(4, cols)));
+	}
+
+	/** Oyun sırasında geçerli mania tuş sayısı (hitbox ve UI için). */
+	public static function getManiaColumns():Int
+	{
+		if (instance != null && instance.totalColumns > 4)
+			return instance.totalColumns;
+		return ClientPrefs.data.mania >= 5 ? ClientPrefs.data.mania : 4;
+	}
 
 	private function generateSong():Void
 	{
@@ -1616,14 +1662,28 @@ class PlayState extends MusicBeatState
 			{
 				final songNotes: Array<Dynamic> = section.sectionNotes[i];
 				var spawnTime: Float = songNotes[0];
-				var noteColumn: Int = Std.int(songNotes[1] % totalColumns);
-				noteColumn = maniaRemap(noteColumn);
+				var rawLane:Int = Std.int(songNotes[1]);
 				var holdLength: Float = songNotes[2];
 				var noteType: String = !Std.isOfType(songNotes[3], String) ? Note.defaultNoteTypes[songNotes[3]] : songNotes[3];
 				if (Math.isNaN(holdLength))
 					holdLength = 0.0;
 
-				var gottaHitNote:Bool = (songNotes[1] < totalColumns);
+				var noteColumn:Int;
+				var gottaHitNote:Bool;
+				if (totalColumns > 4)
+				{
+					// Mania: 0-3 oyuncu, 4-7 rakip, 8+ oyuncu ekstra tuşları
+					var mapped:Null<ManiaLane> = maniaMapLane(rawLane);
+					if (mapped == null) continue; // bu düzende oynanamayan şerit
+					noteColumn = mapped.column;
+					gottaHitNote = mapped.isPlayer;
+				}
+				else
+				{
+					if (rawLane < 0 || rawLane >= 8) continue; // 4K'da mania şeritleri oynanamaz
+					noteColumn = rawLane % 4;
+					gottaHitNote = rawLane < 4;
+				}
 
 				if (i != 0) {
 					// CLEAR ANY POSSIBLE GHOST NOTES
@@ -1656,7 +1716,17 @@ class PlayState extends MusicBeatState
 				if (totalColumns > 4)
 				{
 					var strumGroup:FlxTypedGroup<StrumNote> = gottaHitNote ? playerStrums : opponentStrums;
-					if (strumGroup.members[noteColumn] != null) swagNote.x = strumGroup.members[noteColumn].x;
+					var strum:StrumNote = strumGroup.members[noteColumn];
+					if (strum != null)
+					{
+						// Nota strum'a hizalanır (genel yarım ekran ofseti UYGULANMAZ!)
+						swagNote.x = strum.x + (strum.width - swagNote.width) / 2;
+						if (strum.scale.x < 1 || strum.scale.y < 1)
+						{
+							swagNote.scale.set(strum.scale.x, strum.scale.y);
+							swagNote.updateHitbox();
+						}
+					}
 				}
 				swagNote.sustainLength = holdLength;
 				swagNote.noteType = noteType;
@@ -1683,7 +1753,15 @@ class PlayState extends MusicBeatState
 						swagNote.tail.push(sustainNote);
 
 						sustainNote.correctionOffset = swagNote.height / 2;
-						if (totalColumns > 4) sustainNote.x = swagNote.x;
+						if (totalColumns > 4)
+						{
+							if (swagNote.scale.x < 1)
+							{
+								sustainNote.scale.x = swagNote.scale.x;
+								sustainNote.updateHitbox();
+							}
+							sustainNote.x = swagNote.x + (swagNote.width - sustainNote.width) / 2;
+						}
 						if(!PlayState.isPixelStage)
 						{
 							if(oldNote.isSustainNote)
@@ -1702,26 +1780,32 @@ class PlayState extends MusicBeatState
 							oldNote.resizeByRatio(curStepCrochet / Conductor.stepCrochet);
 						}
 
-						if (sustainNote.mustPress) sustainNote.x += FlxG.width / 2; // general offset
-						else if(ClientPrefs.data.middleScroll)
+						if (totalColumns <= 4)
 						{
-							sustainNote.x += 310;
-							if(noteColumn > 1) //Up and Right
-								sustainNote.x += FlxG.width / 2 + 25;
+							if (sustainNote.mustPress) sustainNote.x += FlxG.width / 2; // general offset
+							else if(ClientPrefs.data.middleScroll)
+							{
+								sustainNote.x += 310;
+								if(noteColumn > 1) //Up and Right
+									sustainNote.x += FlxG.width / 2 + 25;
+							}
 						}
 					}
 				}
 
-				if (swagNote.mustPress)
+				if (totalColumns <= 4)
 				{
-					swagNote.x += FlxG.width / 2; // general offset
-				}
-				else if(ClientPrefs.data.middleScroll)
-				{
-					swagNote.x += 310;
-					if(noteColumn > 1) //Up and Right
+					if (swagNote.mustPress)
 					{
-						swagNote.x += FlxG.width / 2 + 25;
+						swagNote.x += FlxG.width / 2; // general offset
+					}
+					else if(ClientPrefs.data.middleScroll)
+					{
+						swagNote.x += 310;
+						if(noteColumn > 1) //Up and Right
+						{
+							swagNote.x += FlxG.width / 2 + 25;
+						}
 					}
 				}
 				if(!noteTypes.contains(swagNote.noteType))
@@ -1873,7 +1957,9 @@ class PlayState extends MusicBeatState
 	{
 		var strumLineX:Float = ClientPrefs.data.middleScroll ? STRUM_X_MIDDLESCROLL : STRUM_X;
 		var strumLineY:Float = ClientPrefs.data.downScroll ? (FlxG.height - 150) : 50;
-		for (i in 0...totalColumns)
+		// Mania: oyuncu tarafı totalColumns kadar ok alır, rakip hep 4K kalır
+		var maxStrum:Int = (player == 1 && totalColumns > 4) ? totalColumns : 4;
+		for (i in 0...maxStrum)
 		{
 			var targetAlpha:Float = 1;
 			if (player < 1)
@@ -1908,31 +1994,46 @@ class PlayState extends MusicBeatState
 			strumLineNotes.add(babyArrow);
 			babyArrow.playerPosition();
 
-			if (totalColumns > 4) babyArrow.x = getManiaStrumX(i, player);
+			if (player == 1 && totalColumns > 4)
+			{
+				// Mania: oklar oyun alanına eşit aralıklarla ve ortalanmış dizilir;
+				// şerit ok genişliğinden dar kalırsa oklar orantılı küçülür (çakışma olmaz)
+				var laneW:Float = getManiaLaneWidth();
+				var strumScale:Float = Math.min(1, laneW / Note.swagWidth);
+				if (strumScale < 1)
+				{
+					babyArrow.scale.set(strumScale, strumScale);
+					babyArrow.updateHitbox();
+				}
+				babyArrow.x = getManiaStrumX(i);
+			}
 		}
 	}
 
-	function maniaRemap(col:Int):Int
+	/** Mania şerit eşlemesi: standart chart şeridi → {kolon, oyuncu mu} */
+
+	function maniaMapLane(rawLane:Int):Null<ManiaLane>
 	{
-		if (totalColumns < 5 || col >= 4) return col;
-		return switch (totalColumns)
-		{
-			case 6: [0, 1, 3, 4][col];
-			default: col;
-		};
+		if (rawLane >= 0 && rawLane < 4) return {column: rawLane, isPlayer: true};
+		if (rawLane >= 4 && rawLane < 8) return {column: rawLane - 4, isPlayer: false};
+		// 8+ : oyuncu ekstra tuşları (mania-native chart'lar)
+		var extraColumn:Int = 4 + (rawLane - 8);
+		if (extraColumn < totalColumns) return {column: extraColumn, isPlayer: true};
+		return null;
 	}
 
-	function getManiaStrumX(lane:Int, player:Int):Float
+	function getManiaLaneWidth():Float
 	{
-		var cols:Int = totalColumns;
-		var halfW:Float = FlxG.width / 2;
-		var laneW:Float = halfW / cols;
-		var offset:Float = (halfW - laneW) / 2;
+		var playWidth:Float = ClientPrefs.data.middleScroll ? FlxG.width : FlxG.width / 2;
+		return playWidth / totalColumns;
+	}
 
-		if (ClientPrefs.data.middleScroll)
-			return (FlxG.width / 2) - ((cols * laneW) / 2) + lane * laneW;
-
-		return player * halfW + offset + lane * laneW;
+	function getManiaStrumX(lane:Int):Float
+	{
+		var laneW:Float = getManiaLaneWidth();
+		var strumW:Float = Note.swagWidth * Math.min(1, laneW / Note.swagWidth);
+		var start:Float = ClientPrefs.data.middleScroll ? 0 : FlxG.width / 2;
+		return start + (lane + 0.5) * laneW - strumW / 2;
 	}
 
 	public static function getExtraKeys():Int
@@ -3606,6 +3707,24 @@ class PlayState extends MusicBeatState
 
 		noteMissCommon(daNote.noteData, daNote);
 		stagesFunc(function(stage:BaseStage) stage.noteMiss(daNote));
+		#if HSC_ALLOWED
+		if (cneScripts != null && daNote != null)
+		{
+			var cneEv = EventManager.get(NoteHitEvent);
+			cneEv.recycleBase();
+			cneEv.note = daNote;
+			cneEv.characters = [boyfriend];
+			cneEv.player = true;
+			cneEv.noteType = daNote.noteType;
+			cneEv.direction = daNote.noteData;
+			cneEv.score = songScore;
+			cneEv.rating = 'miss';
+			cneEv.healthGain = -0.0475;
+			cneEv.misses = true;
+			cneScripts.call('onNoteMiss', [cneEv]);
+			cneScripts.call('onPlayerMiss', [cneEv]);
+		}
+		#end
 		var result:Dynamic = callOnLuas('noteMiss', [notes.members.indexOf(daNote), daNote.noteData, daNote.noteType, daNote.isSustainNote]);
 		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript('noteMiss', [daNote]);
 	}
@@ -3617,6 +3736,23 @@ class PlayState extends MusicBeatState
 		noteMissCommon(direction);
 		FlxG.sound.play(Paths.soundRandom('missnote', 1, 3), FlxG.random.float(0.1, 0.2));
 		stagesFunc(function(stage:BaseStage) stage.noteMissPress(direction));
+		#if HSC_ALLOWED
+		if (cneScripts != null)
+		{
+			var cneEv = EventManager.get(NoteHitEvent);
+			cneEv.recycleBase();
+			cneEv.note = null;
+			cneEv.characters = [boyfriend];
+			cneEv.player = true;
+			cneEv.noteType = '';
+			cneEv.direction = direction;
+			cneEv.score = songScore;
+			cneEv.rating = 'miss';
+			cneEv.healthGain = -0.0475;
+			cneEv.misses = true;
+			cneScripts.call('onNoteMissPress', [cneEv]);
+		}
+		#end
 		callOnScripts('noteMissPress', [direction]);
 	}
 
@@ -3788,6 +3924,22 @@ class PlayState extends MusicBeatState
 		note.hitByOpponent = true;
 		
 		stagesFunc(function(stage:BaseStage) stage.opponentNoteHit(note));
+		#if HSC_ALLOWED
+		if (cneScripts != null)
+		{
+			var cneEv = EventManager.get(NoteHitEvent);
+			cneEv.recycleBase();
+			cneEv.note = note;
+			cneEv.characters = [dad];
+			cneEv.player = false;
+			cneEv.noteType = note.noteType;
+			cneEv.direction = Math.abs(note.noteData);
+			cneEv.score = songScore;
+			cneEv.rating = 'sick';
+			cneEv.healthGain = 0.023;
+			cneScripts.call('onNoteHit', [cneEv]);
+		}
+		#end
 		var result:Dynamic = callOnLuas('opponentNoteHit', [notes.members.indexOf(note), Math.abs(note.noteData), note.noteType, note.isSustainNote]);
 		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript('opponentNoteHit', [note]);
 
@@ -3905,6 +4057,27 @@ class PlayState extends MusicBeatState
 		}
 
 		stagesFunc(function(stage:BaseStage) stage.goodNoteHit(note));
+		#if HSC_ALLOWED
+		if (cneScripts != null)
+		{
+			var cneEv = EventManager.get(NoteHitEvent);
+			cneEv.recycleBase();
+			cneEv.note = note;
+			cneEv.characters = [boyfriend];
+			cneEv.player = true;
+			cneEv.noteType = note.noteType;
+			cneEv.direction = note.noteData;
+			cneEv.score = songScore;
+			cneEv.rating = note.rating;
+			cneEv.accuracy = note.isSustainNote ? null : ratingPercent;
+			cneEv.healthGain = 0.023;
+			cneEv.countAsCombo = !note.isSustainNote;
+			cneEv.countScore = !note.isSustainNote;
+			cneEv.deleteNote = !note.isSustainNote;
+			cneEv.animCancelled = false;
+			cneScripts.call('onNoteHit', [cneEv]);
+		}
+		#end
 		var result:Dynamic = callOnLuas('goodNoteHit', [notes.members.indexOf(note), leData, leType, isSus]);
 		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript('goodNoteHit', [note]);
 		spawnHoldSplashOnNote(note);
@@ -4269,6 +4442,71 @@ class PlayState extends MusicBeatState
 	}
 	#end
 
+	#if HSC_ALLOWED
+	function loadCneHScripts()
+	{
+		if (cneScripts == null)
+		{
+			cneScripts = new ScriptPack('cneSongScripts');
+			cneScripts.setParent(this);
+		}
+
+		var mods:Array<String> = [];
+		if (Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0)
+			mods.push(Mods.currentModDirectory);
+		for (g in Mods.getGlobalMods())
+			if (!mods.contains(g)) mods.push(g);
+
+		for (mod in mods)
+		{
+			var songDir:String = cne.compatibility.CNECompat.songDir(mod, Song.loadedSongName);
+			if (songDir == null) continue;
+			ScriptLoader.addAllFromFolder(songDir + '/scripts', cneScripts);
+		}
+		ScriptLoader.addAllFromFolder('codenameScripts', cneScripts);
+
+		cneScripts.load();
+	}
+
+	function buildCneStrumLines():StrumLineCompat
+	{
+		var sl = new StrumLineCompat();
+		sl.members.push(new StrumLineCompatMember(0, 'dad', [dad]));
+		sl.members.push(new StrumLineCompatMember(1, 'boyfriend', [boyfriend]));
+		sl.members.push(new StrumLineCompatMember(2, 'girlfriend', [gf]));
+		return sl;
+	}
+
+	static final CNE_SCRIPT_ALIASES:Map<String, String> = [
+		'onBeatHit' => 'beatHit',
+		'onStepHit' => 'stepHit',
+		'onUpdate' => 'update',
+		'onUpdatePost' => 'updatePost',
+		'onCreatePost' => 'createPost',
+	];
+
+	function callCneScripts(funcToCall:String, args:Array<Dynamic>):Dynamic
+	{
+		if (cneScripts == null) return null;
+
+		// Psych bazı çağrılara argüman vermiyor; CNE bekliyor
+		var cneArgs:Array<Dynamic> = args;
+		if ((cneArgs == null || cneArgs.length == 0) && funcToCall == 'onStepHit')
+			cneArgs = [curStep];
+		else if ((cneArgs == null || cneArgs.length == 0) && funcToCall == 'onBeatHit')
+			cneArgs = [curBeat];
+
+		var v:Dynamic = cneScripts.call(funcToCall, cneArgs);
+		var alias:String = CNE_SCRIPT_ALIASES.get(funcToCall);
+		if (alias != null && alias != funcToCall)
+		{
+			var v2:Dynamic = cneScripts.call(alias, cneArgs);
+			if (v == null) v = v2;
+		}
+		return v;
+	}
+	#end
+
 	public function callOnScripts(funcToCall:String, args:Array<Dynamic> = null, ignoreStops = false, exclusions:Array<String> = null, excludeValues:Array<Dynamic> = null):Dynamic {
 		var returnVal:Dynamic = LuaUtils.Function_Continue;
 		if(args == null) args = [];
@@ -4277,6 +4515,9 @@ class PlayState extends MusicBeatState
 
 		var result:Dynamic = callOnLuas(funcToCall, args, ignoreStops, exclusions, excludeValues);
 		if(result == null || excludeValues.contains(result)) result = callOnHScript(funcToCall, args, ignoreStops, exclusions, excludeValues);
+		#if HSC_ALLOWED
+		if (result == null || excludeValues.contains(result)) result = callCneScripts(funcToCall, args);
+		#end
 		return result;
 	}
 
@@ -4361,6 +4602,9 @@ class PlayState extends MusicBeatState
 		if(exclusions == null) exclusions = [];
 		setOnLuas(variable, arg, exclusions);
 		setOnHScript(variable, arg, exclusions);
+		#if HSC_ALLOWED
+		if (cneScripts != null) cneScripts.set(variable, arg);
+		#end
 	}
 
 	public function setOnLuas(variable:String, arg:Dynamic, exclusions:Array<String> = null) {
@@ -4909,4 +5153,10 @@ class PlayState extends MusicBeatState
 		if (!FlxG.signals.preUpdate.has(checkForResync))
 			FlxG.signals.preUpdate.add(checkForResync);
 	}
+}
+
+/** Mania şerit eşlemesi: standart chart şeridi → {kolon, oyuncu mu} */
+typedef ManiaLane = {
+	var column:Int;
+	var isPlayer:Bool;
 }

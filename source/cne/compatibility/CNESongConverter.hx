@@ -200,6 +200,7 @@ class CNESongConverter
 			var noteTypes:Array<String> = (chart.noteTypes != null) ? chart.noteTypes : [];
 			var allNotes:Array<{time:Float, lane:Int, sLen:Float, type:Int, player:Bool}> = [];
 			var lastTime:Float = 0;
+			var maxPlayerId:Int = -1;
 			for (sl in strumLines)
 			{
 				if (sl == null) continue;
@@ -211,10 +212,24 @@ class CNESongConverter
 					if (n == null) continue;
 					var t:Float = (n.time != null) ? n.time : 0;
 					var id:Int = (n.id != null) ? Std.int(n.id) : 0;
-					if (id < 0 || id > 3) continue; // 4k dışı desteklenmez
+					if (id < 0) continue;
+					// Oyuncu: id 0-3 → lane 0-3; id 4-7 → lane 8-11 (mania ekstra tuşları)
+					// Rakip: yalnızca id 0-3 → lane 4-7 (4K üstü rakip desteklenmez)
+					var lane:Int = -1;
+					if (isPlayer)
+					{
+						lane = (id < 4) ? id : 8 + (id - 4);
+						if (lane > 11) continue;
+						if (id > maxPlayerId) maxPlayerId = id;
+					}
+					else
+					{
+						if (id > 3) continue;
+						lane = id + 4;
+					}
 					var sLen:Float = (n.sLen != null) ? n.sLen : 0;
 					var nType:Int = (n.type != null) ? Std.int(n.type) : 0;
-					allNotes.push({time: t, lane: isPlayer ? id : id + 4, sLen: sLen, type: nType, player: isPlayer});
+					allNotes.push({time: t, lane: lane, sLen: sLen, type: nType, player: isPlayer});
 					if (t + sLen > lastTime) lastTime = t + sLen;
 				}
 			}
@@ -310,6 +325,11 @@ class CNESongConverter
 
 			var stageName:String = (chart.stage != null && Std.string(chart.stage).length > 0) ? Std.string(chart.stage) : 'stage';
 
+			// CNE mania chart: oyuncu strumline'ında 4K üstü id varsa şarkı mania değerini bildirir
+			// (PlayState bu değeri görünce Mania Modu otomatik devreye girer)
+			var mania:Null<Int> = null;
+			if (maxPlayerId >= 4) mania = Std.int(Math.min(9, maxPlayerId + 1));
+
 			return {
 				song: songName,
 				notes: sections,
@@ -322,7 +342,8 @@ class CNESongConverter
 				player2: player2,
 				gfVersion: gfVersion,
 				stage: stageName,
-				format: 'psych_v1'
+				format: 'psych_v1',
+				mania: mania
 			};
 		}
 		catch (e:Dynamic)

@@ -1,0 +1,16 @@
+FURTHER ENGINE - SENKRON PAKETI v2
+===================================
+BU SURUMDE: hscript arayuzu codenamecrew paketine tasindi.
+Dis "hscript" paketi TAMAMEN kaldirildi - "Type not found : hscript.IHScriptCustomClassBehaviour"
+hatasi yapisal olarak imkansiz hale geldi.
+
+KURULUM (sirasiyla):
+1) Repo kokunde su iki klasoru SIL:
+   source\cne\compatibility\codenamecrew
+   source\cne\compatibility\hscript        (varsa)
+2) Zip icerigini repo kokune cikar (ustune yaz).
+3) temizle-eski.bat calistir.
+4) tani.bat calistir -> [1] ve [2] bolumleri BOS olmali.
+5) lime test windows -clean
+
+Eski referanslarin nerede kaldigini gormek icin her zaman tani.bat calistir.
