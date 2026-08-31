@@ -8,15 +8,15 @@
 
 **Further Engine, FNF Kullanıcıların Oyun deneyimini en iyi hale getirmeyi amaçlar diğer adı ile "Psych Engine Türkiye" olarak bilinir**
 
-[![Sürüm](https://img.shields.io/badge/sürüm-1.6.2-9a6bff?style=for-the-badge)](https://github.com/SametGkTe/Funky-Further-Engine/tags)
-[![Durum](https://img.shields.io/badge/durum-Release%202%20Beta-ff4fc8?style=for-the-badge)](#proje-durumu)
+[![Sürüm](https://img.shields.io/badge/sürüm-1.7.0-9a6bff?style=for-the-badge)](https://github.com/SametGkTe/Funky-Further-Engine/tags)
+[![Durum](https://img.shields.io/badge/durum-Release%202%20Beta%20Full-ff4fc8?style=for-the-badge)](#proje-durumu))
 [![Haxe](https://img.shields.io/badge/Haxe-OpenFL%20%2B%20HaxeFlixel-ea8220?style=for-the-badge&logo=haxe&logoColor=white)](https://haxe.org/)
 [![Lisans](https://img.shields.io/badge/Lisans-Apache%202.0-35e7ff?style=for-the-badge)](LICENSE)
 
 </div>
 
 > [!ÖNEMLİ]
-> Proje yapılma aşamasındadır. Özellikle mobil desteği, çevrimiçi sunucular ve yeni arayüzlerde platforma bağlı sorunlarla karşılaşılabilir. Bir hata alırsan kullandığın platformu ve mümkünse crash logunu (pc: oyun/logs/ensonaldığınlog, mobilde: KULLANDIĞIN DEPOLAMA TÜRÜ/logs/ensonaldığınlog) ekleyerek [issue açabilirsin](https://github.com/SametGkTe/Funky-Further-Engine/issues/new/choose).
+> Proje yapılma aşamasındadır. Özellikle mobil desteği, sunucular ve yeni menülerde platforma bağlı sorunlarla karşılaşılabilir. Bir hata alırsan kullandığın platformu ve mümkünse crash logunu (pc: oyun/logs/ensonaldığınlog, mobilde: KULLANDIĞIN DEPOLAMA TÜRÜ/logs/ensonaldığınlog) ekleyerek [issue açabilirsin](https://github.com/SametGkTe/Funky-Further-Engine/issues/new/choose).
 
 > [!NOT]
 > Further Engine SametGkTe tarafından yapılan bağımsız bir topluluk projesidir; The Funkin' Crew veya resmi Friday Night Funkin' ekibiyle bağlantılı değildir.
@@ -68,7 +68,7 @@ Android için **Psych Hitbox** ve **V-Slice Kontrolü**, mobil kontrol opaklığ
 
 - **[SametGkTe](https://github.com/SametGkTe)** — Further Engine Ana Geliştiricisi
 
-### Temel projeler ve ekipler
+### Temel proje ve Temel ekipler
 
 - **[Shadow Mario](https://github.com/ShadowMario)** — Psych Engine ana geliştiricisi
 - **RiverOaken / Riveren** — Psych Engine ana sanatçısı ve animatörü
