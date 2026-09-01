@@ -38,7 +38,7 @@ class FunkinSprite extends FlxSkewedSprite
 		animation.play(AnimName, Force, Reversed, Frame);
 
 		var daOffset:FlxPoint = getAnimOffset(AnimName);
-		frameOffset.set(daOffset.x, daOffset.y);
+		offset.set(daOffset.x, daOffset.y);
 		daOffset.putWeak();
 	}
 

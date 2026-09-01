@@ -8,6 +8,10 @@ import online.GameClient;
 import sys.thread.Thread;
 import backend.Highscore;
 import backend.StageData;
+#if POLYMOD_ALLOWED
+import vslice.scripting.VSScriptRegistry;
+import vslice.scripting.VSScriptEventDispatcher;
+#end
 import backend.WeekData;
 import backend.Song;
 import backend.Rating;
@@ -336,6 +340,10 @@ class PlayState extends MusicBeatState
 	#if HSC_ALLOWED
 	/** CNE (Codename Engine) HScript şarkı scriptleri */
 	public var cneScripts:ScriptPack;
+	#if POLYMOD_ALLOWED
+	/** Scripted şarkı (V-Slice .hxc; sınıf adı = şarkı id'si). generateSong sırasında kurulur. */
+	public var vsSongScript:funkin.play.song.Song = null;
+	#end
 	#end
 	#if LUA_ALLOWED public var luaArray:Array<FunkinLua> = []; #end
 
@@ -479,6 +487,9 @@ class PlayState extends MusicBeatState
 		dadGroup = new FlxSpriteGroup(DAD_X, DAD_Y);
 		gfGroup = new FlxSpriteGroup(GF_X, GF_Y);
 
+		#if POLYMOD_ALLOWED
+		if (VSScriptRegistry.resolveStage(curStage) == null)
+		#end
 		switch (curStage)
 		{
 			case 'stage': new StageWeek1(); 			//Week 1
@@ -504,17 +515,32 @@ class PlayState extends MusicBeatState
 		if (!stageData.hide_girlfriend)
 		{
 			if(SONG.gfVersion == null || SONG.gfVersion.length < 1) SONG.gfVersion = 'gf'; //Fix for the Chart Editor
+			#if POLYMOD_ALLOWED
+			var _scriptedGf:Character = VSScriptRegistry.resolveCharacter(0, 0, SONG.gfVersion, false);
+			gf = (_scriptedGf != null) ? _scriptedGf : new Character(0, 0, SONG.gfVersion);
+			#else
 			gf = new Character(0, 0, SONG.gfVersion);
+			#end
 			startCharacterPos(gf);
 			gfGroup.scrollFactor.set(0.95, 0.95);
 			gfGroup.add(gf);
 		}
 
+		#if POLYMOD_ALLOWED
+		var _scriptedDad:Character = VSScriptRegistry.resolveCharacter(0, 0, SONG.player2, false);
+		dad = (_scriptedDad != null) ? _scriptedDad : new Character(0, 0, SONG.player2);
+		#else
 		dad = new Character(0, 0, SONG.player2);
+		#end
 		startCharacterPos(dad, true);
 		dadGroup.add(dad);
 
+		#if POLYMOD_ALLOWED
+		var _scriptedBf:Character = VSScriptRegistry.resolveCharacter(0, 0, SONG.player1, true);
+		boyfriend = (_scriptedBf != null) ? _scriptedBf : new Character(0, 0, SONG.player1, true);
+		#else
 		boyfriend = new Character(0, 0, SONG.player1, true);
+		#end
 		startCharacterPos(boyfriend);
 		boyfriendGroup.add(boyfriend);
 		
@@ -797,8 +823,15 @@ class PlayState extends MusicBeatState
 
 		resetRPC();
 
+		#if POLYMOD_ALLOWED
+		VSScriptEventDispatcher.dispatchPlayState('onCreate');
+		#end
+
 		stagesFunc(function(stage:BaseStage) stage.createPost());
 		callOnScripts('onCreatePost');
+		#if POLYMOD_ALLOWED
+		VSScriptEventDispatcher.dispatchPlayState('onCreatePost');
+		#end
 		
 		
 		var splash:NoteSplash = new NoteSplash();
@@ -924,7 +957,12 @@ class PlayState extends MusicBeatState
 		switch(type) {
 			case 0:
 				if(!boyfriendMap.exists(newCharacter)) {
+					#if POLYMOD_ALLOWED
+					var _scriptedNewBf:Character = VSScriptRegistry.resolveCharacter(0, 0, newCharacter, true);
+					var newBoyfriend:Character = (_scriptedNewBf != null) ? _scriptedNewBf : new Character(0, 0, newCharacter, true);
+					#else
 					var newBoyfriend:Character = new Character(0, 0, newCharacter, true);
+					#end
 					boyfriendMap.set(newCharacter, newBoyfriend);
 					boyfriendGroup.add(newBoyfriend);
 					startCharacterPos(newBoyfriend);
@@ -934,7 +972,12 @@ class PlayState extends MusicBeatState
 
 			case 1:
 				if(!dadMap.exists(newCharacter)) {
+					#if POLYMOD_ALLOWED
+					var _scriptedNewDad:Character = VSScriptRegistry.resolveCharacter(0, 0, newCharacter, false);
+					var newDad:Character = (_scriptedNewDad != null) ? _scriptedNewDad : new Character(0, 0, newCharacter);
+					#else
 					var newDad:Character = new Character(0, 0, newCharacter);
+					#end
 					dadMap.set(newCharacter, newDad);
 					dadGroup.add(newDad);
 					startCharacterPos(newDad, true);
@@ -944,7 +987,12 @@ class PlayState extends MusicBeatState
 
 			case 2:
 				if(gf != null && !gfMap.exists(newCharacter)) {
+					#if POLYMOD_ALLOWED
+					var _scriptedNewGf:Character = VSScriptRegistry.resolveCharacter(0, 0, newCharacter, false);
+					var newGf:Character = (_scriptedNewGf != null) ? _scriptedNewGf : new Character(0, 0, newCharacter);
+					#else
 					var newGf:Character = new Character(0, 0, newCharacter);
+					#end
 					newGf.scrollFactor.set(0.95, 0.95);
 					gfMap.set(newCharacter, newGf);
 					gfGroup.add(newGf);
@@ -1172,6 +1220,9 @@ class PlayState extends MusicBeatState
 	{
 		if(startedCountdown) {
 			callOnScripts('onStartCountdown');
+			#if POLYMOD_ALLOWED
+			VSScriptEventDispatcher.dispatchPlayState('onCountdownStart');
+			#end
 			return false;
 		}
 
@@ -1211,6 +1262,9 @@ class PlayState extends MusicBeatState
 			Conductor.songPosition = -Conductor.crochet * 5 + Conductor.offset;
 			setOnScripts('startedCountdown', true);
 			callOnScripts('onCountdownStarted');
+			#if POLYMOD_ALLOWED
+			VSScriptEventDispatcher.dispatchPlayState('onCountdownStart');
+			#end
 
 			var swagCounter:Int = 0;
 			if (startOnTime > 0) {
@@ -1278,6 +1332,9 @@ class PlayState extends MusicBeatState
 				stagesFunc(function(stage:BaseStage) stage.countdownTick(tick, swagCounter));
 				callOnLuas('onCountdownTick', [swagCounter]);
 				callOnHScript('onCountdownTick', [tick, swagCounter]);
+				#if POLYMOD_ALLOWED
+				VSScriptEventDispatcher.dispatchPlayState('onCountdownStep', swagCounter);
+				#end
 
 				swagCounter += 1;
 			}, 5);
@@ -1484,6 +1541,11 @@ class PlayState extends MusicBeatState
 	{
 		startingSong = false;
 
+		#if POLYMOD_ALLOWED
+		VSScriptEventDispatcher.dispatchPlayState('onCountdownEnd');
+		VSScriptEventDispatcher.dispatchPlayState('onSongStart');
+		#end
+
 		@:privateAccess
 		if (inst == null || inst._sound == null)
 		{
@@ -1578,6 +1640,15 @@ class PlayState extends MusicBeatState
 	private function generateSong():Void
 	{
 		// FlxG.log.add(ChartParser.parse());
+
+		#if POLYMOD_ALLOWED
+		if (vsSongScript == null)
+			vsSongScript = VSScriptRegistry.resolveSong(PlayState.SONG.song);
+		if (vsSongScript != null)
+			VSScriptEventDispatcher.dispatch(vsSongScript, 'onSongLoaded',
+				VSScriptEventDispatcher.make('onSongLoaded', PlayState.SONG));
+		#end
+
 		songSpeed = PlayState.SONG.speed;
 		songSpeedType = ClientPrefs.getGameplaySetting('scrolltype');
 		switch(songSpeedType)
@@ -2077,6 +2148,9 @@ class PlayState extends MusicBeatState
 
 			paused = false;
 			callOnScripts('onResume');
+			#if POLYMOD_ALLOWED
+			VSScriptEventDispatcher.dispatchPlayState('onResume');
+			#end
 			resetRPC(startTimer != null && startTimer.finished);
 			runSongSyncThread();
 		}
@@ -2168,6 +2242,9 @@ class PlayState extends MusicBeatState
 			return;
 		}
 		#end
+		#if POLYMOD_ALLOWED
+		VSScriptEventDispatcher.dispatchPlayState('onUpdate', elapsed);
+		#end
 		if(!inCutscene && !paused && !freezeCamera) {
 			FlxG.camera.followLerp = 0.04 * cameraSpeed * playbackRate;
 			var idleAnim:Bool = boyfriend != null && (boyfriend.getAnimationName().startsWith('idle') || boyfriend.getAnimationName().startsWith('danceLeft') || boyfriend.getAnimationName().startsWith('danceRight'));
@@ -2184,6 +2261,10 @@ class PlayState extends MusicBeatState
 		callOnScripts('onUpdate', [elapsed]);
 
 		super.update(elapsed);
+
+		#if POLYMOD_ALLOWED
+		VSScriptEventDispatcher.dispatchPlayState('onUpdatePost', elapsed);
+		#end
 
 		setOnScripts('curDecStep', curDecStep);
 		setOnScripts('curDecBeat', curDecBeat);
@@ -2209,6 +2290,11 @@ class PlayState extends MusicBeatState
 			#end
 			var ret:Dynamic = callOnScripts('onPause', null, true);
 			if(ret != LuaUtils.Function_Stop) {
+				#if POLYMOD_ALLOWED
+				// V-Slice: script event.cancelled = true yaparsa pause engellenir
+				var vsPauseEv:Dynamic = VSScriptEventDispatcher.dispatchPlayState('onPause');
+				if (vsPauseEv == null || vsPauseEv.cancelled != true)
+				#end
 				openPauseMenu();
 			}
 		}
@@ -3059,6 +3145,9 @@ class PlayState extends MusicBeatState
 	public var transitioning = false;
 	public function endSong()
 	{
+		#if POLYMOD_ALLOWED
+		VSScriptEventDispatcher.dispatchPlayState('onSongEnd');
+		#end
 		trace('=== FREEPLAY RETURN DEBUG ===');
 		trace('vsliceResults = ' + ClientPrefs.data.vsliceResults);
 		trace('isNewStyle = ' + MenuStyleRouter.isNewStyle());
@@ -3519,7 +3608,12 @@ class PlayState extends MusicBeatState
 		else
 		{
 			if (ClientPrefs.data.ghostTapping)
+			{
 				callOnScripts('onGhostTap', [key]);
+				#if POLYMOD_ALLOWED
+				VSScriptEventDispatcher.dispatchPlayState('onNoteGhostMiss', key);
+				#end
+			}
 			else
 				noteMissPress(key);
 		}
@@ -3707,6 +3801,9 @@ class PlayState extends MusicBeatState
 
 		noteMissCommon(daNote.noteData, daNote);
 		stagesFunc(function(stage:BaseStage) stage.noteMiss(daNote));
+		#if POLYMOD_ALLOWED
+		VSScriptEventDispatcher.dispatchPlayState('onNoteMiss', daNote);
+		#end
 		#if HSC_ALLOWED
 		if (cneScripts != null && daNote != null)
 		{
@@ -3933,12 +4030,15 @@ class PlayState extends MusicBeatState
 			cneEv.characters = [dad];
 			cneEv.player = false;
 			cneEv.noteType = note.noteType;
-			cneEv.direction = Math.abs(note.noteData);
+			cneEv.direction = Std.int(Math.abs(note.noteData));
 			cneEv.score = songScore;
 			cneEv.rating = 'sick';
 			cneEv.healthGain = 0.023;
 			cneScripts.call('onNoteHit', [cneEv]);
 		}
+		#end
+		#if POLYMOD_ALLOWED
+		VSScriptEventDispatcher.dispatchPlayState('onNoteHit', note);
 		#end
 		var result:Dynamic = callOnLuas('opponentNoteHit', [notes.members.indexOf(note), Math.abs(note.noteData), note.noteType, note.isSustainNote]);
 		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript('opponentNoteHit', [note]);
@@ -4155,6 +4255,10 @@ class PlayState extends MusicBeatState
 		#if FURTHER_ONLINE
 		PlayStateSync.unbind();
 		#end
+		#if POLYMOD_ALLOWED
+		VSScriptEventDispatcher.dispatchPlayState('onDestroy');
+		vsSongScript = null;
+		#end
 		PinnedNotes.restorePrefs();
 		PinnedNotes.clear();
 
@@ -4224,6 +4328,9 @@ class PlayState extends MusicBeatState
 		lastStepHit = curStep;
 		setOnScripts('curStep', curStep);
 		callOnScripts('onStepHit');
+		#if POLYMOD_ALLOWED
+		VSScriptEventDispatcher.dispatchPlayState('onStepHit', curStep);
+		#end
 	}
 
 	var lastBeatHit:Int = -1;
@@ -4234,6 +4341,10 @@ class PlayState extends MusicBeatState
 			//trace('BEAT HIT: ' + curBeat + ', LAST HIT: ' + lastBeatHit);
 			return;
 		}
+
+		#if POLYMOD_ALLOWED
+		VSScriptEventDispatcher.dispatchPlayState('onBeatHit', curBeat);
+		#end
 		
 		if (ClientPrefs.data.petwatermark && petLogo != null && curBeat % 2 == 0) {
 			petLogo.scale.set(0.45, 0.45);

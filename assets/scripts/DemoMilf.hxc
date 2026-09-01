@@ -1,0 +1,49 @@
+// =============================================================
+//  DEMO: V-Slice scripted ŞARKI (.hxc) — "milf" şarkısına bağlanır.
+//  Konum: assets/scripts/DemoMilf.hxc
+//  Kural : script sınıfının ADI şarkı id'sine eşit olmalı
+//          ("milf" -> class Milf).
+//  Etki  : chart yüklenirken hızı %5 artırır, her beat'te HUD
+//          hafifçe nabız gibi atar, şarkı başında trace atar.
+//  Kaldırmak için dosyayı silmen yeterli.
+// =============================================================
+import funkin.play.song.Song;
+
+class Milf extends funkin.play.song.Song
+{
+	function new()
+	{
+		super('milf');
+	}
+
+	// Freeplay "NEW" rozeti: bu şarkı için script karar verir.
+	// (true yaparsan milf'te hep NEW rozeti görünür — dene!)
+	override function isSongNew():Bool
+	{
+		return false;
+	}
+
+	// Chart verisi hazırken çağrılır — chart'ı değiştirebilirsin.
+	function onSongLoaded(event:Dynamic):Void
+	{
+		states.PlayState.SONG.speed *= 1.05;
+	}
+
+	function onSongStart(event:Dynamic):Void
+	{
+		trace('DEMO: scripted song "milf" başladı!');
+	}
+
+	// Her beat'te HUD nabız efekti.
+	function onBeatHit(event:Dynamic):Void
+	{
+		var hud = states.PlayState.instance.camHUD;
+		if (hud != null)
+		{
+			var prev:Float = hud.zoom;
+			hud.zoom += 0.015;
+			flixel.tweens.FlxTween.tween(hud, {zoom: prev}, 0.2,
+				{ease: flixel.tweens.FlxEase.quadOut});
+		}
+	}
+}

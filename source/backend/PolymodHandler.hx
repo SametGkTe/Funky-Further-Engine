@@ -23,9 +23,12 @@ import haxe.Json;
  *     Polymod ile yüklenir. Asset'leri (`shared/`, `data/`, `images/` vb.) OPENFL
  *     Assets üzerinden override edilir.
  *
- * KAPSAM: `useScriptedClasses = false` (scripted class / .hxc script API'si bu
- * pakette yüklü değil). Sadece asset + veri modları. İleride `funkin.*` shim'leri
- * eklendikçe `useScriptedClasses = true`'ya geçilebilir.
+ * KAPSAM: `useScriptedClasses = true` — V-Slice class-tabanlı `.hxc` script
+ * API'si ETKİN. Polymod modlarındaki `.hxc` dosyaları polymod tarafından
+ * otomatik kaydedilir; Psych tarzı modlardaki class-tabanlı script'ler
+ * `vslice.scripting.VSScriptRegistry` üzerinden elle kaydedilir.
+ * Çözümleme: PlayState, scripted karakterleri/sahneleri VSScriptRegistry'den
+ * ister (bkz. docs/VSLICE_HSCRIPT.md).
  */
 class PolymodHandler
 {
@@ -65,12 +68,23 @@ class PolymodHandler
 		{
 			// Mod klasörlerini tarayıp "meta.json benzeri" _polymod_meta.json olanları seç.
 			buildModDirectories();
+
+			// ONEMLI: importOverrides Polymod.init'ten ONCE ayarlanmali.
+			// Polymod mod script'lerini init sirasinda yukleyip import'lari
+			// hemen cozdurur; overrides o an hazir olmazsa "Could not import
+			// funkin.play.PlayState" gibi hatalar alinir.
+			// (Polymod.init onceden kayitli script'leri temizler; bu yuzden
+			// assets/script'leri init'ten SONRA initialize() ile kaydedilir.)
+			vslice.scripting.VSScriptRegistry.prepare();
+			trace('[Polymod] v13 akisi aktif: importOverrides init\'ten ONCE kuruldu, simdi init basliyor...');
+
 			if (loadedModDirs.length == 0)
 			{
 				// Psych/Lua modları Polymod gerektirmez. Boş init bile özel asset
 				// library doğrulaması yapıp yanıltıcı ERROR üretiyordu.
 				loadedModMetadata = [];
 				initialized = true;
+				vslice.scripting.VSScriptRegistry.initialize();
 				return;
 			}
 
@@ -79,7 +93,7 @@ class PolymodHandler
 			var result:Array<Dynamic> = cast polymod.Polymod.init({
 				modRoot: MODS_FOLDER,
 				dirs: loadedModDirs,
-				useScriptedClasses: false,      // şimdilik asset-only
+				useScriptedClasses: true,       // V-Slice .hxc script API'si etkin
 				loadScriptsAsync: false,
 				errorCallback: onPolymodError,
 				ignoredFiles: buildIgnoreList(),
@@ -98,6 +112,7 @@ class PolymodHandler
 				}
 			}
 			initialized = true;
+			vslice.scripting.VSScriptRegistry.initialize();
 		}
 		catch (e:Dynamic)
 		{

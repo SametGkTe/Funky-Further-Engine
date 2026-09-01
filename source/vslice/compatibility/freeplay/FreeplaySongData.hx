@@ -9,6 +9,9 @@ import backend.freeplay.FreeplayCatalog;
 import backend.freeplay.FreeplayEntry;
 import haxe.ds.StringMap;
 import haxe.io.Path;
+#if POLYMOD_ALLOWED
+import vslice.scripting.VSScriptRegistry;
+#end
 
 /**
  * Data about a specific song in the freeplay menu. Very heaviely dependent on exact engine
@@ -580,6 +583,15 @@ class FreeplaySongData extends SngCapsuleData
 			isNew = false;
 			return;
 		}
+		#if POLYMOD_ALLOWED
+		// Scripted şarkı (V-Slice .hxc) isSongNew() override ediyorsa onun kararı geçerli.
+		var scriptedNew:Null<Bool> = VSScriptRegistry.scriptedSongIsNew(getNativeSongId());
+		if (scriptedNew == true)
+		{
+			isNew = true;
+			return;
+		}
+		#end
 		var wasCompleted = false;
 		var saveSongName = Paths.formatToSongPath(getNativeSongId());
 		for (x in Highscore.songScores.keys())

@@ -1,0 +1,32 @@
+// =============================================================
+//  DEMO: V-Slice scripted MODULE (.hxc)
+//  Konum: assets/scripts/DemoModule.hxc
+//  Etki : State'ler arası yaşar; HER şarkıda çalışır.
+//         Şarkı başında trace, 4. beat'te bir mesaj, şarkı
+//         sonunda mesaj. Kaldırmak için dosyayı sil.
+// =============================================================
+import funkin.modding.module.Module;
+
+class DemoModule extends funkin.modding.module.Module
+{
+	function new()
+	{
+		super('DemoModule');
+	}
+
+	function onSongStart(event:Dynamic):Void
+	{
+		trace('DEMO MODULE: şarkı başladı!');
+	}
+
+	function onBeatHit(event:Dynamic):Void
+	{
+		if (event.data == 4)
+			trace('DEMO MODULE: 4. beat!');
+	}
+
+	function onSongEnd(event:Dynamic):Void
+	{
+		trace('DEMO MODULE: şarkı bitti.');
+	}
+}

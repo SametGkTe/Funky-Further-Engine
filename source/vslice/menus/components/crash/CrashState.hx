@@ -4,7 +4,6 @@ import vslice.menus.components.crash.UserErrorSubstate.CrashData;
 import vslice.compatibility.VsliceOptions;
 import vslice.compatibility.ModsHelper;
 import flixel.FlxState;
-import vslice.menus.ui.title.TitleState;
 import openfl.events.ErrorEvent;
 import openfl.display.BitmapData;
 import openfl.events.UncaughtErrorEvent;

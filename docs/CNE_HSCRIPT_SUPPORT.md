@@ -26,7 +26,7 @@ yani **ek haxelib kurulumu gerekmez**. Paket adları yeni konuma göre güncelle
 | `strumLines`, `dad`, `boyfriend`, `gf` kısayolları | ✅ (strumLines uyumluluk sarmalayıcısı: members[0]=dad, [1]=boyfriend, [2]=gf) |
 | Script olayları: `create`, `createPost`, `update`, `updatePost`, `beatHit(curBeat)`, `stepHit(curStep)`, `onCountdownTick`, `onStartCountdown`, `onSongStart`, `onEndSong`, `onPause`, `onResume` | ✅ |
 | Not olayları: `onNoteHit(event)`, `onNoteMiss(event)`, `onPlayerMiss(event)` (NoteHitEvent) | ✅ |
-| `setVar` / `getVar` / `removeVar`, `initSaveData`/`getDataFromSave`/`setDataFromSave`, `debugPrint`, `__script__`, `disableScript` | ✅ |
+| `setVar` / `getVar` / `removeVar`, `initSaveData`/`getDataFromSave`/`setDataFromSave`, `debugPrint`, `createGlobalCallback`, `__script__`, `disableScript` | ✅ |
 | Varsayılan değişkenler: `FlxG`, `FlxSprite`, `FlxAnimate`, `FlxTween`, `Paths`, `Mods`, `ClientPrefs`, `FunkinText`, `FunkinSprite`, `PlayState`, `FlxVideo` (hxvlc), vs. | ✅ |
 | Hata durumunda ekran üstü debug metni + konsol çıktısı | ✅ |
 
@@ -94,6 +94,8 @@ Değişen mevcut dosyalar:
 - CNE script'lerindeki `onEvent` (chart event) çağrısı yok.
 - Multi-strumline yok (4k; `strumLines` sarmalayıcısı 3 satır döner).
 - Karakter/stage `.hx` scriptleri yüklenmez (sadece şarkı + state scriptleri).
+- `createGlobalCallback` sadece CNE scriptleri arasında paylaşılır (Further'ın kendi
+  Lua scriptlerine yazılmaz) — Lua entegrasyonu v1'de kapsam dışı.
 - CNE'nin ModState menüleri (`data/states/<Ad>` script'ten menü açma) desteklenmez.
 - State scriptleri `create` sırasında yüklenir; state scriptlerine `onCreatePost`
   vb. Psych kancaları bağlanmadı.

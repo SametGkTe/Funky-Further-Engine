@@ -336,12 +336,12 @@ class ClassExtendMacro {
 				return fields;
 			}
 
-			shadowClass.kind = TDClass({
-				pack: cl.pack.copy(),
-				name: cl.name
-			}, [
-				{name: "IHScriptCustomClassBehaviour", pack: ["hscript"]}
-			], false, true, false);
+		shadowClass.kind = TDClass({
+			pack: cl.pack.copy(),
+			name: cl.name
+		}, [
+			{name: "IHScriptCustomClassBehaviour", pack: ["cne", "compatibility", "codenamecrew", "hscript"]}
+		], false, true, false);
 			shadowClass.name = '${cl.name}$CLASS_SUFFIX';
 			var imports = Context.getLocalImports().copy();
 			Utils.setupMetas(shadowClass, imports);

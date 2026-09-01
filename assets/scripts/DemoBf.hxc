@@ -1,0 +1,33 @@
+// =============================================================
+//  DEMO: V-Slice (Polymod) class-tabanlı .hxc script'i
+//  Konum: assets/scripts/DemoBf.hxc   (repo köküne göre)
+//  Etki : "bf" karakterine bağlanır:
+//         - dans animasyonunda hafif tilt
+//         - her beat'te kısa bir ölçek vuruşu (onBeatHit olayı)
+//  Kaldırmak için dosyayı silmen yeterli.
+// =============================================================
+import objects.Character;
+
+class DemoBf extends objects.Character
+{
+	function new(x:Float, y:Float, char:String, isPlayer:Bool)
+	{
+		super(x, y, char, isPlayer);
+	}
+
+	override function dance():Void
+	{
+		super.dance();
+		// Her dans adımında 6 derece tilt -> sıradakinde geri al.
+		this.angle = (this.angle == 0) ? 6 : 0;
+	}
+
+	// V-Slice olayı: her beat'te çağrılır.
+	// event.type = 'onBeatHit', event.data = curBeat
+	function onBeatHit(event:Dynamic):Void
+	{
+		this.scale.set(1.05, 1.05);
+		flixel.tweens.FlxTween.tween(this.scale, {x: 1, y: 1}, 0.15,
+			{ease: flixel.tweens.FlxEase.quadOut});
+	}
+}

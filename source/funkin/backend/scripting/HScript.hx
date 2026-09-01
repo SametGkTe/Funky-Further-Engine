@@ -25,7 +25,6 @@ import cne.compatibility.codenamecrew.hscript.IHScriptCustomConstructor;
 import flixel.util.FlxStringUtil;
 import funkin.backend.scripting.events.CancellableEvent;
 import flixel.util.FlxSave;
-
 /**
 	Handles Codename Engine's HScript Improved for PsychExtended Online.
 **/
@@ -35,6 +34,9 @@ class HScript extends Script {
 	public var expr:Expr;
 	public var code:String = null;
 	//public var folderlessPath:String;
+
+	/** Global callbacks registered by scripts via createGlobalCallback; applied to every CNE script. */
+	public static var globalCallbacks:Map<String, Dynamic> = new Map<String, Dynamic>();
 	var __importedPaths:Array<String>;
 
 	public static function initParser() {
@@ -243,15 +245,19 @@ class HScript extends Script {
 			PlayState.instance.addTextToDebug(text, color);
 		});
 
-		// For adding your own callbacks
+		// Callbacks registered by other scripts (via createGlobalCallback) apply to this one too
+		for (name => func in globalCallbacks)
+			set(name, func);
+
+		// For adding your own callbacks (shared across all running CNE scripts)
 		set('createGlobalCallback', function(name:String, func:Dynamic)
 		{
-			#if LUA_ALLOWED
-			for (script in PlayState.instance.luaArray)
-				if(script != null && script.lua != null && !script.closed)
-					Lua_helper.add_callback(script.lua, name, func);
-			#end
-			psychlua.FunkinLua.customFunctions.set(name, func);
+			globalCallbacks.set(name, func);
+			var state = PlayState.instance;
+			if (state != null && state.cneScripts != null)
+				for (script in state.cneScripts.scripts)
+					if (script != null && script != this)
+						script.set(name, func);
 		});
 	}
 
@@ -501,7 +507,7 @@ class Script extends FlxBasic implements IFlxDestroyable {
 				else
 					return defaultValue;
 			}
-			trace('getDataFromSave: Save file not initialized: ' + name, false, false, FlxColor.RED);
+			trace('getDataFromSave: Save file not initialized: ' + name);
 			return defaultValue;
 		});
 		set("setDataFromSave", function(name:String, field:String, value:Dynamic) {
@@ -511,7 +517,7 @@ class Script extends FlxBasic implements IFlxDestroyable {
 				Reflect.setField(variables.get('save_$name').data, field, value);
 				return;
 			}
-			trace('setDataFromSave: Save file not initialized: ' + name, false, false, FlxColor.RED);
+			trace('setDataFromSave: Save file not initialized: ' + name);
 		});
 		set("__script__", this);
 
@@ -708,7 +714,12 @@ class ScriptPack extends Script {
 		return null;
 	}
 	public function importScript(path:String):Script {
-		var script = Script.create(Paths.script(path));
+		var resolved:String = ScriptLoader.find(path);
+		if (resolved == null) {
+			throw 'Script at ${path} does not exist.';
+			return null;
+		}
+		var script = Script.create(resolved);
 		if (script is DummyScript) {
 			throw 'Script at ${path} does not exist.';
 			return null;
@@ -871,8 +882,9 @@ class GlobalScript {
 		destroy();
 		scripts = new ScriptPack("GlobalScript");
 
-		var path = Paths.script('data/global', null, true); //global mod special ;)
+		var path = ScriptLoader.find('data/global');
 		trace(path);
+		if (path == null) return;
 		var script = Script.create(path);
 		if (script is DummyScript) {
 			trace('script is dummy');

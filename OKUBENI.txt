@@ -1,16 +1,82 @@
-FURTHER ENGINE - SENKRON PAKETI v2
-===================================
-BU SURUMDE: hscript arayuzu codenamecrew paketine tasindi.
-Dis "hscript" paketi TAMAMEN kaldirildi - "Type not found : hscript.IHScriptCustomClassBehaviour"
-hatasi yapisal olarak imkansiz hale geldi.
+FURTHER ENGINE - SENKRON PAKETI v14 (tam-yol extend + FNF shim kutuphanesi)
+=====================================================================
+BU SURUMDE (v13):
+- "Could not import ..." HATA TUFANI COZULDU. Kok neden: Polymod script
+  siniflarini STRING adla Type.resolveClass ile bulur; Haxe DCE'si
+  engine'in statik kullanmadigi siniflari ikiliden siliyordu. FNF de
+  ayni sebepten DCE'yi kapatir (project.hxp 1062-1066). Project.xml:
+    <haxeflag name="-dce" value="no" if="POLYMOD_ALLOWED" />
+    <haxeflag name="--macro" value="include('funkin', true)" if="POLYMOD_ALLOWED" />
+    <haxeflag name="--macro" value="include('vslice.scripting', true)" if="POLYMOD_ALLOWED" />
+  NOT: Derleme suresi uzar (DCE kapali), bu normal.
+  v13.1: include('vslice', true) KALDIRILDI - vslice/menus+stages altindaki
+  olu dosyalar (CrashState, AttractState, Template.hx) derleme hatasi
+  veriyordu. Artik sadece vslice.scripting zorlanir (runtime string
+  cozumune ihtiyaci olan tek paket).
+BU SURUMDE (v14):
+- TAM-YOL EXTEND DUZELTMESI (polymod Interp.validateImports): Sunday gibi
+  port modlar 'class X extends funkin.play.event.SongEvent' seklinde
+  TAM YOL yazar; polymod yalnizca kisa-ada bakiyordu ve yanlis
+  'Could not extend' hatasi veriyordu. Artik son bilesenle kisa-ad
+  bakilip fullPath birebir eslesiyorsa kabul edilir.
+- FNF SHIM KUTUPHANESI (17 yeni shim + 9 importOverride):
+  Aliases: funkin.Paths->backend.Paths, funkin.Conductor->backend.Conductor,
+  funkin.Highscore->backend.Highscore, funkin.ui.title.TitleState->states.TitleState,
+  funkin.graphics.FunkinCamera->flixel.FlxCamera, funkin.play.components.HealthIcon->objects.HealthIcon,
+  funkin.play.notes.NoteSprite->objects.Note, StrumlineNote->objects.StrumNote,
+  NoteSplash->objects.NoteSplash.
+  Yeni shim'ler (MINIMAL, @:noCustomClass korumali): funkin.Preferences,
+  funkin.util.Constants/WindowUtil, funkin.modding.module.ModuleHandler,
+  funkin.play.PlayStatePlaylist, funkin.play.components.PopUpStuff,
+  funkin.play.scoring.Scoring, funkin.play.character.CharacterDataParser/CharacterType,
+  funkin.play.cutscene.CutsceneType/VideoCutscene, funkin.play.notes.NoteHoldCover/Strumline,
+  funkin.play.notes.notestyle.NoteStyle, funkin.play.notes.notekind.NoteKindManager,
+  funkin.data.notestyle.NoteStyleRegistry, funkin.modding.base.ScriptedFlxRuntimeShader.
+  NOT: Bu shim'ler MINIMAL'dir (v1); metod seviyesinde FNF API'si tam degil.
+ONCEKI (v13.2):
+  v13.2: CNE ClassExtendMacro tum funkin.* siniflarina golge uretir;
+  yeni FNF shim'lerimizde iki sistem (CNE + polymod HScriptedClass)
+  cakisiyordu (_asc/scriptCall cakismalari). Shim'lerimize PEXO'nun
+  CancellableEvent'te kullandigi @:noCustomClass eklendi (18 sinif).
+  EventMacro da super zincirindeki recycle'i override etmeyi ogrendi
+  (ScriptEvent->CountdownScriptEvent zincirleri icin). Ayrica
+  MultiFramesCollection'a @:access(flixel.graphics.FlxGraphic)
+  eklendi (flixel git: useCount disaridan yazilamaz).
+- SIRALAMA DUZELTMESI: importOverrides artik Polymod.init()'ten ONCE
+  kaydedilir (VSScriptRegistry.prepare). Boylece mod script'leri
+  init sirasinda funkin.play.PlayState gibi override'lari gorebilir.
+  (Polymod.init onceden kayitli scriptleri TEMIZLER; bu yuzden
+  assets/script'leri init'ten SONRA initialize() ile kaydedilir.)
+- FNF event/stage shim'leri eklendi (Sunday modunun script siniflari
+  artik KAYDOLUR):
+  - funkin.play.stage.Stage (garage sahne script'i icin)
+  - funkin.play.event.SongEvent + ScriptedSongEvent
+  - funkin.modding.events.ScriptEvent/CountdownScriptEvent/StateChangeScriptEvent
+  - funkin.modding.base.ScriptedMusicBeatState
+- v12 ozellikleri bu pakette: FNF karakter JSON'u scriptClass destegi,
+  funkin.ui.MusicBeatState/SubState shim'leri, ScriptedMusicBeatState/
+  ScriptedMusicBeatSubState, module olaylari menu state'lerinde.
+- HALA EKSIK (import hatasi GURULTUSU uretir, oyunu bozmaz):
+  funkin.play.notes.*, funkin.Conductor, funkin.Paths, funkin.Preferences,
+  funkin.Highscore, funkin.util.Constants, funkin.play.components.*,
+  funkin.play.scoring.*, funkin.data.notestyle.*, funkin.play.cutscene.*,
+  funkin.modding.module.ModuleHandler, funkin.ui.title.TitleState,
+  funkin.graphics.FunkinCamera, funkin.modding.base.ScriptedFlxRuntimeShader.
+  Bunlar "genis funkin.* shim kutuphanesi" yol haritasi adiminda.
 
-KURULUM (sirasiyla):
+ONCEKI SURUMLER (v4..v12) bu pakette: polymod vendored (source/polymod,
+2.0.0 motor gomulu), 4 derleme duzeltmesi (registerScriptClassByString
+public, toString'ler, backend.Song ctor), PlayState ghostTap brace
+duzeltmesi, CNE paket tasima, class-tabanli .hxc koprusu, 17 olay
+dispatch'i, mania, scriptClass, state shim'leri.
+
+KURULUM (sirasiyla) - haxelib polymod GEREKMEZ (vendored):
 1) Repo kokunde su iki klasoru SIL:
    source\cne\compatibility\codenamecrew
    source\cne\compatibility\hscript        (varsa)
 2) Zip icerigini repo kokune cikar (ustune yaz).
 3) temizle-eski.bat calistir.
-4) tani.bat calistir -> [1] ve [2] bolumleri BOS olmali.
+4) tani.bat calistir -> [1] [2] [6] [7] BOS; [8][9][10][11] VAR demeli.
 5) lime test windows -clean
-
-Eski referanslarin nerede kaldigini gormek icin her zaman tani.bat calistir.
+   (DCE kapali oldugu icin ilk derleme UZUN surer - normal. Sonraki
+   derlemeler cache'ten hizli gider.)

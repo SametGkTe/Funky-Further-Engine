@@ -14,8 +14,11 @@ import flixel.util.FlxStringUtil;
 /**
  * Base class for all frame collections.
  * From Codename Engine.
+ * (Further v13.2: flixel git surumunde FlxGraphic.useCount (default, null)
+ * oldu - disaridan yazilamaz; @:access ile yazma izni alinir.)
  */
  @:access(flixel.graphics.frames.FlxFramesCollection)
+ @:access(flixel.graphics.FlxGraphic)
 class MultiFramesCollection extends FlxFramesCollection
 {
 	public var parentedFrames:Array<FlxFramesCollection> = [];

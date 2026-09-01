@@ -9,7 +9,6 @@ import hxvlc.flixel.FlxVideoSprite;
 import objects.WebVideoSprite as FlxVideo;
 #end
 using vslice.funkin.utils.ArrayTools;
-import vslice.menus.ui.title.TitleState;
 
 /**
  * After about 2 minutes of inactivity on the title screen,

@@ -3,6 +3,7 @@ package macros;
 #if macro
 import haxe.macro.Context;
 import haxe.macro.Expr;
+import haxe.macro.Type;
 
 /**
  * Macro that generates all additional fields, making events much easier to code in.
@@ -21,6 +22,21 @@ class EventMacro {
 		for(f in fields)
 			if (f.name == "recycle")
 				return fields;
+
+		// v13.2: Super zincirinde zaten recycle varsa (FNF shim zincirleri:
+		// ScriptEvent -> CountdownScriptEvent gibi), uretilecek recycle
+		// override olmali; aksi halde "Field recycle should be declared
+		// with 'override'" derleme hatasi alinir.
+		var hasRecycleInSuper = false;
+		var sup = curClass.superClass;
+		while (sup != null) {
+			var supT = sup.t.get();
+			var found = false;
+			for (f in supT.fields.get())
+				if (f.name == "recycle") { found = true; break; }
+			if (found) { hasRecycleInSuper = true; break; }
+			sup = supT.superClass;
+		}
 
 		// gets all fields
 		var values:Array<EventVar> = [];
@@ -65,7 +81,7 @@ class EventMacro {
 			pos: Context.currentPos(),
 			name: "recycle",
 			kind: FFun(func),
-			access: [APublic]
+			access: hasRecycleInSuper ? [APublic, AOverride] : [APublic]
 		};
 
 		fields.push(funcField);
@@ -106,7 +122,7 @@ class EventMacro {
 				}
 
 				exprs.push(macro return this);
-				exprs.insert(0, macro recycleBase());
+				exprs.insert(0, hasRecycleInSuper ? macro super.recycle() : macro recycleBase());
 			default:
 				// nothing
 		}

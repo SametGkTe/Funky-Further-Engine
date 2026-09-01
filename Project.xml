@@ -26,6 +26,22 @@
 	<!-- CNE HScript desteği (hscript-improved vendored: source/cne/compatibility, ek haxelib gerekmez) -->
 	<define name="HSC_ALLOWED" if="desktop || mobile" />
 	<define name="CUSTOM_CLASSES" if="HSC_ALLOWED" />
+	<define name="POLYMOD_ALLOWED" if="desktop || mobile" /> <!-- V-Slice .hxc script koprusu -->
+	<haxedef name="hscriptPos" if="POLYMOD_ALLOWED" />
+	<set name="POLYMOD_SCRIPT_EXT" value=".hscript" />
+	<!-- POLYMOD RUNTIME SINIF COZUMU: Polymod script siniflarini string adla
+	     Type.resolveClass ile bulur. DCE (dead code elimination) engine'in
+	     statik kullanmadigi siniflari ikiliden silerse "Could not import"
+	     hatalari alinir. FNF de ayni sebepten DCE'yi kapatir ve funkin.*
+	     paketini zorla derlemeye dahil eder (project.hxp satir 1062-1066).
+	     NOT: include('vslice', true) KULLANMAYIN - vslice/menus ve
+	     vslice/stages altinda hic derlenmemis olu dosyalar var (CrashState,
+	     AttractState, Template.hx). Sadece runtime'da string ile cozulen
+	     vslice.scripting paketi zorlanir; menus/stages zaten statik
+	     referanslidir. -->
+	<haxeflag name="-dce" value="no" if="POLYMOD_ALLOWED" />
+	<haxeflag name="--macro" value="include('funkin', true)" if="POLYMOD_ALLOWED" />
+	<haxeflag name="--macro" value="include('vslice.scripting', true)" if="POLYMOD_ALLOWED" />
 	<haxedef name="HSCRIPT_ABSTRACT_SUPPORT" if="HSC_ALLOWED" />
 	<haxedef name="hscriptPos" if="HSC_ALLOWED" />
 	<haxeflag name="--macro" value="keep('IntIterator')" if="HSC_ALLOWED" />
@@ -148,6 +164,11 @@
 	<!--Psych stuff needed-->
 	<haxelib name="linc_luajit" if="LUA_ALLOWED"/>
 	<haxelib name="hscript-iris" if="HSCRIPT_ALLOWED"/>
+	<!-- Polymod VENDORED: source/polymod (v2.0.0, hscript motoru gomulu).
+	     lib.haxe.org'da 2.0.0 yayinlanmadi (1.8.0'da motor YOK), bu yuzden
+	     repo icine gomuldu. haxelib polymod kurulumu GEREKMEZ. -->
+	<haxelib name="thx.semver"/>
+	<haxelib name="jsonpatch"/>
 	<haxelib name="hxvlc" if="VIDEOS_ALLOWED"/>
 	<haxelib name="hxdiscord_rpc" if="DISCORD_ALLOWED"/>
 	<haxelib name="flxanimate"/>

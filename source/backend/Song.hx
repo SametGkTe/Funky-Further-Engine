@@ -67,6 +67,27 @@ class Song
 	public var gfVersion:String = 'gf';
 	public var format:String = 'psych_v1';
 
+	public function new() {}
+
+	public function toString():String
+	{
+		return 'Song($song)';
+	}
+
+	// ------------------------------------------------------------------
+	// V-Slice script olayları (ScriptedSong köprüsü)
+	// Scripted sarmalayıcı üzerinden script'ler bu metodları override edebilir;
+	// super.x() çağrısı aşağıdaki boş stub'lara düşer.
+	// ------------------------------------------------------------------
+	public function isSongNew():Bool { return false; }
+	public function onSongLoaded(event:Dynamic):Void {}
+	public function onSongStart(event:Dynamic):Void {}
+	public function onSongEnd(event:Dynamic):Void {}
+	public function onBeatHit(event:Dynamic):Void {}
+	public function onStepHit(event:Dynamic):Void {}
+	public function onNoteHit(event:Dynamic):Void {}
+	public function onNoteMiss(event:Dynamic):Void {}
+
 	public static function convert(songJson:Dynamic) // Convert old charts to psych_v1 format
 	{
 		if(songJson.gfVersion == null)

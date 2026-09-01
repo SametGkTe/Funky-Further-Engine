@@ -42,13 +42,19 @@ class ScriptLoader
 			if (!dirs.contains(d)) dirs.push(d);
 		}
 		#end
-		dirs.push(Paths.getPreloadPath());
+		dirs.push(baseAssets());
 
 		for (d in dirs)
 			for (ex in EXTENSIONS)
 				if (FunkinFileSystem.exists('$d$basePath.$ex'))
 					return '$d$basePath.$ex';
 		return null;
+	}
+
+	/** Taban asset kökü (Psych'in getPreloadPath karşılığı) */
+	inline static function baseAssets():String
+	{
+		return 'assets/';
 	}
 
 	/**
@@ -73,7 +79,7 @@ class ScriptLoader
 			if (!dirs.contains(d)) dirs.push(d);
 		}
 		#end
-		dirs.push(Paths.getPreloadPath() + folder);
+		dirs.push(baseAssets() + folder);
 
 		for (d in dirs)
 		{

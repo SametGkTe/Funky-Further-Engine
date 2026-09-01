@@ -129,6 +129,12 @@ class VSliceCharacterConverter
 		}
 		out.animations = outAnims;
 
+		// FNF scriptClass (örn. "mymod.scripts.WhittyScript") tam adı koru —
+		// VSScriptRegistry bununla script'i doğrudan kurar.
+		var sc:Dynamic = Reflect.field(vslice, 'scriptClass');
+		if (sc != null && Std.string(sc).length > 0)
+			out.scriptClass = Std.string(sc);
+
 		return out;
 	}
 

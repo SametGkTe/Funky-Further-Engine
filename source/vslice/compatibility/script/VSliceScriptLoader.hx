@@ -35,10 +35,9 @@ import crowplexus.iris.Iris;
  *   callback adlarıyla eşleşmeli (onCreate, onUpdate, onBeatHit, onStepHit, goodNoteHit,
  *   noteMiss, onSongStart, onPause, onResume, onGameOver...). `ScriptEventBridge` bu
  *   eşleştirmeyi belgeler.
- * - Çalışmayan: `class Foo extends funkin.modding.module.ScriptedModule { ... }` tarzı
- *   class-tabanlı V-Slice modelleri. Bunlar `funkin.*` API'sine yazıldığı ve `@:hscriptClass`
- *   makrosuyla kurulduğu için, Psych'in kod tabanında karşılığı yoktur. Tam destek, resmi
- *   Polymod hscript class köprüsünün port edilmesini gerektirir (yol haritasındaki ileriki iş).
+ * - Class-tabanlı .hxc dosyaları (`class X extends ...`) ARTIK AYRI KÖPRÜDE:
+ *   VSScriptRegistry + Polymod (vslice/scripting/, bkz. docs/VSLICE_HSCRIPT.md).
+ *   Bu yükleyici o dosyaları atlar (Iris parse edemez).
  */
 class VSliceScriptLoader
 {
@@ -82,11 +81,27 @@ class VSliceScriptLoader
 	/**
 	 * Tek bir script dosyasını PlayState'in mevcut HScript sistemine yükler.
 	 * Zaten yüklüyse atlar. Hata olursa sessizce loglar (oyunu çökertmez).
+	 *
+	 * NOT (v2): Class-tabanlı script'ler (`class X extends ... { ... }`)
+	 * Iris'e yüklenmez — onlar VSScriptRegistry/Polymod köprüsüne kaydedilir
+	 * (bkz. docs/VSLICE_HSCRIPT.md). Burada yalnızca düz fonksiyon script'leri yüklenir.
 	 */
 	public static function loadScript(path:String):Bool
 	{
 		#if (HSCRIPT_ALLOWED && MODS_ALLOWED && sys)
 		if (path == null || !FileSystem.exists(path)) return false;
+
+		// Class-tabanlı .hxc/.hx dosyaları Polymod köprüsüne aittir (startup'ta
+		// VSScriptRegistry tarafından kaydedildiler). Iris bunları parse edemez.
+		#if POLYMOD_ALLOWED
+		var text:String = null;
+		try { text = File.getContent(path); } catch (e:Dynamic) {}
+		if (text != null && text.indexOf('class ') >= 0)
+		{
+			trace('[VSliceScriptLoader] Class-tabanli script atlandi (VSScriptRegistry yonetir): $path');
+			return true;
+		}
+		#end
 
 		// Iris, aynı yolu tekrar yüklemesin (mevcut davranış).
 		if (Iris.instances.exists(path)) return true;

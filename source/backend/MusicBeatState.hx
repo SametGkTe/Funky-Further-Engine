@@ -2,6 +2,9 @@ package backend;
 
 import flixel.FlxState;
 import backend.PsychCamera;
+#if POLYMOD_ALLOWED
+import vslice.scripting.VSScriptEventDispatcher;
+#end
 #if HSC_ALLOWED
 import funkin.backend.scripting.HScript.ScriptPack;
 import funkin.backend.scripting.ScriptLoader;
@@ -184,7 +187,12 @@ class MusicBeatState extends FlxState
 		call('destroy');
 		stateScripts = FlxDestroyUtil.destroy(stateScripts);
 		#end
-		
+
+		#if POLYMOD_ALLOWED
+		if (!Std.isOfType(this, states.PlayState))
+			VSScriptEventDispatcher.dispatchModules('onDestroy');
+		#end
+
 		super.destroy();
 	}
 
@@ -244,6 +252,13 @@ class MusicBeatState extends FlxState
 		}
 		FlxTransitionableState.skipNextTransOut = false;
 		timePassedOnState = 0;
+
+		#if POLYMOD_ALLOWED
+		// Module script'leri her state'te onCreate alir.
+		// PlayState kendi dispatch'ini zaten yapiyor (cift olmasin).
+		if (!Std.isOfType(this, states.PlayState))
+			VSScriptEventDispatcher.dispatchModules('onCreate');
+		#end
 	}
 
 	public function initPsychCamera():PsychCamera
@@ -292,6 +307,13 @@ class MusicBeatState extends FlxState
 		#if HSC_ALLOWED
 		call('update', [elapsed]);
 		call('postUpdate', [elapsed]);
+		#end
+
+		#if POLYMOD_ALLOWED
+		// Module script'leri menü state'lerinde de onUpdate alir
+		// (PlayState kendi dispatch'ini yapiyor).
+		if (!Std.isOfType(this, states.PlayState))
+			VSScriptEventDispatcher.dispatchModules('onUpdate', elapsed);
 		#end
 
 		super.update(elapsed);
