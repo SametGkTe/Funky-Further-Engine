@@ -1,0 +1,38 @@
+import funkin.play.event.SongEvent;
+import funkin.data.song.SongData.SongEventData;
+
+/**
+ * TestWarnEvent — v15 ScriptedSongEvent TESTİ.
+ *
+ * Resmî FNF sözdizimi: `class X extends SongEvent` + `super('EventAdi')`.
+ * Bu script yüklendiğinde 'TestWarn' adlı chart event'i çalışır hale gelir.
+ *
+ * TEST: Chart Editor'de herhangi bir şarkıya 'TestWarn' adında event ekle
+ * (V-Slice mod chart'larında events dizisine {"t": ..., "e": "TestWarn", "v": {"mesaj": "merhaba"}}
+ * şeklinde de eklenebilir) — event zamanı gelince log düşer:
+ *   [FETest] TestWarn tetiklendi! mesaj=...
+ *
+ * NOT: Psych Chart Editor'ün event listesinde görünmez (liste Psych
+ * event'lerinden gelir); ama chart JSON'una elle eklenince ÇALIŞIR.
+ */
+class TestWarnEvent extends SongEvent
+{
+	public function new()
+	{
+		super('TestWarn');
+		trace('[FETest] TestWarn handler kaydedildi.');
+	}
+
+	override function handleEvent(data:SongEventData)
+	{
+		var mesaj:String = data.getString('mesaj');
+		if (mesaj == null) mesaj = '(yok)';
+		trace('[FETest] TestWarn tetiklendi! mesaj=' + mesaj + ' value=' + data.value
+			+ ' time=' + data.time);
+	}
+
+	override function getTitle():String
+	{
+		return 'Test Warn (Further)';
+	}
+}

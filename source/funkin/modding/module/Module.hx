@@ -33,6 +33,10 @@ class Module
 	}
 
 	// ---- V-Slice script olayları (script'ler override edip super.x() çağırabilir) ----
+	// Liste resmî funkin v0.8.7 Module.hx ile birebir hizalıdır; super.X()
+	// çağrılarının çalışması için metodun BURADA var olması şarttır
+	// (Polymod, __super_X yardımcılarını yalnızca mevcut metodlar için üretir).
+	public function onScriptEvent(event:Dynamic):Void {}
 	public function onCreate(event:Dynamic):Void {}
 	public function onCreatePost(event:Dynamic):Void {}
 	public function onDestroy(event:Dynamic):Void {}
@@ -43,11 +47,35 @@ class Module
 	public function onCountdownEnd(event:Dynamic):Void {}
 	public function onSongStart(event:Dynamic):Void {}
 	public function onSongEnd(event:Dynamic):Void {}
+	public function onSongLoaded(event:Dynamic):Void {}
+	public function onSongRetry(event:Dynamic):Void {}
+	public function onSongEvent(event:Dynamic):Void {}
 	public function onBeatHit(event:Dynamic):Void {}
 	public function onStepHit(event:Dynamic):Void {}
+	public function onNoteIncoming(event:Dynamic):Void {}
 	public function onNoteHit(event:Dynamic):Void {}
 	public function onNoteMiss(event:Dynamic):Void {}
+	public function onNoteHoldDrop(event:Dynamic):Void {}
 	public function onNoteGhostMiss(event:Dynamic):Void {}
+	public function onGameOver(event:Dynamic):Void {}
 	public function onPause(event:Dynamic):Void {}
 	public function onResume(event:Dynamic):Void {}
+	public function onFocusGained(event:Dynamic):Void {}
+	public function onFocusLost(event:Dynamic):Void {}
+	public function onStateChangeBegin(event:Dynamic):Void {}
+	public function onStateChangeEnd(event:Dynamic):Void {}
+	public function onStateCreate(event:Dynamic):Void {}
+	public function onSubStateOpenBegin(event:Dynamic):Void {}
+	public function onSubStateOpenEnd(event:Dynamic):Void {}
+	public function onSubStateCloseBegin(event:Dynamic):Void {}
+	public function onSubStateCloseEnd(event:Dynamic):Void {}
+	public function onCapsuleSelected(event:Dynamic):Void {}
+	public function onDifficultySwitch(event:Dynamic):Void {}
+	public function onSongSelected(event:Dynamic):Void {}
+	public function onFreeplayIntroDone(event:Dynamic):Void {}
+	public function onFreeplayOutro(event:Dynamic):Void {}
+	public function onFreeplayClose(event:Dynamic):Void {}
+	public function onCharacterSelect(event:Dynamic):Void {}
+	public function onCharacterDeselect(event:Dynamic):Void {}
+	public function onCharacterConfirm(event:Dynamic):Void {}
 }

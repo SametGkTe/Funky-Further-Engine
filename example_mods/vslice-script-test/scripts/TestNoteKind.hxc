@@ -1,0 +1,25 @@
+import funkin.play.notes.notekind.NoteKind;
+import funkin.modding.events.ScriptEvent.HitNoteScriptEvent;
+
+/**
+ * TestNoteKind — v17 (Faz 3) NoteKind script testi.
+ *
+ * Chart'ta `"k": "testkind"` olan bir nota vurulunca log basar:
+ *   [FETest] NoteKind onNoteHit — kind=testkind judge=...
+ *
+ * Kayıt otomatik: NoteKindManager.registerScriptedNoteKinds(),
+ * ScriptedNoteKind sarmalayıcısı üzerinden bu sınıfı bulur ve
+ * super('testkind') id'siyle önbelleğe alır.
+ */
+class TestNoteKind extends NoteKind
+{
+	public function new()
+	{
+		super('testkind', 'Faz 3 test note kind');
+	}
+
+	override function onNoteHit(event:HitNoteScriptEvent)
+	{
+		trace('[FETest] NoteKind onNoteHit — kind=' + noteKind + ' judge=' + event.judgement);
+	}
+}

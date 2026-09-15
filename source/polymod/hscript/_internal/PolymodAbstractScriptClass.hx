@@ -337,6 +337,15 @@ abstract PolymodAbstractScriptClass(PolymodScriptClass) from PolymodScriptClass
         Reflect.setProperty(o, field, value);
         return true;
       }
+      try
+      {
+        Reflect.setProperty(o, field, value);
+        return true;
+      }
+      catch (e)
+      {
+        throw 'No such field $field';
+      }
     }
 
     throw 'No such field $field';

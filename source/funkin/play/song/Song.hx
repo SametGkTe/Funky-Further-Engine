@@ -21,4 +21,44 @@ class Song extends backend.Song
 		super();
 		this.songId = (id != null) ? id : '';
 	}
+
+	/* ---- v18: resmî ScriptedSong alan köprüleri ---- */
+
+	/** Resmî FNF: song.id — şarkının kimliği (örn. 'madness-sunday'). (v21) */
+	public var id(get, never):String;
+
+	function get_id():String
+	{
+		if (songId != null && songId != '') return songId;
+		if (states.PlayState.SONG != null) return states.PlayState.SONG.song;
+		return '';
+	}
+
+	/** Resmî FNF: song.name — görünen ad (Further: id ile aynı). (v21) */
+	public var name(get, never):String;
+
+	function get_name():String return get_id();
+
+	/** Resmî FNF: song.songName (Further: çalan şarkının id'si). */
+	public var songName(get, never):String;
+
+	function get_songName():String
+	{
+		if (states.PlayState.SONG != null && states.PlayState.SONG.song != null)
+			return states.PlayState.SONG.song;
+		return songId;
+	}
+
+	/** Resmî FNF: song.length (ms; Further: çalan müziğin uzunluğu). */
+	public var length(get, never):Float;
+
+	function get_length():Float
+	{
+		if (flixel.FlxG.sound != null && flixel.FlxG.sound.music != null)
+			return flixel.FlxG.sound.music.length;
+		return 0;
+	}
+
+	/** Resmî FNF: getSongId() */
+	public function getSongId():String return songId;
 }

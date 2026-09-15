@@ -60,6 +60,13 @@ class Note extends FlxSprite
 	public var canBeHit:Bool = false;
 	public var tooLate:Bool = false;
 
+	/** Resmî FNF Note API'si (v21c): nota oyuncuya mı ait? V-Slice script'leri
+	 *  `event.note.getMustHitNote()` kalıbını çok sık kullanır. */
+	public function getMustHitNote():Bool return mustPress;
+
+	/** Resmî FNF Note API'si (v21c): ham yön (0-3). Further'da noteData ile aynı. */
+	public function getRawNote():Int return noteData;
+
 	public var wasGoodHit:Bool = false;
 	public var missed:Bool = false;
 
@@ -129,6 +136,7 @@ class Note extends FlxSprite
 	public var rating:String = 'unknown';
 	public var ratingMod:Float = 0; //9 = unknown, 0.25 = shit, 0.5 = bad, 0.75 = good, 1 = sick
 	public var ratingDisabled:Bool = false;
+	public var hitDiff:Float = 0; // V-Slice: vuruş anındaki zaman farkı (ms) — HitNoteScriptEvent.hitDiff için (v16)
 
 	public var texture(default, set):String = null;
 

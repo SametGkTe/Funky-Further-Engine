@@ -407,6 +407,11 @@ class MusicBeatState extends FlxState
 
 	public function stepHit():Void
 	{
+		#if POLYMOD_ALLOWED
+		// v18: V-Slice Conductor.instance.onStepHit FlxSignal yayını
+		funkin.Conductor.instance.onStepHit.dispatch();
+		#end
+
 		stagesFunc(function(stage:BaseStage) {
 			stage.curStep = curStep;
 			stage.curDecStep = curDecStep;
@@ -420,6 +425,12 @@ class MusicBeatState extends FlxState
 	public var stages:Array<BaseStage> = [];
 	public function beatHit():Void
 	{
+		#if POLYMOD_ALLOWED
+		// v18: V-Slice Conductor.instance.onBeatHit/onMeasureHit FlxSignal yayını
+		funkin.Conductor.instance.onBeatHit.dispatch();
+		if (curBeat % 4 == 0) funkin.Conductor.instance.onMeasureHit.dispatch();
+		#end
+
 		//trace('Beat: ' + curBeat);
 		stagesFunc(function(stage:BaseStage) {
 			stage.curBeat = curBeat;

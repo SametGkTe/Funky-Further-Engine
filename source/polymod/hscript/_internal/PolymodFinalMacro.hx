@@ -43,16 +43,49 @@ class PolymodFinalMacro
 
   public static function getAllFinals():Map<String, Array<String>>
   {
-    if (_allFinals == null) _allFinals = PolymodFinalMacro.fetchAllFinals();
-    return _allFinals;
+    // v21e2 (Faz 4.7b): 'locateAllFinals' makrosu bu vendored kopyada hicbir
+    // yerden CAGRILMIYOR; 'PolymodFinalMacro_METADATA' kaynagi bos kaliyor ve
+    // Unserializer.run('') => "Invalid char  at position 0" firlatiyordu.
+    // Resmi FunkinCrew polymod'u bu mekanizmayi devre disi birakmis durumda
+    // (getAllFinals() bos doner). Ayni davranis: metadata yoksa bos map.
+    // Yerel degisken: @:nullSafety altinda 'return _allFinals' nullable kalmasin.
+    var result:Null<Map<String, Array<String>>> = _allFinals;
+    if (result == null)
+    {
+      result = [];
+      try
+      {
+        result = PolymodFinalMacro.fetchAllFinals();
+      }
+      catch (e:Dynamic)
+      {
+        // metadata yok/bozuk -> bos map (final korumasi kapali)
+      }
+      _allFinals = result;
+    }
+    return result;
   }
 
   private static var _allPrivates:Null<Map<String, Array<String>>> = null;
 
   public static function getAllPrivateProperties():Map<String, Array<String>>
   {
-    if (_allPrivates == null) _allPrivates = PolymodFinalMacro.fetchAllPrivateProperties();
-    return _allPrivates;
+    // v21e2 (Faz 4.7b): getAllFinals ile ayni neden (bkz. yukaridaki yorum).
+    var result:Null<Map<String, Array<String>>> = _allPrivates;
+    if (result == null)
+    {
+      result = [];
+      try
+      {
+        result = PolymodFinalMacro.fetchAllPrivateProperties();
+      }
+      catch (e:Dynamic)
+      {
+        // metadata yok/bozuk -> bos map
+      }
+      _allPrivates = result;
+    }
+    return result;
   }
 
   public static macro function locateAllFinals():Void

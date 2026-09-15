@@ -243,6 +243,59 @@ class PlayState extends MusicBeatState
 	public var gf:Character = null;
 	public var boyfriend:Character = null;
 
+	// V-Slice/FNF alan takma adları (v16): resmî FNF script'leri
+	// PlayState.instance.opponent / .girlfriend / .currentStage kullanır.
+	public var opponent(get, never):Character;
+	public var girlfriend(get, never):Character;
+	public var currentStage(get, never):BaseStage;
+
+	function get_opponent():Character return dad;
+	function get_girlfriend():Character return gf;
+	function get_currentStage():BaseStage return (stages != null && stages.length > 0) ? stages[0] : null;
+
+	// V-Slice stub'ları (v20): mod script'leri PlayState.instance.comboPopUps.noteStyle
+	// ve currentChart.noteStyle erişimi yapar; null crash'i yerine güvenli taşıyıcı.
+	public var comboPopUps:Dynamic = {noteStyle: null, comboSpacing: 0};
+	public var currentChart(get, never):Dynamic;
+	function get_currentChart():Dynamic return SONG;
+
+	// V-Slice strumline takma adları (v17): görünüm nesneleri gerçek
+	// Psych gruplarına bağlanır (notes / playerStrums / opponentStrums).
+	public var playerStrumline(get, never):funkin.play.notes.Strumline;
+	public var opponentStrumline(get, never):funkin.play.notes.Strumline;
+	var _vsPlayerStrumline:funkin.play.notes.Strumline;
+	var _vsOpponentStrumline:funkin.play.notes.Strumline;
+
+	function get_playerStrumline():funkin.play.notes.Strumline
+	{
+		if (_vsPlayerStrumline == null)
+		{
+			_vsPlayerStrumline = new funkin.play.notes.Strumline();
+			_vsPlayerStrumline.isPlayer = true;
+		}
+		_vsPlayerStrumline.characters = (boyfriend != null) ? [boyfriend] : [];
+		_vsPlayerStrumline.notes = notes;
+		_vsPlayerStrumline.strumlineNotes = playerStrums;
+		_vsPlayerStrumline.scrollSpeed = songSpeed;
+		_vsPlayerStrumline.isDownscroll = ClientPrefs.data.downScroll;
+		return _vsPlayerStrumline;
+	}
+
+	function get_opponentStrumline():funkin.play.notes.Strumline
+	{
+		if (_vsOpponentStrumline == null)
+		{
+			_vsOpponentStrumline = new funkin.play.notes.Strumline();
+			_vsOpponentStrumline.isPlayer = false;
+		}
+		_vsOpponentStrumline.characters = (dad != null) ? [dad] : [];
+		_vsOpponentStrumline.notes = notes;
+		_vsOpponentStrumline.strumlineNotes = opponentStrums;
+		_vsOpponentStrumline.scrollSpeed = songSpeed;
+		_vsOpponentStrumline.isDownscroll = ClientPrefs.data.downScroll;
+		return _vsOpponentStrumline;
+	}
+
 	public var notes:FlxTypedGroup<Note>;
 	public var unspawnNotes:Array<Note> = [];
 	public var eventNotes:Array<EventNote> = [];
@@ -259,6 +312,13 @@ class PlayState extends MusicBeatState
 	public var camZooming:Bool = false;
 	public var camZoomingMult:Float = 1;
 	public var camZoomingDecay:Float = 1;
+
+	// v18: V-Slice SetCameraBop resmî alanları (kamyon: camZoomingMult).
+	// cameraZoomRate>0 ise section vuruşu yalnızca (curBeat+offset)%rate==0'da zoom punch yapar.
+	public var cameraBopIntensity:Float = 1.0;
+	public var hudCameraZoomIntensity:Float = 1.0;
+	public var cameraZoomRate:Float = 0;
+	public var cameraZoomRateOffset:Float = 0;
 	private var curSong:String = "";
 
 	public var gfSpeed:Int = 1;
@@ -343,6 +403,37 @@ class PlayState extends MusicBeatState
 	#if POLYMOD_ALLOWED
 	/** Scripted şarkı (V-Slice .hxc; sınıf adı = şarkı id'si). generateSong sırasında kurulur. */
 	public var vsSongScript:funkin.play.song.Song = null;
+
+	// v18: V-Slice takma adı — PlayState.instance.song (resmî: ScriptedSong).
+	// vsSongScript henüz kurulmadıysa tembel çözümleme yapılır.
+	public var song(get, never):funkin.play.song.Song;
+
+	function get_song():funkin.play.song.Song
+	{
+		if (vsSongScript == null && PlayState.SONG != null)
+			vsSongScript = VSScriptRegistry.resolveSong(PlayState.SONG.song);
+		return vsSongScript;
+	}
+
+	// v21 (Faz 4.6): Resmî takma ad — PlayState.instance.currentSong.
+	// V-Slice script'leri şarkı ayrımını `currentSong.id` ile yapar (örn. garage.hxc).
+	var _vsCurrentSongFallback:funkin.play.song.Song;
+	public var currentSong(get, never):funkin.play.song.Song;
+
+	function get_currentSong():funkin.play.song.Song
+	{
+		if (vsSongScript != null) return vsSongScript;
+		if (SONG == null) return null;
+		// Scripted şarkı yoksa: id'si dolu bir Song shim'i (fallback) üret.
+		if (_vsCurrentSongFallback == null || _vsCurrentSongFallback.songId != SONG.song)
+			_vsCurrentSongFallback = new funkin.play.song.Song(SONG.song);
+		return _vsCurrentSongFallback;
+	}
+
+	// v21 (Faz 4.6): Resmî takma ad — PlayState.instance.camCutscene.
+	// Resmî FNF'te ara sahne kamerası; Further'da camOther aynı görevi görür.
+	public var camCutscene(get, never):FlxCamera;
+	function get_camCutscene():FlxCamera return camOther;
 	#end
 	#end
 	#if LUA_ALLOWED public var luaArray:Array<FunkinLua> = []; #end
@@ -487,8 +578,10 @@ class PlayState extends MusicBeatState
 		dadGroup = new FlxSpriteGroup(DAD_X, DAD_Y);
 		gfGroup = new FlxSpriteGroup(GF_X, GF_Y);
 
+		var vsScriptedStage:BaseStage = null;
 		#if POLYMOD_ALLOWED
-		if (VSScriptRegistry.resolveStage(curStage) == null)
+		vsScriptedStage = VSScriptRegistry.resolveStage(curStage);
+		if (vsScriptedStage == null)
 		#end
 		switch (curStage)
 		{
@@ -544,7 +637,10 @@ class PlayState extends MusicBeatState
 		startCharacterPos(boyfriend);
 		boyfriendGroup.add(boyfriend);
 		
-		if(stageData.objects != null && stageData.objects.length > 0)
+		// v20: Script'li V-Slice sahnesi yüklendiyse JSON objeleri ÜRETİLMEZ
+		// (resmî FNF'de script'li sahnelerin JSON'unda props zaten boştur;
+		// bu guard karışık modlarda çift görüntüyü engeller).
+		if(vsScriptedStage == null && stageData.objects != null && stageData.objects.length > 0)
 		{
 			var list:Map<String, FlxSprite> = StageData.addObjectsToState(stageData.objects, !stageData.hide_girlfriend ? gfGroup : null, dadGroup, boyfriendGroup, this);
 			for (key => spr in list)
@@ -796,6 +892,12 @@ class PlayState extends MusicBeatState
 			for (event in eventNotes) event.strumTime -= eventEarlyTrigger(event);
 			eventNotes.sort(sortByTime);
 		}
+
+		#if POLYMOD_ALLOWED
+		// V-Slice: bu şarkının chart event'leri için SongEvent handler'larını topla
+		// (yaşam döngüsü olayları yalnızca şarkıda kullanılan handler'lara gider — resmî FNF).
+		vslice.compatibility.script.VSliceEventBridge.registerSongEventHandlers(eventNotes);
+		#end
 
 		#if FURTHER_ONLINE
 		if (GameClient.isConnected())
@@ -1644,9 +1746,9 @@ class PlayState extends MusicBeatState
 		#if POLYMOD_ALLOWED
 		if (vsSongScript == null)
 			vsSongScript = VSScriptRegistry.resolveSong(PlayState.SONG.song);
-		if (vsSongScript != null)
-			VSScriptEventDispatcher.dispatch(vsSongScript, 'onSongLoaded',
-				VSScriptEventDispatcher.make('onSongLoaded', PlayState.SONG));
+		// Resmî FNF: SONG_LOADED olayı TÜM script hedeflerine yayılır
+		// (şarkı script'i, modüller, sahneler, karakterler, song event handler'lar).
+		VSScriptEventDispatcher.dispatchPlayState('onSongLoaded', PlayState.SONG);
 		#end
 
 		songSpeed = PlayState.SONG.speed;
@@ -3047,6 +3149,13 @@ class PlayState extends MusicBeatState
 
 		stagesFunc(function(stage:BaseStage) stage.eventCalled(eventName, value1, value2, flValue1, flValue2, strumTime));
 		callOnScripts('onEvent', [eventName, value1, value2, strumTime]);
+
+		#if POLYMOD_ALLOWED
+		// V-Slice köprüsü: resmî FNF akışı (onSongEvent yayını + SongEventRegistry.handleEvent).
+		// Scripted SongEvent'ler ve yerleşik V-Slice event'leri (FocusCamera, ZoomCamera,
+		// PlayAnimation, ScrollSpeed, SetHealthIcon) burada çalışır.
+		vslice.compatibility.script.VSliceEventBridge.onTriggerEvent(this, eventName, value1, value2, strumTime);
+		#end
 	}
 
 	public function moveCameraSection(?sec:Null<Int>):Void {
@@ -3429,6 +3538,7 @@ class PlayState extends MusicBeatState
 		note.ratingMod = daRating.ratingMod;
 		if(!note.ratingDisabled) daRating.hits++;
 		note.rating = daRating.name;
+		note.hitDiff = noteDiff / playbackRate; // V-Slice HitNoteScriptEvent.hitDiff (v16)
 		score = daRating.score;
 
 		if(daRating.noteSplash && !note.noteSplashData.disabled)
@@ -3794,6 +3904,15 @@ class PlayState extends MusicBeatState
 	}
 
 	function noteMiss(daNote:Note):Void { //You didn't hit the key and let it go offscreen, also used by Hurt Notes
+		#if POLYMOD_ALLOWED
+		// V-Slice: NOTE_MISS iptal edilebilir — script event.cancel() çağırırsa
+		// miss cezası (can/skor kaybı + animasyon) hiç uygulanmaz (resmî FNF davranışı).
+		var vsMissEv:Dynamic = VSScriptEventDispatcher.dispatchPlayState('onNoteMiss', daNote);
+		// v17: V-Slice note kind (chart 'k' -> noteType) scriptlerine de ilet
+		if (daNote != null && daNote.noteType != null && daNote.noteType.length > 0)
+			funkin.play.notes.notekind.NoteKindManager.dispatchToKind(daNote.noteType, vsMissEv);
+		if (vsMissEv != null && vsMissEv.cancelled) return;
+		#end
 		notes.forEachAlive(function(note:Note) {
 			if (daNote != note && daNote.mustPress && daNote.noteData == note.noteData && daNote.isSustainNote == note.isSustainNote && Math.abs(daNote.strumTime - note.strumTime) < 1)
 				invalidateNote(note);
@@ -3801,9 +3920,6 @@ class PlayState extends MusicBeatState
 
 		noteMissCommon(daNote.noteData, daNote);
 		stagesFunc(function(stage:BaseStage) stage.noteMiss(daNote));
-		#if POLYMOD_ALLOWED
-		VSScriptEventDispatcher.dispatchPlayState('onNoteMiss', daNote);
-		#end
 		#if HSC_ALLOWED
 		if (cneScripts != null && daNote != null)
 		{
@@ -4157,6 +4273,30 @@ class PlayState extends MusicBeatState
 		}
 
 		stagesFunc(function(stage:BaseStage) stage.goodNoteHit(note));
+		#if POLYMOD_ALLOWED
+		// V-Slice: oyuncu nota vuruşu — resmî HitNoteScriptEvent alanlarıyla yayılır
+		// (judgement/score/comboCount/healthChange/doesNotesplash).
+		{
+			var vsJudge:String = (note.rating != null) ? note.rating : 'sick';
+			var vsScore:Int = 350;
+			for (r in ratingsData)
+			{
+				if (r != null && r.name == vsJudge)
+				{
+					vsScore = r.score;
+					break;
+				}
+			}
+			var vsHealthChange:Float = note.hitCausesMiss ? 0 : note.hitHealth * healthGain;
+			var vsSplash:Bool = !note.isSustainNote && note.noteSplashData != null && !note.noteSplashData.disabled;
+			var vsHitEv = new funkin.modding.events.ScriptEvent.HitNoteScriptEvent(note, vsHealthChange, note.isSustainNote ? 0 : vsScore, vsJudge, false, combo,
+				note.hitDiff, vsSplash);
+			VSScriptEventDispatcher.dispatchPlayStateEvent('onNoteHit', vsHitEv);
+			// v17: V-Slice note kind (chart 'k' -> noteType) scriptlerine de ilet
+			if (note.noteType != null && note.noteType.length > 0)
+				funkin.play.notes.notekind.NoteKindManager.dispatchToKind(note.noteType, vsHitEv);
+		}
+		#end
 		#if HSC_ALLOWED
 		if (cneScripts != null)
 		{
@@ -4448,7 +4588,8 @@ class PlayState extends MusicBeatState
 			if (generatedMusic && !endingSong && !isCameraOnForcedPos)
 				moveCameraSection();
 
-			if (camZooming && FlxG.camera.zoom < 1.35 && ClientPrefs.data.camZooms)
+			if (camZooming && FlxG.camera.zoom < 1.35 && ClientPrefs.data.camZooms
+				&& (cameraZoomRate < 1 || (curBeat + Std.int(cameraZoomRateOffset)) % Std.int(cameraZoomRate) == 0))
 			{
 				FlxG.camera.zoom += 0.015 * camZoomingMult;
 				camHUD.zoom += 0.03 * camZoomingMult;

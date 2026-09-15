@@ -41,6 +41,34 @@ class VSScriptRegistry
 		registerManualFolders();
 		PolymodInterp.validateImports();
 		buildModules();
+		reloadSongEvents();
+	}
+
+	/**
+	 * V-Slice SongEvent kayıtlarını (yeniden) kurar:
+	 * yerleşik V-Slice chart event'leri + ScriptedSongEvent script'leri.
+	 * Mod listesi değiştiğinde de çağrılabilir.
+	 */
+	public static function reloadSongEvents():Void
+	{
+		try
+		{
+			funkin.data.event.SongEventRegistry.loadEventCache();
+		}
+		catch (e:Dynamic)
+		{
+			trace('[VSScriptRegistry] SongEventRegistry yuklenemedi: $e');
+		}
+		try
+		{
+			// v17: Scripted NoteKind sınıflarını da (re)kur
+			funkin.play.notes.notekind.NoteKindManager.clearNoteKindCache();
+			funkin.play.notes.notekind.NoteKindManager.initialize();
+		}
+		catch (e:Dynamic)
+		{
+			trace('[VSScriptRegistry] NoteKindManager yuklenemedi: $e');
+		}
 	}
 
 	/**
@@ -52,6 +80,9 @@ class VSScriptRegistry
 	public static function prepare():Void
 	{
 		registerImportOverrides();
+		// Mod değişiminde indeksler bayatlar (Polymod.init script'leri temizler).
+		stageIndex = null;
+		charIndex = null;
 	}
 
 	/**
@@ -68,7 +99,11 @@ class VSScriptRegistry
 		// v14: FNF mod'larinin sik kullandigi siniflar -> Psych karsiliklari
 		// (tip cozumu icin; metod seviyesinde farkliliklar olabilir, v1).
 		PolymodScriptClass.importOverrides.set('funkin.Paths', backend.Paths);
-		PolymodScriptClass.importOverrides.set('funkin.Conductor', backend.Conductor);
+		// v16: 'funkin.Conductor' override KALDIRILDI — artik gercek shim var
+		// (source/funkin/Conductor.hx): Conductor.instance.songPosition vb.
+		// resmî API + getTimeInSteps/getStepTimeInMs... Type.resolveClass ile
+		// kendisi cozulur; override backend.Conductor'a yonlendirip
+		// `instance` erisimini bozuyordu.
 		PolymodScriptClass.importOverrides.set('funkin.Highscore', backend.Highscore);
 		PolymodScriptClass.importOverrides.set('funkin.ui.title.TitleState', states.TitleState);
 		PolymodScriptClass.importOverrides.set('funkin.graphics.FunkinCamera', flixel.FlxCamera);
@@ -264,31 +299,83 @@ class VSScriptRegistry
 	/* =============================== SAHNE =============================== */
 
 	/**
-	 * Adı `stageName` ile eşleşen scripted sahneyi kurar; yoksa null.
-	 * Sözleşme: script sınıfının adı sahne adına eşit olmalı (örn. Mall -> "mall").
+	 * Resmî FNF StageRegistry semantiği (v20): scripted sahne örneğinin
+	 * registry anahtarı SINIF ADI değil, script'in `super('garage')` ile
+	 * verdiği ID'dir (BaseRegistry.loadEntries: entries.set(entry.id, ...)).
+	 * Bu yüzden her scripted sahne sınıfı bir kez PROBE ile kurulur, id'si
+	 * okunur, probe stages listesinden çıkarılıp destroy edilir.
+	 */
+	static var stageIndex:Map<String, String> = null; // küçük harf id -> script sınıf adı
+
+	static function buildStageIndex():Void
+	{
+		if (stageIndex != null) return;
+		stageIndex = new Map<String, String>();
+		var names:Array<String> = null;
+		try { names = ScriptedStage.listScriptClasses(); }
+		catch (e:Dynamic)
+		{
+			trace('[VSScriptRegistry] listScriptClasses HATA: $e');
+			return;
+		}
+		if (names == null) return;
+		trace('[VSScriptRegistry] Scripted sahne siniflari: ${names.length} -> ${names.join(", ")}');
+		for (cls in names)
+		{
+			var inst:Dynamic = null;
+			try { inst = ScriptedStage.scriptInit(cls, cls); }
+			catch (e:Dynamic)
+			{
+				trace('[VSScriptRegistry] Sahne probe EXCEPTION: $cls — $e');
+				continue;
+			}
+			if (inst == null)
+			{
+				trace('[VSScriptRegistry] Sahne probe BASARISIZ (scriptInit null): $cls');
+				continue;
+			}
+			var sid:String = null;
+			try { sid = Std.string(inst.id); } catch (e:Dynamic) {}
+			if (sid == null || sid == '' || sid == 'null') sid = cls;
+			stageIndex.set(sid.toLowerCase(), cls);
+			trace('[VSScriptRegistry] Sahne probe OK: $cls -> id="$sid"');
+			// Probe temizliği: BaseStage kurucusu game.stages'e push eder;
+			// listeden çıkar ve destroy et (gerçek örnek resolveStage'de kurulur).
+			try
+			{
+				var ps = states.PlayState.instance;
+				if (ps != null && ps.stages != null) ps.stages.remove(cast inst);
+				inst.destroy();
+			}
+			catch (e:Dynamic) {}
+		}
+	}
+
+	/**
+	 * `stageName` id'siyle kayıtlı scripted sahneyi kurar; yoksa null
+	 * (çağıran taraf JSON converter / Psych switch ile devam eder).
 	 */
 	public static function resolveStage(stageName:String):Null<BaseStage>
 	{
 		if (stageName == null || stageName.length == 0) return null;
-		var names:Array<String> = null;
-		try { names = ScriptedStage.listScriptClasses(); }
-		catch (e:Dynamic) { return null; }
-		if (names == null || names.length == 0) return null;
-
-		var lower:String = stageName.toLowerCase();
-		for (cls in names)
+		buildStageIndex();
+		var cls:String = stageIndex.get(stageName.toLowerCase());
+		if (cls == null)
 		{
-			if (cls.toLowerCase() == lower)
-			{
-				try { return ScriptedStage.scriptInit(cls); }
-				catch (e:Dynamic)
-				{
-					trace('[VSScriptRegistry] Scripted sahne kurulamadi: $cls — $e');
-					return null;
-				}
-			}
+			trace('[VSScriptRegistry] resolveStage("$stageName") -> scripted sahne YOK (indeks: ${[for (k in stageIndex.keys()) k].join(", ")})');
+			return null;
 		}
-		return null;
+		try
+		{
+			var inst:BaseStage = ScriptedStage.scriptInit(cls, cls);
+			trace('[VSScriptRegistry] resolveStage("$stageName") -> $cls ${inst == null ? "NULL (scriptInit basarisiz!)" : "OK"}');
+			return inst;
+		}
+		catch (e:Dynamic)
+		{
+			trace('[VSScriptRegistry] Scripted sahne kurulamadi: $cls — $e');
+			return null;
+		}
 	}
 
 	/* ============================== MODULE ============================== */
@@ -389,9 +476,15 @@ class VSScriptRegistry
 
 		try
 		{
-			var t:IHScriptedEvents = cast inst;
-			if (!t.scriptHas('isSongNew')) return null;
-			var v:Dynamic = t.scriptCall('isSongNew', []);
+			// v21b: cpp'de Reflect.hasField metodları göremez → Polymod
+			// tarzı dinamik erişim (ayrıntı: VSScriptEventDispatcher.dispatch).
+			var shFn:Dynamic = null;
+			var scFn:Dynamic = null;
+			try { var d:Dynamic = inst; shFn = d.scriptHas; scFn = d.scriptCall; } catch (e:Dynamic) {}
+			if (shFn == null || scFn == null) return null;
+			var has:Bool = Reflect.callMethod(inst, shFn, ['isSongNew']);
+			if (!has) return null;
+			var v:Dynamic = Reflect.callMethod(inst, scFn, ['isSongNew', []]);
 			return (v == true);
 		}
 		catch (e:Dynamic)

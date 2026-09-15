@@ -1,0 +1,290 @@
+FURTHER ENGINE - SENKRON PAKETI v20 (Faz 4.5: Sunday modu saha testi duzeltmeleri — ModuleHandler, scripted stage id eslesmesi, Stage/NoteStyle/Strumline API'leri)
+=====================================================================
+BU SURUMDE (v20 — FAZ 4.5 — MOD SCRIPT UYUMU):
+- MODULEHANDLER.GETMODULE ARTIK GERCEK: getModule('SwappingNotestyles')
+  null donuyordu (NoteSwapEvent.hxc satir 34-38'in "null object:
+  scriptCall" hatasi). Artik VSScriptRegistry.modules icinde moduleId
+  ile arar. + getModules() + callScriptEvent() koprusu.
+- SCRIPTED STAGE ESLESMESI (onemli!): Resmî FNF'de sahne script'inin
+  registry anahtari SINIF ADI degil, super('garage') ile verdigi ID'dir.
+  Eski kod 'garageMarxStage' != 'garageMarx' yuzunden Sunday'in sahne
+  script'lerini HIC yuklemiyordu. Artik buildStageIndex() her script
+  sinifini probe ile kurup id'sini okur (probe stages listesinden
+  cikarilir + destroy edilir) ve resolveStage id ile cozumler.
+- STAGE SHIM DERINLESTI: Resmî yasam dongusu no-op'lari (super.onCreate
+  vb. artik calisir) + addCharacter/getBoyfriend/getGirlfriend/getDad/
+  getCharacter (PlayState koprusu) + addProp/addBopper/refresh/resetStage/
+  setShader/dispatchToCharacters.
+- NOTESTYLEREGISTRY.INSTANCE: fetchEntry/fetchDefault/listEntryIds/
+  listEntryNames + scripted notestyle cozungu (scriptInit + cache).
+- NOTESTYLE: buildNoteFrames/buildSplashFrames/buildHoldCoverFrames vb.
+  frame-builder API'si (null/no-op).
+- STRUMLINE: KEY_COUNT/DIRECTIONS/STRUMLINE_SIZE/NOTE_SPACING/
+  INITIAL_OFFSET statikleri + getXPos + noteStyle + noteSplashes/
+  noteHoldCovers + playNoteHoldCover.
+- PLAYSTATE: comboPopUps + currentChart stub'lari.
+- YENI SHIM: funkin.save.Save (Save.instance.modOptions bellek ici Map,
+  flush no-op) — NoteCameraModule tarzi moduller icin.
+- CHARACTERDATAPARSER: characterCache + parseCharacterData(id) +
+  fetchCharacter(id) (scripted ya da duz Character).
+- OBJECTS.CHARACTER: playAnimation(...)->playAnim koprusu,
+  set_characterType/initHealthIcon no-op'lari, resmî yasam dongusu
+  no-op'lari (dogrudan script cagrilarina dayaniklilik).
+
+BU SURUMDE (v19 — FAZ 4.3/4.4 — CALISMA ZAMANI DUZELTMELERI):
+- HXSEHEXCEPTION SPAM'I COZULDU: VSScriptEventDispatcher artik
+  Dynamic->arayuz cast'i KULLANMIYOR (cpp'de cast, arayuzu implemente
+  etmeyen nesnelerde de "basarili" olup yanlis vtable cagrisi = native
+  crash uretiyordu). Yerine Reflect.hasField('scriptHas'/'scriptCall')
+  guard'i + Reflect.callMethod. Ayrica: destroy edilmis Flx nesneleri
+  atlanir ve crash veren hedef+fonksiyon cifti kara listeye alinip
+  log'a BIR KEZ yazilir (spam korumasi).
+- SCRIPTED STAGE DUZELTILDI: vslice.scripting.ScriptedStage artik
+  backend.BaseStage degil funkin.play.stage.Stage'den turer (resmî FNF
+  ile ayni). Boylece Polymod'un derleme-zamani scriptClassOverrides
+  tablosu "funkin.play.stage.Stage" -> ScriptedStage eslemesini icerir
+  ve Sunday modunun `class garage extends Stage` script'i
+  "Cannot extend non-scriptable class" hatasi yerine YUKLENIR.
+- STAGE SHIM RESMÎ IMZA: funkin.play.stage.Stage kurucusu
+  new(id:String = '', ?params:Dynamic) oldu + public id/params alanlari
+  (script'lerdeki super('garage') cagrisi artik dogru calisir).
+  VSScriptRegistry.resolveStage scriptInit(cls, cls) ile id geciyor.
+- MODULE YASAM DONGUSU TAMAMLANDI: funkin.modding.module.Module
+  shim'ine resmî v0.8.7'deki TUM olay metodlari eklendi (onScriptEvent,
+  onSongLoaded, onSongEvent, onGameOver, onNoteIncoming, onNoteHoldDrop,
+  onStateChange*, onFocus*, onSubState*, onSongRetry, onStateCreate,
+  onCapsuleSelected, onDifficultySwitch, onSongSelected, onFreeplay*,
+  onCharacter*). Modlarin `super.onSongLoaded()` cagrisindaki
+  "Invalid access to field __super_onSongLoaded" hatasi boylece biter.
+
+BU SURUMDE (v18 — V-SLICE FAZ 4):
+- CONDUCTOR FLXSIGNAL'LERI: Conductor.instance.onBeatHit/onStepHit/
+  onMeasureHit (resmî gibi argumansiz FlxSignal). Yayin
+  MusicBeatState.stepHit/beatHit'ten (POLYMOD_ALLOWED korumali),
+  menuler dahil her yerde calisir. Kullanim:
+    Conductor.instance.onBeatHit.add(function() { ... });
+- PLAYSTATE.SONG ALIAS: PlayState.instance.song -> vsSongScript
+  (tembel resolveSong). Song shim'ine songName/length/getSongId().
+- YENI YERLESIK CHART EVENT'LERI:
+  * SetCameraBop {rate=4, offset=0, intensity=1} -> camZoomingMult
+    (Psych 0.015/0.03 katsayilari resmî ile ayni) + cameraZoomRate
+    kapisi sectionHit'te (varsayilan 0 -> Psych davranisi degismez).
+    Yeni PlayState alanlari: cameraBopIntensity, hudCameraZoomIntensity,
+    cameraZoomRate, cameraZoomRateOffset.
+  * SetTargetBopSpeed {target='boyfriend', rate=1} -> bf/dad/gf
+    danceEveryNumBeats. Isimli prop hedefi yok (trace).
+  * SetCharacter/SetStage resmî v0.8.7'de de TODO (sinif yok) -> eklenmedi.
+- DIYALOG AILESI: Speaker + Conversation stub'lari (FlxSprite/
+  FlxSpriteGroup; id, completeCallback, skip, yasam dongusu no-op'lari)
+  + ScriptedSpeaker/ScriptedConversation sarmalayicilari.
+- TEST MODU: PlayState.song logu + tek seferlik onBeatHit sinyal logu
+  (README madde 6).
+- ENVANTER TARAMASI: resmî 517 sinif tarandi; kalan eksikler mod
+  script'lerinin import etmedigi ic sistemler (editor/api/charSelect/
+  mobile/save). Bilincli eklenmeyenler: Save, VoicesGroup (vocals
+  FlxSound kalir), StageData typedef'leri, FreeplayStyle gorselleri.
+BU SURUMDE (v17 — V-SLICE FAZ 3):
+- BOPPER + STAGEPROP (yeni): funkin.play.stage.StageProp (name, onAdd,
+  yasam dongusu) ve Bopper — resmî dans mantigi birebir: danceEvery,
+  dance() (danceLeft/danceRight donusumlu + idleSuffix), onStepHit,
+  playAnimation kilidi (canPlayOtherAnims + '-' sonek soyma),
+  forceAnimationForDuration, setAnimationOffsets, getScreenPosition
+  ofsetleri, originalPosition/resetPosition, isPixel. Sahne
+  script'leri `new Bopper(2)` kurabilir / `extends Bopper` turetebilir.
+- STRUMLINE derinlesti: isPlayer, scrollSpeed, characters, notes/
+  strumlineNotes gruplari + PlayState.playerStrumline/opponentStrumline
+  takma adlari GERCEK Psych gruplarina baglanir. Render fonksiyonlari
+  guvenli no-op.
+- NOTEKIND sistemi: NoteKind sinifi (noteKind/description/params/
+  scoreable + INoteScriptedClass no-op'lari), NoteKindManager
+  (scripted kesif: ScriptedNoteKind.listScriptClasses + scriptInit;
+  dispatchToKind). Chart `k` -> noteType -> goodNoteHit/noteMiss'te
+  kind scriptlerine tipli event iletilir (NOTE_HIT/NOTE_MISS/...).
+- NOTESTYLE yuzeyi: resmî getter'lar guvenli varsayilanlarla +
+  fetchNoteStyle onbellegi; NoteStyleRegistry artik null donmuyor.
+  OZEL NOTA GORUNUMU YOK (build/apply no-op; Psych noteSkin ayri).
+- DIALOGUEBOX stub (funkin.play.cutscene.dialogue): setText/appendText/
+  skip/speed/typingCompleteCallback + diyalog yasam dongusu no-op.
+  Oynatim Psych DialogueBoxPsych'te kalir.
+- BASECHARACTER'a Bopper uyumlulugu: setAnimationOffsets -> addOffset,
+  forceAnimationForDuration, shouldBop/idleSuffix/globalOffsets.
+- Yeni sarmalayicilar: ScriptedStageProp/ScriptedBopper/
+  ScriptedStrumline/ScriptedNoteStyle/ScriptedNoteKind/
+  ScriptedDialogueBox (vslice.scripting).
+- Test modu: TestNoteKind.hxc + Strumline/Bopper/NoteKind loglari
+  (README.txt madde 5).
+- KALANLAR (Faz 4 adayi): chart varyantlari (-erect/-pico), Freeplay
+  styleId/albumId gorselleri, Conductor FlxSignal'lari, FunkinSprite
+  FlxAnimate sembol API'si.
+BU SURUMDE (v16 — V-SLICE FAZ 2: DERIN API KOPRULERI):
+- funkin.Conductor GERCEK SHIM: `Conductor.instance.songPosition/.bpm/
+  .stepLengthMs/.beatLengthMs/.measureLengthMs/.currentStep/.currentBeat/
+  .currentMeasure` + legacy `.crochet/.stepCrochet` + `getTimeInSteps/
+  getTimeInBeats/getTimeInMeasures`, `getStepTimeInMs/getBeatTimeInMs/
+  getMeasureTimeInMs`, `getTypeLengthAtMs`, statik `Conductor.reset()`.
+  Hepsi backend.Conductor statiklerine baglanir (BPM degisimleri dahil).
+  VSScriptRegistry'deki eski funkin.Conductor override'i KALDIRILDI
+  (gercek simi golgeliyordu). DESTEKLENMEYEN: onBeatHit/onStepHit
+  FlxSignal'lari - yasam dongusu metodu (function onBeatHit(event)) calisir.
+- BaseCharacter RESMI API: playAnimation(name, restart, ignoreOther,
+  reversed), getCurrentAnimation(), isSinging(), playSingAnimation(dir,
+  miss), resetCharacter(), characterType (BF/DAD/GF/OTHER, yazilabilir),
+  danceEvery, cameraFocusPoint, isDead, tempVocals, olum stub'lari.
+  AYRICA tum IPlayStateScriptedClass metodlari no-op tanimli ->
+  script'lerde `super.onBeatHit(event)` vb. cagrilar artik patlamaz.
+  Sparrow/AnimateAtlas/Packer shim'leri otomatik miras alir.
+- FunkinSprite: resmî kurucu new(?x, ?y, ?path, ?settings) (path ->
+  sparrow atlas, olmazsa duz resim), playAnimation/hasAnimation/
+  getCurrentAnimation/isAnimationFinished/listAnimations, loadTexture
+  (zincirlenebilir), loadSpriteAtlas, zIndex.
+- PlayState V-Slice takma adlari: `opponent` -> dad, `girlfriend` -> gf,
+  `currentStage` -> stages[0].
+- GERCEK hitDiff: Note.hitDiff alani eklendi; popUpScore yazar
+  (noteDiff/playbackRate); HitNoteScriptEvent.hitDiff artik 0 degil,
+  gercek vuruş farki (isaretsiz - Psych Math.abs kullanir).
+- TUM degisen dosyalar haxeparser sozdizimi kontrolunden gecti.
+  Faz 3'e ertelenen: Strumline/NoteStyle script'leri, chart varyantlari
+  (-erect/-pico), Freeplay stil/Album, Dialogue/Bopper/StageProp.
+BU SURUMDE (v13):
+- "Could not import ..." HATA TUFANI COZULDU. Kok neden: Polymod script
+  siniflarini STRING adla Type.resolveClass ile bulur; Haxe DCE'si
+  engine'in statik kullanmadigi siniflari ikiliden siliyordu. FNF de
+  ayni sebepten DCE'yi kapatir (project.hxp 1062-1066). Project.xml:
+    <haxeflag name="-dce" value="no" if="POLYMOD_ALLOWED" />
+    <haxeflag name="--macro" value="include('funkin', true)" if="POLYMOD_ALLOWED" />
+    <haxeflag name="--macro" value="include('vslice.scripting', true)" if="POLYMOD_ALLOWED" />
+  NOT: Derleme suresi uzar (DCE kapali), bu normal.
+  v13.1: include('vslice', true) KALDIRILDI - vslice/menus+stages altindaki
+  olu dosyalar (CrashState, AttractState, Template.hx) derleme hatasi
+  veriyordu. Artik sadece vslice.scripting zorlanir (runtime string
+  cozumune ihtiyaci olan tek paket).
+BU SURUMDE (v15 — V-SLICE SCRIPTEVENT + SONGEVENT SISTEMI):
+- TAM SCRIPTEVENT AILESI: funkin.modding.events.ScriptEvent modulu resmî
+  funkin v0.8.7 ile birebir hale getirildi (20 sinif: NoteScriptEvent,
+  HitNoteScriptEvent, GhostMissNoteScriptEvent, HoldNoteScriptEvent,
+  SongEventScriptEvent, UpdateScriptEvent, SongTimeScriptEvent,
+  CountdownScriptEvent, DialogueScriptEvent, KeyboardInputScriptEvent,
+  SongLoadScriptEvent, SongRetryEvent, StateChangeScriptEvent,
+  FocusScriptEvent, CapsuleScriptEvent, FreeplayScriptEvent,
+  CharacterSelectScriptEvent, SubStateScriptEvent, PauseScriptEvent)
+  + ScriptEventType enum abstract (46 tip). Ayri dosyalardaki eski
+  CountdownScriptEvent/StateChangeScriptEvent shim'leri SILINDI
+  (siniflar artik ScriptEvent.hx modulunde; runtime adlari ayni).
+  GERIYE UYUM: her event'te `data` (ham yuk), `eventName` (Psych callback
+  adi) ve `cancelled` (eventCanceled takma adi, YAZILABILIR) alanlari var.
+- SCRIPTED SONGEVENT: funkin.play.event.SongEvent shim'i resmî API'ye
+  cevrildi: new(id, ?params), handleEvent(data:SongEventData),
+  getEventSchema()/getTitle()/getIconPath() + tum IPlayStateScriptedClass
+  no-op'lari. Onceden argumansiz new() vardi; Sunday gibi modlar
+  super('WarnCreate') cagirdiginda patlama riski tasiyordu.
+  ScriptedSongEvent artik IHScriptedEvents implement eder.
+- SongEventData: funkin.data.song.SongData modulu eklendi
+  (SongEventDataRaw + @:forward abstract SongEventData; getBool/getInt/
+  getFloat/getString/getArray/valueAsStruct/getStepTime/getHandler...).
+  SongEventSchema minimal stub. IScriptedClass arayuzleri BOS SINIF olarak
+  shim'lendi (arayuzler runtime'da resolve edilemez; hscript implements'i
+  zaten zorlamiyor).
+- SongEventRegistry (funkin.data.event): resmî registry uyarlamasi.
+  Yerlesik V-Slice chart event'leri KODLA yazildi (ClassMacro yok):
+  FocusCamera, ZoomCamera, PlayAnimation, ScrollSpeed, SetHealthIcon —
+  hepsi Psych PlayState uzerinde calisir. Scripted event'ler
+  ScriptedSongEvent.listScriptClasses/scriptInit ile yuklenir
+  (resmî FNF ile ayni: dummy 'UNKNOWN' id gecilir, gercek id script'in
+  super('...') cagrisindan gelir). VSScriptRegistry.initialize() ->
+  reloadSongEvents() ile kurulur.
+- VSliceEventBridge (vslice.compatibility.script): PlayState.triggerEvent
+  sonundan cagrilir; value1/value2 -> SongEventData.value geri kurulumu
+  (JSON parse + dizi/skaler sezgisi), onSongEvent yayini (resmî adim 1)
+  + SongEventRegistry.handleEvent (resmî adim 2). create() icinde
+  registerSongEventHandlers(eventNotes) -> allEventHandlers toplanir.
+- DISPATCHER TIPLI OLAYLAR: VSScriptEventDispatcher.make() artik isimsiz
+  {type,cancelled,data} objesi degil, GERCEK ScriptEvent siniflari uretir.
+  event.type RESMÎ degerdir ('SONG_BEAT_HIT'); eski davranisi bekleyen
+  script'ler icin event.eventName ('onBeatHit') ve event.data korundu.
+  dispatchPlayStateEvent() eklendi (onceden kurulmus zengin event icin).
+  Song event handler'lari da yasam dongusu olaylarini alir.
+  dispatchModules('onUpdate', elapsed) gibi HAM YUK gecilen eski cagri
+  noktalari otomatik sarilir (Float -> UpdateScriptEvent(elapsed)).
+- IPTAL SEMANTIGI: onNoteMiss artik noteMiss BAŞINDA dispatch edilir;
+  event.cancelled ise miss cezasi hic uygulanmaz (resmî FNF). onPause
+  kontrolu aynen calisir (cancelled takma adi). goodNoteHit'e OYUNCU
+  tarafi icin zengin HitNoteScriptEvent dispatch'i EKLENDI (onceden
+  sadece opponentNoteHit dispatch ediyordu!) — judgement/score/combo/
+  healthChange/doesNotesplash dolu. hitDiff simdilik 0 (Faz 2).
+- onSongLoaded artik sadece vsSongScript'e degil TUM hedeflere yayilir
+  (SongLoadScriptEvent: id/difficulty/notes=SONG.notes/events=eventNotes).
+- TEST MODU: example_mods/vslice-script-test (FurtherTestModule.hxc +
+  TestWarnEvent.hxc + README). Tum yeni/degisen dosyalar haxeparser ile
+  sozdizimi dogrulamasindan gecirildi.
+- SONRAKI FAZLAR: Strumline/NoteStyle/NoteKind, karakter API derinligi
+  (playAnimation/dance/CharacterType), Module/State otomatik yukleme,
+  Freeplay style/Album/Sticker, Dialogue/Bopper/StageProp, chart
+  varyasyonlari (-pico/-erect), hitDiff tasima.
+
+BU SURUMDE (v14):
+- TAM-YOL EXTEND DUZELTMESI (polymod Interp.validateImports): Sunday gibi
+  port modlar 'class X extends funkin.play.event.SongEvent' seklinde
+  TAM YOL yazar; polymod yalnizca kisa-ada bakiyordu ve yanlis
+  'Could not extend' hatasi veriyordu. Artik son bilesenle kisa-ad
+  bakilip fullPath birebir eslesiyorsa kabul edilir.
+- FNF SHIM KUTUPHANESI (17 yeni shim + 9 importOverride):
+  Aliases: funkin.Paths->backend.Paths, funkin.Conductor->backend.Conductor,
+  funkin.Highscore->backend.Highscore, funkin.ui.title.TitleState->states.TitleState,
+  funkin.graphics.FunkinCamera->flixel.FlxCamera, funkin.play.components.HealthIcon->objects.HealthIcon,
+  funkin.play.notes.NoteSprite->objects.Note, StrumlineNote->objects.StrumNote,
+  NoteSplash->objects.NoteSplash.
+  Yeni shim'ler (MINIMAL, @:noCustomClass korumali): funkin.Preferences,
+  funkin.util.Constants/WindowUtil, funkin.modding.module.ModuleHandler,
+  funkin.play.PlayStatePlaylist, funkin.play.components.PopUpStuff,
+  funkin.play.scoring.Scoring, funkin.play.character.CharacterDataParser/CharacterType,
+  funkin.play.cutscene.CutsceneType/VideoCutscene, funkin.play.notes.NoteHoldCover/Strumline,
+  funkin.play.notes.notestyle.NoteStyle, funkin.play.notes.notekind.NoteKindManager,
+  funkin.data.notestyle.NoteStyleRegistry, funkin.modding.base.ScriptedFlxRuntimeShader.
+  NOT: Bu shim'ler MINIMAL'dir (v1); metod seviyesinde FNF API'si tam degil.
+ONCEKI (v13.2):
+  v13.2: CNE ClassExtendMacro tum funkin.* siniflarina golge uretir;
+  yeni FNF shim'lerimizde iki sistem (CNE + polymod HScriptedClass)
+  cakisiyordu (_asc/scriptCall cakismalari). Shim'lerimize PEXO'nun
+  CancellableEvent'te kullandigi @:noCustomClass eklendi (18 sinif).
+  EventMacro da super zincirindeki recycle'i override etmeyi ogrendi
+  (ScriptEvent->CountdownScriptEvent zincirleri icin). Ayrica
+  MultiFramesCollection'a @:access(flixel.graphics.FlxGraphic)
+  eklendi (flixel git: useCount disaridan yazilamaz).
+- SIRALAMA DUZELTMESI: importOverrides artik Polymod.init()'ten ONCE
+  kaydedilir (VSScriptRegistry.prepare). Boylece mod script'leri
+  init sirasinda funkin.play.PlayState gibi override'lari gorebilir.
+  (Polymod.init onceden kayitli scriptleri TEMIZLER; bu yuzden
+  assets/script'leri init'ten SONRA initialize() ile kaydedilir.)
+- FNF event/stage shim'leri eklendi (Sunday modunun script siniflari
+  artik KAYDOLUR):
+  - funkin.play.stage.Stage (garage sahne script'i icin)
+  - funkin.play.event.SongEvent + ScriptedSongEvent
+  - funkin.modding.events.ScriptEvent/CountdownScriptEvent/StateChangeScriptEvent
+  - funkin.modding.base.ScriptedMusicBeatState
+- v12 ozellikleri bu pakette: FNF karakter JSON'u scriptClass destegi,
+  funkin.ui.MusicBeatState/SubState shim'leri, ScriptedMusicBeatState/
+  ScriptedMusicBeatSubState, module olaylari menu state'lerinde.
+- HALA EKSIK (import hatasi GURULTUSU uretir, oyunu bozmaz):
+  funkin.play.notes.*, funkin.Conductor, funkin.Paths, funkin.Preferences,
+  funkin.Highscore, funkin.util.Constants, funkin.play.components.*,
+  funkin.play.scoring.*, funkin.data.notestyle.*, funkin.play.cutscene.*,
+  funkin.modding.module.ModuleHandler, funkin.ui.title.TitleState,
+  funkin.graphics.FunkinCamera, funkin.modding.base.ScriptedFlxRuntimeShader.
+  Bunlar "genis funkin.* shim kutuphanesi" yol haritasi adiminda.
+
+ONCEKI SURUMLER (v4..v12) bu pakette: polymod vendored (source/polymod,
+2.0.0 motor gomulu), 4 derleme duzeltmesi (registerScriptClassByString
+public, toString'ler, backend.Song ctor), PlayState ghostTap brace
+duzeltmesi, CNE paket tasima, class-tabanli .hxc koprusu, 17 olay
+dispatch'i, mania, scriptClass, state shim'leri.
+
+KURULUM (sirasiyla) - haxelib polymod GEREKMEZ (vendored):
+1) Repo kokunde su iki klasoru SIL:
+   source\cne\compatibility\codenamecrew
+   source\cne\compatibility\hscript        (varsa)
+2) Zip icerigini repo kokune cikar (ustune yaz).
+3) temizle-eski.bat calistir.
+4) tani.bat calistir -> [1] [2] [6] [7] BOS; [8][9][10][11] VAR demeli.
+5) lime test windows -clean
+   (DCE kapali oldugu icin ilk derleme UZUN surer - normal. Sonraki
+   derlemeler cache'ten hizli gider.)

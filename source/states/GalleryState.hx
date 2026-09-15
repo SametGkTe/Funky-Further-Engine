@@ -99,30 +99,6 @@ class GalleryState extends MusicBeatState {
 			modDirectory: null
 		},
 		{
-			fileName: "cool",
-			title: "cool girl",
-			description: "cool drawing ngl",
-			type: IMAGE,
-			category: "Art",
-			artist: "s1r3nmoney0 / klavye",
-			unlocked: true,
-			favorited: false,
-			dateAdded: "2026-06-15",
-			modDirectory: null
-		},
-		{
-			fileName: "ivy",
-			title: "ivy girl",
-			description: "It was better than I expected",
-			type: IMAGE,
-			category: "Art",
-			artist: "s1r3nmoney0 / klavye",
-			unlocked: true,
-			favorited: false,
-			dateAdded: "2026-06-15",
-			modDirectory: null
-		},
-		{
 			fileName: "deneme",
 			title: "Yapımcı Mesajı",
 			description: "bişeyide başar aw",
@@ -216,6 +192,18 @@ class GalleryState extends MusicBeatState {
 			unlocked: true,
 			favorited: false,
 			dateAdded: "2026-08-22",
+			modDirectory: null
+		},
+		{
+			fileName: "lapeace",
+			title: "That's la peace",
+			description: "Ts is actually fire omg.",
+			type: VIDEO,
+			category: "Art",
+			artist: "Exie",
+			unlocked: true,
+			favorited: false,
+			dateAdded: "2026-09-05",
 			modDirectory: null
 		}
 	];

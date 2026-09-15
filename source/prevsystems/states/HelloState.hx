@@ -14,7 +14,7 @@ import flixel.util.FlxTimer;
 class HelloState extends MusicBeatState
 {
 	public static var ENABLED:Bool = true;
-	public static var PERSON_NAME:String = "Eternal Sugar"; // igilybtnsmt really
+	public static var PERSON_NAME:String = "Eternal Sugar";
 	public static var SHOW_EVERY_LAUNCH:Bool = false;
 
 	static final MESSAGE_TR:String =
@@ -192,6 +192,7 @@ class HelloState extends MusicBeatState
 		FlxFlicker.flicker(continueButton, 0.8, 0.08, true, true, function(_)
 		{
 			new FlxTimer().start(CONFIRM_EXIT_DELAY, function(_)
+			// Ağzına sıcım
 			{
 				fadeOutAndSwitch(0.25);
 			});

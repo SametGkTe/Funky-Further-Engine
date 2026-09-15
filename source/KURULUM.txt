@@ -1,0 +1,66 @@
+V-SLICE DESTEK PAKETI (FAZ 1+2+3+4, v20) — KOPYALA-YAPISTIR SURUMU
+====================================================================
+
+Bu paket, vslice-faz1..faz4.patch dosyalarinin TAMAMININ birlesik
+halidir (51+ dosya). Patch uygulamak yerine dogrudan kopyalanabilir.
+
+v20 (FAZ 4.5) — DEGISEN/YENI DOSYALAR (onceki surum kuruluysa yalnızca
+bunlari kopyalaman yeterli):
+  - source/funkin/modding/module/ModuleHandler.hx        (getModule gercek arama)
+  - source/vslice/scripting/VSScriptRegistry.hx          (stage id indeksi)
+  - source/funkin/play/stage/Stage.hx                    (yasam dongusu + karakter API)
+  - source/funkin/data/notestyle/NoteStyleRegistry.hx    (instance singleton)
+  - source/funkin/play/notes/notestyle/NoteStyle.hx      (build* API)
+  - source/funkin/play/notes/Strumline.hx                (statikler + getXPos)
+  - source/states/PlayState.hx                           (comboPopUps/currentChart)
+  - source/funkin/save/Save.hx                           (YENI DOSYA)
+  - source/funkin/play/character/CharacterDataParser.hx  (fetchCharacter)
+  - source/objects/Character.hx                          (playAnimation + no-op'lar)
+
+v19 (FAZ 4.3/4.4) — SADECE BU 5 DOSYA DEGISTI (onceki surum kuruluysa
+yalnizca bunlari kopyalaman yeterli):
+  - source/vslice/scripting/VSScriptEventDispatcher.hx  (hxSehException spam fix)
+  - source/vslice/scripting/ScriptedStage.hx            (extends Stage duzeltmesi)
+  - source/vslice/scripting/VSScriptRegistry.hx         (resolveStage id gecisi)
+  - source/funkin/play/stage/Stage.hx                   (resmî kurucu imzasi)
+  - source/funkin/modding/module/Module.hx              (tum yasam dongusu metodlari)
+
+KURULUM (3 adim):
+-----------------
+1) SIL: Asagidaki 2 dosyayi repo'ndan SIL (SILINECEKLER.txt'te de yazili).
+   Bunlar Faz 1'de ScriptEvent.hx modulunun ICINE tasindi; silinmezse
+   "Type name ... is redefined from module" hatasi verirler:
+
+     source\funkin\modding\events\CountdownScriptEvent.hx
+     source\funkin\modding\events\StateChangeScriptEvent.hx
+
+2) KOPYALA: Bu klasordeki TUM dosyalari, repo kokune (Project.xml'in
+   oldugu yere) klasor yapisiyla birlikte kopyala-yapistir; cakan
+   dosyalarda "hedefteki degistir" de. Ornek:
+     vslice-source-paketi\source\states\PlayState.hx
+       -> <repo>\source\states\PlayState.hx
+
+3) DERLE:
+     lime test windows
+
+Project.xml / haxelib degisikligi GEREKMEZ (Faz 1 zaten mevcut
+Project.xml ayarlarini kullaniyor: -dce no + include('funkin', true)
++ include('vslice.scripting', true) — bunlar sende v13'ten beri var).
+
+TEST:
+-----
+example_mods\vslice-script-test klasorunu oyunun mods\ klasorune
+kopyala, Mods menusunden ac, bir sarkiya gir. Loglarda [FETest]
+satirlarini ara (ayrinti: example_mods\vslice-script-test\README.txt).
+
+HATA OLURSA:
+------------
+Ilk ~30 satiri (dosya adi + hata mesaji) oldugu gibi gonder.
+Ozellikle su 4 dosya benim eklediklerimle SENIN yerel degisikliklerini
+birlestirir — sende sonradan degistiysse cakisma olabilir:
+  source\states\PlayState.hx
+  source\backend\MusicBeatState.hx
+  source\objects\Note.hx
+  source\vslice\scripting\VSScriptEventDispatcher.hx / VSScriptRegistry.hx
+Bu durumda "o dosyayi paketten KOPYALAMA, bana haber ver" — senin
+surumunun uzerine elle islerim.

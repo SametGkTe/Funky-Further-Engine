@@ -22,7 +22,7 @@ dönüştürücüler — `vslice/` klasörü).
 | **Karakter script'leri** (`.hxc`, 2 sözdizimi) | ✅ v6 | `extends objects.Character` veya FNF shim'leri |
 | **Sahne script'leri** | ✅ v6 | sınıf adı = sahne adı |
 | **Sprite script'leri** | ✅ v6 | `extends flixel.FlxSprite` |
-| **Script olayları** (17 olay) | ✅ v9 | `event.cancelled` onPause'u durdurur; nota olaylarında `event.note` || FNF `ScriptEvent` sınıfları | 🔶 v13 | `SongEvent`/`ScriptedSongEvent`/`ScriptEvent`/`CountdownScriptEvent`/`StateChangeScriptEvent` shim'leri; alan seti hâlâ sadeleştirilmiş |
+| **Script olayları** (17 olay) | ✅ v9 | `event.cancelled` onPause'u durdurur; nota olaylarında `event.note` || FNF `ScriptEvent` sınıfları | ✅ v15 | Resmî v0.8.7 ailesinin TAMAMI (20 sınıf): NoteScriptEvent, HitNoteScriptEvent (judgement/score/hitDiff/doesNotesplash), GhostMiss, HoldNote, SongEventScriptEvent, Update, SongTime, Countdown, Dialogue, KeyboardInput, SongLoad, SongRetry, StateChange, Focus, Capsule, Freeplay, CharacterSelect, SubState, Pause + ScriptEventType enum'u |
 | Şarkı script'i (ScriptedSong) | ✅ v3 | sınıf adı = şarkı id'si; `onSongLoaded` ile chart mutasyonu, `isSongNew` ile NEW rozeti |
 | Module sistemi (ScriptedModule) | ✅ v9 | state'ler arası yaşar; `active = false` olan olay almaz; menülerde de onCreate/onUpdate/onDestroy (v12) |
 | FunkinSprite script'leri | 🔶 v9 | temel shim; atlas/filtre sistemi yok |
@@ -32,11 +32,18 @@ dönüştürücüler — `vslice/` klasörü).
 | Freeplay style / Albüm / Level / BackingCard / Sticker script'leri | ❌ | |
 | Diyalog / Speaker / StageProp / Bopper / SongEvent script'leri | 🔶 v13 | SongEvent ailesi var; diğerleri yok |
 | `funkin.*` import yüzeyi | 🔶 v14 | 6 karakter shim'i + 9 importOverride (Paths/Conductor/Highscore/TitleState/FunkinCamera/HealthIcon/Note ailesi) + 17 MINIMAL stub shim (Preferences, Constants, ModuleHandler, NoteStyle, Strumline, ...) |
-| `event.cancelled` motoru durdurur mu? | ❌ | şimdilik bilgi taşır |
+| `event.cancelled` motoru durdurur mu? | 🔶 v15 | onPause (pause menüsü engellenir) + onNoteMiss (miss cezası uygulanmaz) GERÇEKTEN iptal eder; diğerlerinde bilgi taşır |
+| **Scripted SongEvent** (`handleEvent(data)`) | ✅ v15 | `class X extends SongEvent { super('Ad'); }` — SongEventRegistry, chart event'lerini `data.getString/getFloat/getInt/getBool/getArray/valueAsStruct` ile handler'a iletir |
+| **Yerleşik V-Slice chart event'leri** | ✅ v15 | FocusCamera, ZoomCamera, PlayAnimation, ScrollSpeed, SetHealthIcon — script'siz, resmî parametre anahtarlarıyla Psych davranışına köprülendi |
+| **SongEventData / SongEventSchema** | ✅ v15 | `funkin.data.song.SongData.SongEventData` (abstract, resmî getter seti) + `funkin.data.event.SongEventSchema` (minimal) |
+| **IScriptedClass arayüzleri** | ✅ v15 | `funkin.modding.IScriptedClass.IPlayStateScriptedClass` vb. import'ları çözülür (boş sınıf shim; hscript `implements`'i runtime'da zorlamaz) |
+| **onSongEvent yayını** | ✅ v15 | Chart'taki HER event modül/karakter/sahne/şarkı script'lerine `SongEventScriptEvent` olarak yayılır (resmî FNF akışı) |
 
-**Sonuç:** Tam destek DEĞİL. Karakter + sahne + sprite script'i kullanan
-modlar çoğunlukla çalışır; şarkı/module/freeplay script'lerine dayanan
-modlar çalışmaz.
+**Sonuç (v15):** Karakter + sahne + sprite + şarkı + module script'leri ve
+**scripted SongEvent'ler (handleEvent)** çalışır; chart event'leri resmî
+`SongEventData` yapısıyla iletilir. Hâlâ eksik: Strumline/NoteStyle/NoteKind,
+Freeplay style/Album/Sticker, Dialogue/Bopper/StageProp script'leri ve
+chart varyasyonları (`-pico`/`-erect`).
 
 ## Nasıl çalışır?
 
@@ -150,14 +157,16 @@ class OzellikliSprite extends flixel.FlxSprite
 
 ### 4. ScriptedStage — sahne scripti
 
-```haxe
-import backend.BaseStage;
+Resmî FNF sözleşmesi (v19'dan beri birebir aynı):
 
-class Mall extends backend.BaseStage
+```haxe
+import funkin.play.stage.Stage;
+
+class mall extends Stage
 {
 	function new()
 	{
-		super();
+		super('mall'); // Stage(id) — sınıf adı sahne adıyla eşleşmeli
 	}
 
 	override function create():Void
@@ -345,8 +354,11 @@ import'larını init sırasında çözdürdüğü için harita boş kalıyordu.
 ### 14. FNF event/stage shim'leri (v13)
 
 FNF mod script'lerinin türetebildiği ek sınıflar:
-- `funkin.play.stage.Stage` → `backend.BaseStage` shim'i
-  (örn. Sunday'ın `garage` sahne script'i artık yüklenir)
+- `funkin.play.stage.Stage` → `backend.BaseStage` shim'i; v19'da kurucu
+  resmî imzaya çekildi (`new(id:String, ?params:Dynamic)`) ve
+  `vslice.scripting.ScriptedStage` artık BU sınıftan türüyor — böylece
+  Polymod'un scriptClassOverrides tablosu `extends Stage` yazan mod
+  script'lerini (örn. Sunday'ın `garage`'ı) otomatik çözer
 - `funkin.play.event.SongEvent` + `funkin.play.event.ScriptedSongEvent`
   (özel şarkı olayları: `class X extends ScriptedSongEvent { ... }`)
 - `funkin.modding.events.ScriptEvent` / `CountdownScriptEvent` /
@@ -474,3 +486,334 @@ Hepsini silersen etkiler kalkar.
    hâlâ eksik.
 10. ~~Tam-yol extend çözümlemesi (port modların `extends funkin.play.event.X`
     sözdizimi)~~ ✅ v14 (polymod validateImports patch)
+
+
+---
+
+## v15 Değişiklikleri (ScriptEvent + SongEvent sistemi)
+
+### Yeni dosyalar
+- `source/funkin/modding/events/ScriptEventType.hx` — resmî enum abstract (46 tip)
+- `source/funkin/modding/events/ScriptEvent.hx` — 20 olay sınıfının TAM ailesi (eski sadeleştirilmiş shim yerine)
+- `source/funkin/modding/IScriptedClass.hx` — IPlayStateScriptedClass vb. (boş sınıf shim)
+- `source/funkin/play/Countdown.hx` — CountdownStep enum
+- `source/funkin/play/notes/NoteDirection.hx` — resmî enum abstract
+- `source/funkin/data/song/SongData.hx` — SongEventData(+Raw), SongNoteData
+- `source/funkin/data/event/SongEventSchema.hx` — minimal şema
+- `source/funkin/data/event/SongEventRegistry.hx` — resmî registry'nin FFE uyarlaması
+- `source/funkin/play/event/FocusCameraSongEvent.hx` + `ZoomCameraSongEvent.hx` + `PlayAnimationSongEvent.hx` + `ScrollSpeedEvent.hx` + `SetHealthIconSongEvent.hx` — yerleşik V-Slice chart event'leri
+- `source/vslice/compatibility/script/VSliceEventBridge.hx` — triggerEvent → SongEventData köprüsü
+- `example_mods/vslice-script-test/` — test modu
+
+### Silinen dosyalar
+- `source/funkin/modding/events/CountdownScriptEvent.hx`, `StateChangeScriptEvent.hx` (sınıflar artık ScriptEvent.hx modülünde — runtime adı aynı, import'lar çözülür)
+
+### Değişen dosyalar
+- `source/funkin/play/event/SongEvent.hx` — resmî API: `new(id, ?params)`, `handleEvent(data)`, `getEventSchema/getTitle/getIconPath`, tüm IPlayStateScriptedClass no-op'ları
+- `source/funkin/play/event/ScriptedSongEvent.hx` — `implements IHScriptedEvents` eklendi
+- `source/vslice/scripting/VSScriptEventDispatcher.hx` — isimsiz `{type,cancelled,data}` objeleri yerine TİPLİ ScriptEvent sınıfları; `dispatchPlayStateEvent()` eklendi; song event handler'larına da yayılım; `event.type` artık resmî ScriptEventType değeri (eski `data`/`cancelled`/`note` alanları korundu, `eventName` eklendi)
+- `source/vslice/scripting/VSScriptRegistry.hx` — `reloadSongEvents()` + initialize()'da SongEventRegistry.loadEventCache()
+- `source/states/PlayState.hx` — (1) triggerEvent sonuna VSliceEventBridge, (2) noteMiss BAŞINA iptal-edilebilir dispatch, (3) goodNoteHit'e zengin HitNoteScriptEvent dispatch'i (oyuncu tarafı eksikti!), (4) onSongLoaded artık tüm hedeflere yayılıyor, (5) create() içinde registerSongEventHandlers
+
+### Davranış notları
+- `event.cancelled = true` VE `event.cancel()` onNoteMiss'te miss cezasını, onPause'ta pause menüsünü engeller.
+- PlayState iyi vuruşlarında `judgement/score/comboCount/healthChange/doesNotesplash` alanları DOLU gelir; rakip vuruşlarında `healthChange=0`.
+- V-Slice `v` nesneleri: converter value1'e JSON koyduğu için köprü `Json.parse` ile geri kurar; 2 elemanlı diziler `[v1, v2]` olarak yeniden kurulur.
+- ~~`hitDiff` şimdilik 0~~ → v16'da çözüldü (aşağıya bakın).
+
+---
+
+## v16 Değişiklikleri (Faz 2 — Conductor + BaseCharacter + FunkinSprite derinleştirme)
+
+### Yeni dosyalar
+- `source/funkin/Conductor.hx` — GERÇEK shim (eski registry override'ı silindi).
+  Resmî v0.8.7 örnek (instance) API'si `backend.Conductor` statiklerine köprülenir:
+  - `Conductor.instance.songPosition / .bpm / .startingBPM`
+  - `.beatLengthMs / .stepLengthMs / .measureLengthMs` (legacy `.crochet / .stepCrochet` da var)
+  - `.currentStep / .currentBeat / .currentMeasure` (+ kesirli `currentStepTime/BeatTime/MeasureTime`)
+  - `.timeSignatureNumerator/Denominator` (sabit 4/4), `.beatsPerMeasure`, `.stepsPerMeasure`
+  - `.globalOffset / .combinedOffset`
+  - Fonksiyonlar: `getTimeInSteps/getTimeInBeats/getTimeInMeasures`,
+    `getStepTimeInMs/getBeatTimeInMs/getMeasureTimeInMs`, `getTypeLengthAtMs(ms, 'step'|'beat'|'measure')`
+  - Statik: `Conductor.reset()`
+  - **DESTEKLENMEYEN:** `onBeatHit/onStepHit/onMeasureHit` FlxSignal'leri (Further'da
+    beat yayını MusicBeatState/dispatcher üzerinden; script'ler `function onBeatHit(event)`
+    yaşam döngüsü metodunu kullanmalı — o çalışıyor).
+- (v15'ten taşınan not) `VSScriptRegistry.hx`'ten `funkin.Conductor` importOverride'ı
+  KALDIRILDI — override gerçek shim'i gölgeliyordu ve `Conductor.instance` yoktu.
+
+### Derinleşen dosyalar
+- `source/funkin/play/character/BaseCharacter.hx` — resmî v0.8.7 API'si:
+  - `playAnimation(name, restart, ignoreOther, reversed)` → `playAnim` (ignoreOther=true
+    specialAnim kilidini açar; olmayan animasyonda trace + sessiz geçiş)
+  - `getCurrentAnimation()`, `isSinging()`, `playSingAnimation(dir, miss, suffix)`
+    (dir → singLEFT/DOWN/UP/RIGHT, miss → `-miss` soneki)
+  - `resetCharacter(resetCamera)`, `characterType` (get/set, CharacterType BF/DAD/GF/OTHER;
+    set edilene kadar isPlayer/curCharacter'dan tahmin), `danceEvery` ↔ `danceEveryNumBeats`
+  - `cameraFocusPoint` (FlxPoint), `isDead`, `tempVocals`, `characterId/characterName`
+  - Ölüm stub'ları: `getDeathCameraOffsets/getDeathCameraZoom/getDeathPreTransitionDelay/getDeathQuote`
+  - `getBaseScale()`, `getHealthIconId()`
+  - TÜM IPlayStateScriptedClass yaşam döngüsü metodları no-op olarak tanımlı →
+    script'lerde `super.onBeatHit(event)` vb. çağrılar artık GÜVENLİ (patlamaz).
+  - Sparrow/AnimateAtlas/Packer karakter shim'leri otomatik miras alır (değişiklik gerekmedi).
+- `source/funkin/graphics/FunkinSprite.hx` — resmî kurucu + animasyon API'si:
+  - `new(?x, ?y, ?path, ?atlasSettings)` — path verilirse sparrow atlas, olmazsa düz resim
+  - `playAnimation(id, restart, ignoreOther, reversed, startFrame)`, `hasAnimation(id)`,
+    `getCurrentAnimation()`, `isAnimationFinished()`, `listAnimations()`
+  - `loadTexture(key)` (zincirlenebilir), `loadSparrow(key)` artık FunkinSprite döner,
+    `loadSpriteAtlas(assetPath, prefix, ...)` → sparrow olarak yükler
+  - `zIndex` alanı (taşınır; Further çizim sırası stage/add sırasına göre)
+- `source/states/PlayState.hx`:
+  - V-Slice alan takma adları: `opponent` → dad, `girlfriend` → gf,
+    `currentStage` → stages[0] (backend.BaseStage)
+  - `popUpScore` artık `note.hitDiff = noteDiff / playbackRate` yazıyor;
+    zengin `HitNoteScriptEvent` dispatch'inde `hitDiff` GERÇEK değerle gidiyor
+    (v15'te 0'dı). Rakip tarafı `buildTyped` köprüsü de `note.hitDiff` kullanıyor.
+- `source/objects/Note.hx` — `public var hitDiff:Float = 0;` alanı eklendi.
+
+### Bilinen sınırlar (v16)
+- `funkin.graphics.FunkinSprite` hâlâ FlxSprite tabanlı: FlxAnimate (animate atlas)
+  sembol/timeline API'si yok (`anim.play`, `replaceSymbolGraphic` vb. çalışmaz).
+  Animate-atlas karakterler `vslice.funkin.FlxAtlasSprite` (PsychFlxAnimate) üzerinden
+  zaten destekli; BaseCharacter shim'i karakter animasyonlarını Psych playAnim'e çeviriyor.
+- hitDiff işaretsiz (Psych `Math.abs` kullanıyor); resmî FNF'de işaretli (erken/geç ayrımı).
+- ~~Faz 3'e ertelenenler~~ → v17'de yapıldı (aşağıya bakın).
+
+---
+
+## v17 Değişiklikleri (Faz 3 — Bopper/StageProp + Strumline + NoteStyle/NoteKind + DialogueBox)
+
+### Yeni dosyalar
+- `source/funkin/play/stage/StageProp.hx` — resmî v0.8.7 `StageProp extends FunkinSprite`:
+  `name`, `onAdd(event)`, IStateStageProp yaşam döngüsü no-op'ları.
+- `source/funkin/play/stage/Bopper.hx` — resmî dans mantığı BİREBİR:
+  `danceEvery`, `shouldAlternate` (null = danceLeft varsa otomatik),
+  `dance(forceRestart)` (danceLeft/danceRight dönüşümlü + `idleSuffix`),
+  `onStepHit` (step % (danceEvery*4)==0 → dance(shouldBop)),
+  `playAnimation` override (canPlayOtherAnims kilidi + `correctAnimationName`
+  '-' sonek soyma + animasyon ofsetleri), `forceAnimationForDuration`,
+  `setAnimationOffsets`, `globalOffsets/animOffsets` → `getScreenPosition`
+  override ile çizimde uygulanır, `originalPosition/resetPosition`, `isPixel`
+  (antialiasing kapatır). Sınırlama: animasyon bitişi canPlayOtherAnims
+  kilidini OTOMATİK açmaz (resmî onFinish sinyali yok); kilit ignoreOther=true
+  çağrısı veya forceAnimationForDuration süresiyle açılır.
+- `source/funkin/play/notes/notekind/NoteKind.hx` — resmî alanlar
+  (`noteKind/description/noteStyleId/noanim/suffix/params/scoreable`) +
+  INoteScriptedClass no-op'ları + `NoteKindParam` sınıfı.
+- `source/funkin/play/cutscene/dialogue/DialogueBox.hx` — FlxSpriteGroup stub:
+  `id/dialogueBoxName/speed/globalOffsets/typingCompleteCallback`,
+  `setText/appendText/skip` (metin depolar), `playAnimation/hasAnimation/
+  getCurrentAnimation` (basit depolama), diyalog yaşam döngüsü no-op'ları.
+  Oynatım Psych diyalog sisteminde (DialogueBoxPsych) kalır.
+- Sarmalayıcılar: `vslice/scripting/ScriptedStageProp.hx`, `ScriptedBopper.hx`,
+  `ScriptedStrumline.hx`, `ScriptedNoteStyle.hx`, `ScriptedNoteKind.hx`,
+  `ScriptedDialogueBox.hx` — `class X extends Bopper/StageProp/Strumline/
+  NoteStyle/NoteKind/DialogueBox` script'leri artık bağlanabilir.
+
+### Derinleşen dosyalar
+- `source/funkin/play/notes/Strumline.hx` — GÖRÜNÜM nesnesi: `isPlayer`,
+  `scrollSpeed(+resetScrollSpeed)`, `showNotesplash`, `isDownscroll`,
+  `strumlineScale`, `characters`, `notes/strumlineNotes/holdNotes`
+  (PlayState takma adları GERÇEK Psych gruplarına bağlar), `noteData`,
+  `onNoteIncoming` sinyali (tetiklenmez), `getNotesOnScreen` (notes üyeleri),
+  güvenli no-op'lar (`pressKey/clean/refresh/vwooshNotes/enterMiniMode/...`).
+- `source/funkin/play/notes/notestyle/NoteStyle.hx` — resmî getter yüzeyi
+  güvenli varsayılanlarla (`getName/getAuthor/getNoteScale/getNoteOffsets/
+  getStrumlineScale/buildCountdownSprite/buildJudgementSprite/...`) +
+  `fetchNoteStyle(id)` statik önbelleği; build/apply fonksiyonları no-op
+  (Further render'ı noteSkin sistemiyle yapar).
+- `source/funkin/data/notestyle/NoteStyleRegistry.hx` — artık null değil,
+  `NoteStyle.fetchNoteStyle`'a yönlendirir.
+- `source/funkin/play/notes/notekind/NoteKindManager.hx` — resmî statikler:
+  `initialize/registerScriptedNoteKinds` (ScriptedNoteKind.listScriptClasses +
+  scriptInit keşfi — SongEventRegistry deseni), `getNoteKind/listNoteKinds/
+  registerNoteKind/getParams/clearNoteKindCache/callEvent` + FFE yardımcısı
+  `dispatchToKind(kindId, event)` (tipli switch: NOTE_HIT/NOTE_MISS/
+  NOTE_GHOST_MISS/NOTE_HOLD_DROP/NOTE_INCOMING/UPDATE).
+  `getNoteStyle/getNoteStyleId` null döner.
+- `source/states/PlayState.hx`:
+  - `playerStrumline`/`opponentStrumline` takma adları (görünüm shim'leri;
+    her erişimde notes/playerStrums/opponentStrums/songSpeed/downScroll tazelenir)
+  - goodNoteHit + noteMiss'te NoteKind dispatch'i: `note.noteType` (converter
+    `k`'den yazar) doluysa `NoteKindManager.dispatchToKind(...)` çağrılır.
+- `source/vslice/scripting/VSScriptRegistry.hx` — `reloadSongEvents()` artık
+  NoteKindManager önbelleğini de (yeniden) kurar.
+- `source/funkin/play/character/BaseCharacter.hx` — Bopper-uyumluluk üyeleri:
+  `setAnimationOffsets` → Psych `addOffset` köprüsü, `forceAnimationForDuration`
+  (specialAnim kilidi + FlxTimer), `shouldBop/idleSuffix/globalOffsets/
+  originalPosition` alanları.
+
+### Test modu (example_mods/vslice-script-test)
+- `TestNoteKind.hxc` eklendi (scripted NoteKind keşfi + onNoteHit dispatch testi).
+- FurtherTestModule.hxc onSongStart: Strumline takma adları, Bopper kurma/dance
+  duman testi, NoteKindManager.listNoteKinds logları.
+
+### Bilinen sınırlar (v17)
+- ~~Conductor FlxSignal'leri~~ → v18'de eklendi.
+- Chart varyantları (`-erect`/`-pico` weekend-1 varyasyonları) DESTEKLENMİYOR:
+  converter standart easy/normal/hard zorluklarıyla çalışır; varyasyon
+  metadata/chart dosyaları ayrıca ele alınmalı.
+- Freeplay `styleId/albumId` görsel eşlemeleri yok (şarkı listelenir, kapak/
+  stil V-Slice varlıklarından çizilmez; FreeplaySongData albumId'yi taşır).
+- NoteStyle build/apply fonksiyonları no-op: özel nota görünümü scriptleri
+  yüklenir ama görsel değiştirmez (Psych noteSkin sistemi ayrı).
+- DialogueBox stub: script sınıfı bağlanır; resmî diyalog OYNATIMI yok
+  (Psych DialogueBoxPsych akışı geçerli).
+- Bopper onFinish kilidi otomatik açılmaz (yukarıda).
+
+---
+
+## v18 Değişiklikleri (Faz 4 — Conductor sinyalleri + song alias + yeni chart event'leri + diyalog stub'ları)
+
+### Conductor FlxSignal'leri (v16'da "desteklenmiyor"du, artık VAR)
+- `Conductor.instance.onBeatHit / onStepHit / onMeasureHit` (argümansız
+  FlxSignal, resmî ile aynı tip). Yayın `backend.MusicBeatState.stepHit/beatHit`
+  içinden yapılır (`#if POLYMOD_ALLOWED` korumalı); menüler dahil her
+  MusicBeatState'te çalışır (resmî davranış). Ölçü = her 4 beat.
+- Kullanım: `Conductor.instance.onBeatHit.add(function() { ... });`
+  (beat sayısı gerekirse `Conductor.instance.currentBeat`).
+
+### PlayState.song + Song shim alanları
+- `PlayState.instance.song` → `vsSongScript` (yoksa `VSScriptRegistry.resolveSong`
+  ile tembel kurulur). `#if HSC_ALLOWED && POLYMOD_ALLOWED` korumalı.
+- `funkin.play.song.Song` shim'ine `songName` (PlayState.SONG.song),
+  `length` (ms, çalan müzik) ve `getSongId()` eklendi.
+
+### Yeni yerleşik chart event'leri (SongEventRegistry.BUILTIN_EVENTS)
+- `SetCameraBop` — {rate=4, offset=0, intensity=1}: resmî formülle
+  `cameraBopIntensity=(1.015-1)*intensity+1` hesaplanır ve Psych'in gerçek
+  görsel kanalına (`camZoomingMult`, 0.015/0.03 katsayıları resmî ile aynı)
+  köprülenir + `camZooming=true`. Yeni PlayState alanları:
+  `cameraBopIntensity/hudCameraZoomIntensity/cameraZoomRate/cameraZoomRateOffset`.
+  `sectionHit` zoom punch'ı artık `cameraZoomRate>=1` ise
+  `(curBeat+offset)%rate==0` kapısıyla çalışır (varsayılan 0 → Psych davranışı
+  DEĞİŞMEZ; rate=4 resmî varsayılanla aynı görünüm). Sınır: rate<4 Psych
+  section-vuruşundan daha sıka düşüremez (her section'da punch'a düşer).
+- `SetTargetBopSpeed` — {target='boyfriend', rate=1}: bf/dad/gf için
+  `danceEveryNumBeats=round(rate)` (min 1). Sınır: isimli sahne prop'u
+  hedefi yok (trace düşer).
+- Resmî v0.8.7'de `SetCharacterSongEvent`/`SetStageSongEvent` yalnızca TODO
+  yorumudur (sınıf yok) → shim de eklenmedi; bu adları import eden script
+  zaten resmî 0.8.7'de de çalışmaz.
+
+### Diyalog ailesi tamamlandı
+- `funkin.play.cutscene.dialogue.Speaker` (FlxSprite; id/speakerName/
+  globalOffsets + diyalog yaşam döngüsü no-op'ları)
+- `funkin.play.cutscene.dialogue.Conversation` (FlxSpriteGroup; id/
+  completeCallback/dialogue depolama + skip() → completeCallback)
+- Sarmalayıcılar: `ScriptedSpeaker`, `ScriptedDialogueBox` (v17'de gelmişti),
+  `ScriptedConversation`.
+
+### Envanter notu (Faz 4 taraması)
+Resmî v0.8.7'de 517 sınıf var; FFE shim kapsaması 70+. Taramada kalan
+eksiklerin çoğu mod script'lerinin import ETMEDİĞİ iç sistemler
+(chart editor, newgrounds api, charSelect, credits, mobile, framebuffer,
+save migrator'ları). Bilinçli olarak EKLENMEYENLER:
+- `funkin.save.Save` (modlar kendi FlxSave'ını kullanır)
+- `funkin.audio.VoicesGroup/SoundGroup` (`PlayState.vocals` FFE'de FlxSound;
+  `vocals.playerVolume` bekleyen script çalışmaz — `vocals.volume` çalışır)
+- `funkin.data.stage.StageData` typedef ailesi (converter JSON'u kendisi okur)
+- FreeplayStyle/Album görsel sınıfları (albumId FreeplaySongData'da taşınıyor)
+- `funkin.graphics.shaders.*` (FFE'nin kendi shaders paketi var; ad eşleme
+  mod bazında gerekebilir, talep gelirse eklenir)
+
+## v19 Değişiklikleri (Faz 4.3/4.4 — çalışma zamanı düzeltmeleri)
+
+### hxSehException spam'i çözüldü (VSScriptEventDispatcher)
+- Kök neden: cpp hedefinde `Dynamic → IHScriptedEvents` cast'i, arayüzü
+  implemente etmeyen nesnelerde (düz `objects.Character`, yerleşik
+  `FocusCameraSongEvent` örneği) de "başarılı" olabiliyor; ardından
+  `t.scriptHas(...)` sanal çağrısı yanlış vtable'a düşüp native crash
+  (hxSehException) üretiyordu.
+- Çözüm: cast tamamen kaldırıldı → `Reflect.hasField(target, 'scriptHas')`
+  + `Reflect.hasField(target, 'scriptCall')` guard'ı ve çağrılar
+  `Reflect.callMethod` ile. Ek savunma: `exists == false` Flx nesneleri
+  atlanır; crash veren hedef+fonksiyon kara listeye alınıp bir kez loglanır.
+
+### Scripted stage düzeltmesi ("Cannot extend non-scriptable class")
+- Polymod, script'lerin `extends X` yazdığı gerçek sınıfları
+  derleme-zamanı `scriptClassOverrides` tablosuyla çözer; tablo
+  `HScriptedClass` implemente eden sınıfların EBEVEYN adlarından doldurulur.
+- `ScriptedStage` yanlışlıkla `backend.BaseStage`'den türüyordu → tabloda
+  `funkin.play.stage.Stage` anahtarı yoktu → Sunday modunun `garage`
+  script'i reddediliyordu. Artık resmî FNF ile aynı:
+  `ScriptedStage extends funkin.play.stage.Stage`.
+- `Stage` shim kurucusu resmî imzaya çekildi: `new(id:String = '', ?params:Dynamic)`
+  (+ `public var id/params`). `resolveStage` artık `scriptInit(cls, cls)`.
+- Sahne script sözleşmesi (yukarıda Bölüm 4 güncellendi):
+  `class garage extends Stage { function new() { super('garage'); } }`
+
+### Module yaşam döngüsü tamamlandı
+- `funkin.modding.module.Module` shim'ine resmî v0.8.7'deki tüm olay
+  metodları eklendi (onScriptEvent, onSongLoaded, onSongEvent, onGameOver,
+  onNoteIncoming, onNoteHoldDrop, onStateChange*, onFocus*, onSubState*,
+  onSongRetry, onStateCreate, capsule/difficulty/songSelected, Freeplay*,
+  Character*). Script'lerdeki `super.onSongLoaded()` artık
+  `__super_onSongLoaded` hatası vermiyor (Polymod bu yardımcıları yalnızca
+  ebeveyn sınıfta metod VARSA üretir).
+
+## v20 Değişiklikleri (Faz 4.5 — Sunday modu saha testi düzeltmeleri)
+
+Sunday V-Slice Port + Notestyle Swap Event modlarının gerçek script'leriyle
+doğrulandı (NoteSwapEvent.hxc, SwappingNotestyles, garageMarx.hxc,
+SwapCharacterEvent, NoteCameraModule):
+
+### Modül arama artık gerçek: ModuleHandler.getModule(id)
+- `ModuleHandler.getModule('SwappingNotestyles')` null dönüyordu →
+  `ModuleHandler.getModule(...).scriptCall(...)` "null object: scriptCall"
+  hatası veriyordu. Artık VSScriptRegistry.modules içinde moduleId ile arar.
+- Ek: getModules(), callScriptEvent(event) → dispatcher köprüsü.
+
+### Scripted stage eşleşmesi resmî semantiğe geçti (super-id)
+- Resmî BaseRegistry.loadEntries: scripted sahne örneği kurulur ve
+  `entries.set(entry.id, entry)` ile script'in `super('garage')` ile verdiği
+  ID anahtar olur — SINIF ADI DEĞİL. Eski davranış (sınıf adı == sahne adı)
+  `garageMarxStage` gibi isimlerde script'i hiç yüklemiyordu.
+- VSScriptRegistry: buildStageIndex() her scripted sahne sınıfını bir kez
+  PROBE ile kurar, `inst.id` okur, probe'u `PlayState.stages`'den çıkarıp
+  destroy eder; resolveStage(stageName) bu id indeksiyle çözer.
+- prepare() artık stageIndex + charIndex'i sıfırlar (mod değişimi).
+
+### Stage shim derinleşti (funkin.play.stage.Stage)
+- Resmî yaşam döngüsü no-op'larının TAMAMI (onScriptEvent, onCreate,
+  onUpdate, onStepHit, onSongEvent, onCountdown*, onNote*, onPause/Resume,
+  onDestroy, onGameOver, ...) — script'lerdeki `super.onCreate(event)`
+  çağrıları artık `__super_onCreate` hatası vermez.
+- Karakter API'si: addCharacter(char, charType) (PlayState slot köprüsü),
+  getCharacter(id), getBoyfriend/getPlayer/getGirlfriend/getDad/getOpponent.
+- addProp/addBopper (BaseStage.add → FlxG.state), getNamedProp, refresh,
+  resetStage, setShader, fetchAssetPaths, dispatchToCharacters/Character.
+
+### NoteStyleRegistry resmî singleton'a kavuştu
+- `NoteStyleRegistry.instance.fetchEntry(id)`, `.fetchDefault()`,
+  `.listEntryIds()`, `.listEntryNames()` (eskiden yalnız statikler vardı;
+  `instance` null döndüğü için script'ler patlıyordu).
+- fetchEntry, ScriptedNoteStyle sınıflarını da çözer (scriptInit + önbellek).
+
+### NoteStyle frame-builder API'si
+- buildNoteFrames/buildSplashFrames/buildHoldCoverFrames/
+  buildCountdownFrames/buildJudgementFrames/buildComboNumFrames (force) →
+  null; buildComboNumSprite(Path), buildSplashSprite, buildHoldCoverSprite
+  no-op (Further noteSkin sistemi kendi render'ını yapar).
+
+### Strumline resmî statikleri
+- KEY_COUNT=4, DIRECTIONS, STRUMLINE_SIZE=104, NOTE_SPACING=112,
+  INITIAL_OFFSET=-28.6, getXPos(dir), noteStyle (varsayılan funkin),
+  noteSplashes/noteHoldCovers grupları, playNoteHoldCover no-op.
+
+### PlayState stub'ları
+- `comboPopUps` (anonim {noteStyle}) ve `currentChart` (→ SONG) — script'lerin
+  `PlayState.instance.comboPopUps.noteStyle = x` erişimi null crash vermesin.
+
+### Yeni shim: funkin.save.Save (minimal)
+- `Save.instance.modOptions` (bellek içi Map) + flush() no-op —
+  NoteCameraModule gibi modüllerin kurucusu çalışabilsin diye.
+
+### CharacterDataParser + objects.Character köprüleri
+- CharacterDataParser: characterCache, parseCharacterData(id),
+  fetchCharacter(id) → scripted (resolveCharacter) ya da
+  `new objects.Character(0,0,id)`.
+- objects.Character: playAnimation(name, restart, ignoreOther, suffix) →
+  playAnim köprüsü, set_characterType/initHealthIcon güvenli no-op'lar,
+  resmî yaşam döngüsü no-op'ları (char.onNoteHit(ev) gibi DOĞRUDAN script
+  çağrılarına dayanıklılık; dispatcher davranışı değişmez).

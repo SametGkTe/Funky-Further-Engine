@@ -507,6 +507,54 @@ class Character extends FlxSprite
 		animation.addByPrefix(name, anim, 24, false);
 	}
 
+	/* ---- V-Slice shim (v20): mod script'lerinin doğrudan karakter
+	   çağrıları için güvenli köprüler (dispatch bunları KULLANMAZ;
+	   yalnızca script'ler char.playAnimation(...) / char.onNoteHit(ev)
+	   gibi doğrudan çağrılar yaptığında devreye girer). ---- */
+
+	/** FNF: characterType atayıcısı — Further'da slotlar PlayState'te tutulur. */
+	public function set_characterType(v:Dynamic):Dynamic
+	{
+		return v;
+	}
+
+	/** FNF: initHealthIcon(isPlayer) — sağlık ikonları PlayState'te yönetilir. */
+	public function initHealthIcon(?isPlayer:Bool):Void {}
+
+	/**
+	 * FNF: playAnimation(name, restart, ignoreOther, reversed) → playAnim köprüsü.
+	 * (Resmî imza; BaseCharacter bu metodu override eder.)
+	 */
+	public function playAnimation(name:String = null, restart:Bool = false, ignoreOther:Bool = false, reversed:Bool = false):Void
+	{
+		if (name == null || animation == null) return;
+		if (animation.getByName(name) != null) playAnim(name, restart, reversed);
+	}
+
+	// Resmî yaşam döngüsü no-op'ları (script doğrudan çağrılarına dayanıklılık).
+	public function onScriptEvent(event:Dynamic):Void {}
+	public function onCreate(event:Dynamic):Void {}
+	public function onCreatePost(event:Dynamic):Void {}
+	public function onUpdate(event:Dynamic):Void {}
+	public function onUpdatePost(event:Dynamic):Void {}
+	public function onStepHit(event:Dynamic):Void {}
+	public function onBeatHit(event:Dynamic):Void {}
+	public function onSongStart(event:Dynamic):Void {}
+	public function onSongEnd(event:Dynamic):Void {}
+	public function onSongLoaded(event:Dynamic):Void {}
+	public function onSongEvent(event:Dynamic):Void {}
+	public function onCountdownStart(event:Dynamic):Void {}
+	public function onCountdownStep(event:Dynamic):Void {}
+	public function onCountdownEnd(event:Dynamic):Void {}
+	public function onNoteIncoming(event:Dynamic):Void {}
+	public function onNoteHit(event:Dynamic):Void {}
+	public function onNoteMiss(event:Dynamic):Void {}
+	public function onNoteHoldDrop(event:Dynamic):Void {}
+	public function onPause(event:Dynamic):Void {}
+	public function onResume(event:Dynamic):Void {}
+	public function onDestroy(event:Dynamic):Void {}
+	public function onGameOver(event:Dynamic):Void {}
+
 	// Atlas support
 	// special thanks ne_eo for the references, you're the goat!!
 	@:allow(states.editors.CharacterEditorState)

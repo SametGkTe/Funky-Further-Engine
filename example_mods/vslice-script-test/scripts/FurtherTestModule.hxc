@@ -1,0 +1,132 @@
+import funkin.modding.module.Module;
+import funkin.modding.events.ScriptEvent;
+import funkin.modding.events.ScriptEvent.UpdateScriptEvent;
+import funkin.modding.events.ScriptEvent.SongTimeScriptEvent;
+import funkin.modding.events.ScriptEvent.HitNoteScriptEvent;
+import funkin.modding.events.ScriptEvent.NoteScriptEvent;
+import funkin.modding.events.ScriptEvent.SongEventScriptEvent;
+import funkin.modding.events.ScriptEvent.SongLoadScriptEvent;
+import funkin.Conductor;
+import funkin.play.PlayState;
+
+/**
+ * FurtherTestModule — v15 V-Slice script desteği TEST modülü.
+ *
+ * Bu modülü içeren klasörü `mods/` altına kopyala ve Mods menüsünden aç.
+ * Herhangi bir şarkıya gir; loglarda [FETest] satırlarını gör.
+ *
+ * Doğrulanan şeyler:
+ *   - Module yaşam döngüsü (onCreate/onUpdate/onDestroy)
+ *   - TİPLİ olaylar: event.elapsed, event.beat, event.step, event.judgement...
+ *   - onSongEvent: chart'taki HER event için eventData.eventKind/value loglanır
+ *     (Sunday gibi V-Slice modlarının fretPC/WarnCreate event'leri burada görünür)
+ *   - onSongLoaded: id/difficulty/notes/events
+ */
+class FurtherTestModule extends Module
+{
+	var updateLogs:Int = 0;
+
+	public function new()
+	{
+		super('further_test_module');
+		trace('[FETest] Modul kuruldu (startup).');
+	}
+
+	override function onCreate(event:ScriptEvent)
+	{
+		trace('[FETest] onCreate — event.type=' + event.type);
+	}
+
+	override function onUpdate(event:UpdateScriptEvent)
+	{
+		// İlk 3 kare + sonra her 300 karede bir log (spam olmasın)
+		if (updateLogs < 3)
+		{
+			trace('[FETest] onUpdate — event.elapsed=' + event.elapsed);
+			// v16: Conductor.instance testi (Faz 2)
+			trace('[FETest] Conductor — bpm=' + Conductor.instance.bpm
+				+ ' songPos=' + Conductor.instance.songPosition
+				+ ' beat=' + Conductor.instance.currentBeat
+				+ ' stepLenMs=' + Conductor.instance.stepLengthMs);
+			updateLogs++;
+		}
+	}
+
+	override function onSongLoaded(event:SongLoadScriptEvent)
+	{
+		trace('[FETest] onSongLoaded — id=' + event.id + ' diff=' + event.difficulty
+			+ ' notes=' + (event.notes != null ? event.notes.length : -1)
+			+ ' events=' + (event.events != null ? event.events.length : -1));
+	}
+
+	override function onSongStart(event:ScriptEvent)
+	{
+		trace('[FETest] onSongStart');
+		// v16: PlayState takma ad testi (Faz 2)
+		var ps = PlayState.instance;
+		if (ps != null)
+		{
+			trace('[FETest] PlayState — opponent=' + (ps.opponent != null ? ps.opponent.curCharacter : 'null')
+				+ ' girlfriend=' + (ps.girlfriend != null ? ps.girlfriend.curCharacter : 'null')
+				+ ' boyfriend=' + (ps.boyfriend != null ? ps.boyfriend.curCharacter : 'null')
+				+ ' currentStage=' + (ps.currentStage != null ? 'var' : 'null'));
+			// v17: Strumline takma ad testi (Faz 3)
+			trace('[FETest] Strumline — player strumlar=' + ps.playerStrumline.strumlineNotes.length
+				+ ' opponent strumlar=' + ps.opponentStrumline.strumlineNotes.length
+				+ ' scrollSpeed=' + ps.playerStrumline.scrollSpeed);
+		}
+		// v17: Bopper + NoteKindManager duman testi (Faz 3)
+		var bop = new funkin.play.stage.Bopper(2);
+		trace('[FETest] Bopper kuruldu — danceEvery=' + bop.danceEvery + ' shouldBop=' + bop.shouldBop);
+		bop.dance(); // atlas yok -> sessiz gecmeli (crash YOK)
+		bop.destroy();
+		trace('[FETest] NoteKinds kayitli: ' + funkin.play.notes.notekind.NoteKindManager.listNoteKinds().join(', '));
+		// v18: PlayState.song + Conductor FlxSignal testi (Faz 4)
+		if (ps != null && ps.song != null)
+			trace('[FETest] PlayState.song — songName=' + ps.song.songName + ' songId=' + ps.song.songId);
+		if (!beatSignalLogged)
+		{
+			beatSignalLogged = true;
+			Conductor.instance.onBeatHit.add(onFirstBeatSignal);
+		}
+	}
+
+	var beatSignalLogged:Bool = false;
+
+	function onFirstBeatSignal():Void
+	{
+		trace('[FETest] Conductor.onBeatHit SINYALI calisiyor — beat=' + Conductor.instance.currentBeat);
+		Conductor.instance.onBeatHit.remove(onFirstBeatSignal);
+	}
+
+	override function onBeatHit(event:SongTimeScriptEvent)
+	{
+		if (event.beat % 32 == 0)
+			trace('[FETest] onBeatHit — beat=' + event.beat + ' step=' + event.step);
+	}
+
+	override function onNoteHit(event:HitNoteScriptEvent)
+	{
+		var mustPress = (event.note != null) ? event.note.mustPress : false;
+		trace('[FETest] onNoteHit — judge=' + event.judgement + ' combo=' + event.comboCount
+			+ ' score=' + event.score + ' mustPress=' + mustPress
+			+ ' hitDiff=' + event.hitDiff); // v16: gerçek vuruş farkı (ms)
+	}
+
+	override function onNoteMiss(event:NoteScriptEvent)
+	{
+		trace('[FETest] onNoteMiss — healthChange=' + event.healthChange);
+		// İPTAL TESTİ: aşağıdaki satırı açarsan miss cezası uygulanmamalı:
+		// event.cancel();
+	}
+
+	override function onSongEvent(event:SongEventScriptEvent)
+	{
+		trace('[FETest] onSongEvent — kind=' + event.eventData.eventKind + ' value=' + event.eventData.value);
+	}
+
+	override function onDestroy(event:ScriptEvent)
+	{
+		trace('[FETest] onDestroy');
+	}
+}

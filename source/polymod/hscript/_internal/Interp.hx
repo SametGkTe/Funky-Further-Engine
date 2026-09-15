@@ -2344,6 +2344,8 @@ class Interp
     }
     else
     {
+      // v21f (Faz 4.8): daha once shim'e dusmus bilinmeyen alan mi?
+      if (hasVSideField(o, f)) return getVSideField(o, f);
       try
       {
         return Reflect.getProperty(o, f);
@@ -2354,6 +2356,50 @@ class Interp
       }
     }
     #end
+  }
+
+  // ========================================================================
+  // v21f (Faz 4.8): V-Slice alan shim'i
+  // ------------------------------------------------------------------------
+  // funkin (V-Slice), flixel siniflarinda OLMAYAN alanlari script'lerde
+  // kullanir (orn. FlxSprite.zIndex, Bopper alanlari...). Psych/flixel
+  // nesnelerinde bu alanlar bulunmadigindan polymod "No such field" ->
+  // "Invalid access to field" hatasiyla TUM onCreate'i olduruyordu.
+  // Cozum: bilinmeyen alana yazma istenince degeri yan tabloda sakla;
+  // okuma istenince yan tablodan don. Boylece V-Slice script'leri kendi
+  // genisletme alanlarini serbestce kullanabilir (zIndex siralamasi disinda
+  // islevsel etki beklenmez; render sirasi ekleme sirasinda kalir).
+  static var _vsideFields:haxe.ds.ObjectMap<Dynamic, Map<String, Dynamic>> = new haxe.ds.ObjectMap<Dynamic, Map<String, Dynamic>>();
+  static var _vsideLogged:Map<String, Bool> = new Map<String, Bool>();
+
+  static function storeVSideField(o:Dynamic, f:String, v:Dynamic):Void
+  {
+    var entry:Map<String, Dynamic> = _vsideFields.get(o);
+    if (entry == null)
+    {
+      entry = new Map<String, Dynamic>();
+      _vsideFields.set(o, entry);
+    }
+    entry.set(f, v);
+
+    var logKey:String = Util.getTypeNameOf(o) + '.' + f;
+    if (!_vsideLogged.exists(logKey))
+    {
+      _vsideLogged.set(logKey, true);
+      trace('[Interp] Bilinmeyen alan shimlendi (yan tablo): ' + logKey);
+    }
+  }
+
+  static function hasVSideField(o:Dynamic, f:String):Bool
+  {
+    var entry:Map<String, Dynamic> = _vsideFields.get(o);
+    return entry != null && entry.exists(f);
+  }
+
+  static function getVSideField(o:Dynamic, f:String):Dynamic
+  {
+    var entry:Map<String, Dynamic> = _vsideFields.get(o);
+    return (entry != null) ? entry.get(f) : null;
   }
 
   function set(o:Dynamic, f:String, v:Dynamic):Null<Dynamic>
@@ -2446,7 +2492,10 @@ class Interp
     }
     catch (e)
     {
-      error(EInvalidAccess(f));
+      // v21f (Faz 4.8): Alan native sinifta gercekten yoksa (orn. flixel
+      // FlxSprite'ta 'zIndex') hata firlatmak yerine degeri yan tabloda
+      // sakla. Script calismaya devam eder; okuma get() icinden donecek.
+      storeVSideField(o, f, v);
     }
     return v;
   }

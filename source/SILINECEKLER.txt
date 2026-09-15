@@ -1,0 +1,10 @@
+BU 2 DOSYAYI REPO'DAN SIL (kopyalamadan ONCE):
+
+source\funkin\modding\events\CountdownScriptEvent.hx
+source\funkin\modding\events\StateChangeScriptEvent.hx
+
+NEDEN: Bu siniflar Faz 1'de source\funkin\modding\events\ScriptEvent.hx
+modulunun icine tasindi (resmi funkin v0.8.7 ile ayni yapi). Eski ayri
+dosyalar kalirsa Haxe ayni tip adini iki modulde gorur ve derleme
+"Type name ... is redefined from module funkin.modding.events.ScriptEvent"
+hatasiyla durur.

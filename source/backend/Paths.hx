@@ -428,9 +428,9 @@ class Paths
 	{
 		var path:String = getPath(key, TEXT, !ignoreMods);
 		#if sys
-		return (FileSystem.exists(path)) ? File.getContent(path) : null;
+		return (FileSystem.exists(path)) ? readTextFileBom(path) : null;
 		#else
-		return (OpenFlAssets.exists(path, TEXT)) ? Assets.getText(path) : null;
+		return (OpenFlAssets.exists(path, TEXT)) ? stripBom(Assets.getText(path)) : null;
 		#end
 	}
 
@@ -489,7 +489,7 @@ class Paths
 		if(OpenFlAssets.exists(myXml) #if MODS_ALLOWED || (FileSystem.exists(myXml) && (useMod = true)) #end )
 		{
 			#if MODS_ALLOWED
-			return FlxAtlasFrames.fromSparrow(imageLoaded, (useMod ? File.getContent(myXml) : myXml));
+			return FlxAtlasFrames.fromSparrow(imageLoaded, (useMod ? readTextFileBom(myXml) : myXml));
 			#else
 			return FlxAtlasFrames.fromSparrow(imageLoaded, myXml);
 			#end
@@ -500,7 +500,7 @@ class Paths
 			if(OpenFlAssets.exists(myJson) #if MODS_ALLOWED || (FileSystem.exists(myJson) && (useMod = true)) #end )
 			{
 				#if MODS_ALLOWED
-				return FlxAtlasFrames.fromTexturePackerJson(imageLoaded, (useMod ? File.getContent(myJson) : myJson));
+				return FlxAtlasFrames.fromTexturePackerJson(imageLoaded, (useMod ? readTextFileBom(myJson) : myJson));
 				#else
 				return FlxAtlasFrames.fromTexturePackerJson(imageLoaded, myJson);
 				#end
@@ -538,12 +538,18 @@ class Paths
 		var imageLoaded:FlxGraphic = image(key, parentFolder, allowGPU);
 		if (imageLoaded == null) { Log.warn('asset', 'Sparrow PNG yüklenemedi: $key'); return null; }
 		#if MODS_ALLOWED
-		var xmlExists:Bool = false;
-
+		// v21d: XML'i daima "icerik" olarak ver. Iki neden:
+		// 1) Mod dosyalari BOM'lu -> Xml.parse "Invalid char at position 0"
+		// 2) Mod yolu openfl asset'i degil; flixel path'i Assets.getText ile
+		//    okuyamaz ve icerik gibi Xml.parse'a dusup patlar.
 		var xml:String = modsXml(key);
-		if(FileSystem.exists(xml)) xmlExists = true;
+		if (FileSystem.exists(xml))
+			return FlxAtlasFrames.fromSparrow(imageLoaded, readTextFileBom(xml));
 
-		return FlxAtlasFrames.fromSparrow(imageLoaded, (xmlExists ? File.getContent(xml) : getPath(Language.getFileTranslation('images/$key') + '.xml', TEXT, parentFolder)));
+		var xmlPath:String = getPath(Language.getFileTranslation('images/$key') + '.xml', TEXT, parentFolder);
+		if (FileSystem.exists(xmlPath))
+			return FlxAtlasFrames.fromSparrow(imageLoaded, readTextFileBom(xmlPath));
+		return FlxAtlasFrames.fromSparrow(imageLoaded, xmlPath); // gomulu asset: flixel Assets.getText ile okur
 		#else
 		return FlxAtlasFrames.fromSparrow(imageLoaded, getPath(Language.getFileTranslation('images/$key') + '.xml', TEXT, parentFolder));
 		#end
@@ -554,12 +560,14 @@ class Paths
 		var imageLoaded:FlxGraphic = image(key, parentFolder, allowGPU);
 		if (imageLoaded == null) { Log.warn('asset', 'Packer PNG yüklenemedi: $key'); return null; }
 		#if MODS_ALLOWED
-		var txtExists:Bool = false;
-		
 		var txt:String = modsTxt(key);
-		if(FileSystem.exists(txt)) txtExists = true;
+		if (FileSystem.exists(txt))
+			return FlxAtlasFrames.fromSpriteSheetPacker(imageLoaded, readTextFileBom(txt));
 
-		return FlxAtlasFrames.fromSpriteSheetPacker(imageLoaded, (txtExists ? File.getContent(txt) : getPath(Language.getFileTranslation('images/$key') + '.txt', TEXT, parentFolder)));
+		var txtPath:String = getPath(Language.getFileTranslation('images/$key') + '.txt', TEXT, parentFolder);
+		if (FileSystem.exists(txtPath))
+			return FlxAtlasFrames.fromSpriteSheetPacker(imageLoaded, readTextFileBom(txtPath));
+		return FlxAtlasFrames.fromSpriteSheetPacker(imageLoaded, txtPath);
 		#else
 		return FlxAtlasFrames.fromSpriteSheetPacker(imageLoaded, getPath(Language.getFileTranslation('images/$key') + '.txt', TEXT, parentFolder));
 		#end
@@ -570,12 +578,14 @@ class Paths
 		var imageLoaded:FlxGraphic = image(key, parentFolder, allowGPU);
 		if (imageLoaded == null) { Log.warn('asset', 'Aseprite PNG yüklenemedi: $key'); return null; }
 		#if MODS_ALLOWED
-		var jsonExists:Bool = false;
-
 		var json:String = modsImagesJson(key);
-		if(FileSystem.exists(json)) jsonExists = true;
+		if (FileSystem.exists(json))
+			return FlxAtlasFrames.fromTexturePackerJson(imageLoaded, readTextFileBom(json));
 
-		return FlxAtlasFrames.fromTexturePackerJson(imageLoaded, (jsonExists ? File.getContent(json) : getPath(Language.getFileTranslation('images/$key') + '.json', TEXT, parentFolder)));
+		var jsonPath:String = getPath(Language.getFileTranslation('images/$key') + '.json', TEXT, parentFolder);
+		if (FileSystem.exists(jsonPath))
+			return FlxAtlasFrames.fromTexturePackerJson(imageLoaded, readTextFileBom(jsonPath));
+		return FlxAtlasFrames.fromTexturePackerJson(imageLoaded, jsonPath);
 		#else
 		return FlxAtlasFrames.fromTexturePackerJson(imageLoaded, getPath(Language.getFileTranslation('images/$key') + '.json', TEXT, parentFolder));
 		#end
@@ -615,6 +625,58 @@ class Paths
 	}
 
 	#if MODS_ALLOWED
+	/**
+	 * v21c (Faz 4.6d): UTF-8 BOM temizliği.
+	 * V-Slice modlarının atlas XML/TXT/JSON dosyaları genellikle UTF-8 BOM
+	 * (0xEF 0xBB 0xBF) ile başlar. `File.getContent` ham bayt okuduğu için
+	 * BOM string'in başında görünmez 3 karakter olarak kalır ve Xml.parse /
+	 * Json.parse "Invalid char at position 0" hatasıyla patlar (resmî FNF'te
+	 * bu dosyalar Polymod VFS üzerinden BOM'suz gelir). Mod dosyalarından
+	 * okunan HER metnin başından BOM'u söker.
+	 */
+	public static function stripBom(text:String):String
+	{
+		if (text == null || text.length == 0) return text;
+		// Ham bayt BOM (File.getContent çıktısı): 0xEF 0xBB 0xBF
+		if (text.charCodeAt(0) == 0xEF && text.length >= 3 && text.charCodeAt(1) == 0xBB && text.charCodeAt(2) == 0xBF)
+			return text.substr(3);
+		// UTF-16'dan çözülmüş tek karakterlik BOM (U+FEFF)
+		if (text.charCodeAt(0) == 0xFEFF)
+			return text.substr(1);
+		return text;
+	}
+
+	/** v21d: BOM'u temizlenen dosyaların log kaydı (dosya başına 1 kez). */
+	static var _bomLoggedPaths:Map<String, Bool> = new Map<String, Bool>();
+
+	/**
+	 * v21d (Faz 4.6e): Disk/mod dosyasını BOM temizliğiyle okur ve BOM
+	 * bulunduysa loglar. Log'da "[Paths] BOM temizlendi: ..." satiri
+	 * gorunmuyorsa bu kod derlemeye GIRMEMIS demektir.
+	 */
+	public static function readTextFileBom(path:String):String
+	{
+		var text:String = File.getContent(path);
+		if (text == null || text.length == 0) return text;
+		var hadBom:Bool = false;
+		if (text.charCodeAt(0) == 0xEF && text.length >= 3 && text.charCodeAt(1) == 0xBB && text.charCodeAt(2) == 0xBF)
+		{
+			text = text.substr(3);
+			hadBom = true;
+		}
+		else if (text.charCodeAt(0) == 0xFEFF)
+		{
+			text = text.substr(1);
+			hadBom = true;
+		}
+		if (hadBom && !_bomLoggedPaths.exists(path))
+		{
+			_bomLoggedPaths.set(path, true);
+			trace('[Paths] BOM temizlendi: $path');
+		}
+		return text;
+	}
+
 	inline static public function mods(key:String = '')
 		return #if android StorageUtil.getExternalStorageDirectory() + #else Sys.getCwd() + #end 'mods/' + key;
 
@@ -755,13 +817,13 @@ class Paths
 		if(spriteJson != null)
 		{
 			changedAtlasJson = true;
-			spriteJson = File.getContent(spriteJson);
+			spriteJson = readTextFileBom(spriteJson);
 		}
 
 		if(animationJson != null) 
 		{
 			changedAnimJson = true;
-			animationJson = File.getContent(animationJson);
+			animationJson = readTextFileBom(animationJson);
 		}
 
 		// is folder or image path
