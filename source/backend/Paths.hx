@@ -30,6 +30,58 @@ class Paths
 	inline public static var SOUND_EXT = #if web "mp3" #else "ogg" #end;
 	inline public static var VIDEO_EXT = "mp4";
 
+	static var _existsMemo:Map<String, Bool> = new Map();
+	static var _existsMemoStamp:Float = 0;
+	static inline var EXISTS_MEMO_TTL:Float = 10;
+	#if cpp
+	static var _existsMutex:cpp.vm.Mutex = null;
+	#end
+
+	public static function invalidateExistsCache():Void
+	{
+		#if cpp
+		if (_existsMutex != null) _existsMutex.acquire();
+		#end
+		_existsMemo = new Map();
+		_existsMemoStamp = 0;
+		#if cpp
+		if (_existsMutex != null) _existsMutex.release();
+		#end
+	}
+
+	public static function existsCached(path:String):Bool
+	{
+		#if sys
+		if (path == null || path.length == 0) return false;
+		#if cpp
+		if (_existsMutex == null) _existsMutex = new cpp.vm.Mutex();
+		_existsMutex.acquire();
+		#end
+		var now = openfl.Lib.getTimer() / 1000.0;
+		if (_existsMemoStamp == 0 || (now - _existsMemoStamp) > EXISTS_MEMO_TTL)
+		{
+			_existsMemo = new Map();
+			_existsMemoStamp = now;
+		}
+		var r:Bool;
+		if (_existsMemo.exists(path))
+		{
+			r = _existsMemo.get(path);
+		}
+		else
+		{
+			r = sys.FileSystem.exists(path);
+			_existsMemo.set(path, r);
+		}
+		#if cpp
+		_existsMutex.release();
+		#end
+		return r;
+		#else
+		return false;
+		#end
+	}
+
 	public static function excludeAsset(key:String) {
 		if (!dumpExclusions.contains(key))
 			dumpExclusions.push(key);
@@ -99,6 +151,9 @@ class Paths
 
 	public static function freeGraphicsFromMemory()
 	{
+		// FURTHER PERF: grafikler serbest bırakılıyorsa mod klasörü değişmiştir;
+		// dosya varlığı önbelleği de düşürülmeli.
+		clearFileExistsCache();
 		var protectedGfx:Array<FlxGraphic> = [];
 		function checkForGraphics(spr:Dynamic)
 		{
@@ -195,7 +250,7 @@ class Paths
 			if (parentfolder != null) customFile = '$parentfolder/$file';
 
 			var modded:String = modFolders(customFile);
-			if(FileSystem.exists(modded)) return modded;
+			if(existsCached(modded)) return modded;
 		}
 		#end
 		if(parentfolder == "mobile")
@@ -241,7 +296,7 @@ class Paths
 	{
 		#if MODS_ALLOWED
 		var file:String = modsVideo(key);
-		if(FileSystem.exists(file)) return file;
+		if(existsCached(file)) return file;
 		#end
 		return 'assets/videos/$key.$VIDEO_EXT';
 	}
@@ -302,7 +357,7 @@ class Paths
 		for (mod in searchDirs)
 		{
 			var base:String = mods(mod) + '$lib/';
-			if (!FileSystem.exists(base)) continue;
+			if (!existsCached(base)) continue;
 			// şarkı klasörünü case-insensitive bul
 			for (dir in FileSystem.readDirectory(base))
 			{
@@ -346,7 +401,7 @@ class Paths
 	static function returnSoundFromPath(file:String):Sound
 	{
 		#if sys
-		if (FileSystem.exists(file) && !currentTrackedSounds.exists(file))
+		if (existsCached(file) && !currentTrackedSounds.exists(file))
 			currentTrackedSounds.set(file, Sound.fromFile(file));
 		if (currentTrackedSounds.exists(file))
 		{
@@ -388,7 +443,7 @@ class Paths
 		{
 			var file:String = getPath(key, IMAGE, parentFolder, true);
 			#if MODS_ALLOWED
-			if (FileSystem.exists(file))
+			if (existsCached(file))
 				bitmap = BitmapData.fromFile(file);
 			else #end if (OpenFlAssets.exists(file, IMAGE))
 				bitmap = OpenFlAssets.getBitmapData(file);
@@ -428,7 +483,7 @@ class Paths
 	{
 		var path:String = getPath(key, TEXT, !ignoreMods);
 		#if sys
-		return (FileSystem.exists(path)) ? readTextFileBom(path) : null;
+		return (existsCached(path)) ? readTextFileBom(path) : null;
 		#else
 		return (OpenFlAssets.exists(path, TEXT)) ? stripBom(Assets.getText(path)) : null;
 		#end
@@ -439,12 +494,54 @@ class Paths
 		var folderKey:String = Language.getFileTranslation('fonts/$key');
 		#if MODS_ALLOWED
 		var file:String = modFolders(folderKey);
-		if(FileSystem.exists(file)) return file;
+		if(existsCached(file)) return file;
 		#end
 		return 'assets/$folderKey';
 	}
 
+	/**
+	 * FURTHER PERF: `fileExists` sorguları oyun sırasında çok sık çalışıyor (note splash,
+	 * strumline/note skin, health icon, anim/chart fallback'leri) ve her sorgu global mod
+	 * klasörleri boyunca `FileSystem.exists` geziyor — 300 modluk bir pakette tek sorgu
+	 * onlarca disk istemi demek. Sonuç önbelleğe alınır.
+	 *
+	 * Önbelleği düşüren yerler: `Mods.pushGlobalMods()`, `Mods.saveEnabledList()`,
+	 * `Paths.freeGraphicsFromMemory()` (mod klasörü değişiminde zaten çağrılıyor) ve
+	 * `ModpackInstaller.step_cleanup()` (yeni kurulan pack'in dosyaları diskte).
+	 */
+	static var _fileExistsCache:Map<String, Bool> = new Map();
+
+	/** Ölçüm için: kaç sorgu geldi / kaçı önbellekten döndü (log'a basılabilir). */
+	public static var fileExistsCalls:Int = 0;
+	public static var fileExistsCacheHits:Int = 0;
+
+	public static function clearFileExistsCache():Void
+	{
+		_fileExistsCache = new Map();
+	}
+
 	public static function fileExists(key:String, type:AssetType, ?ignoreMods:Bool = false, ?parentFolder:String = null)
+	{
+		fileExistsCalls++;
+		var cacheKey:String = (ignoreMods ? 'n' : 'm') + Std.string(type) + '|'
+			+ (parentFolder != null ? parentFolder + '|' : '') + key;
+		#if MODS_ALLOWED
+		// SafeMode ve aktif mod klasörü sonucu değiştirebilir → anahtarın parçası.
+		cacheKey = (SafeMode.active ? 'S' : 's') + Mods.currentModDirectory + '|' + cacheKey;
+		#end
+		var cached:Null<Bool> = _fileExistsCache.get(cacheKey);
+		if (cached != null)
+		{
+			fileExistsCacheHits++;
+			return cached;
+		}
+
+		var result:Bool = fileExistsUncached(key, type, ignoreMods, parentFolder);
+		_fileExistsCache.set(cacheKey, result);
+		return result;
+	}
+
+	static function fileExistsUncached(key:String, type:AssetType, ignoreMods:Bool, ?parentFolder:String = null)
 	{
 		#if MODS_ALLOWED
 		if(!ignoreMods && !SafeMode.active)
@@ -453,21 +550,21 @@ class Paths
 			if(parentFolder == 'songs') modKey = 'songs/$key';
 
 			for(mod in Mods.getGlobalMods())
-				if (FileSystem.exists(mods('$mod/$modKey')))
+				if (existsCached(mods('$mod/$modKey')))
 					return true;
 				// CODENAME ENGINE KÖPRÜSÜ
 				else if (cne.compatibility.CNECompat.cneFile(mod, modKey) != null)
 					return true;
 				#if linux
-				else if (FileSystem.exists(findFile('$mod/$modKey')))
+				else if (existsCached(findFile('$mod/$modKey')))
 					return true;
 				#end
 
-			if (FileSystem.exists(mods(Mods.currentModDirectory + '/' + modKey)) || FileSystem.exists(mods(modKey))
+			if (existsCached(mods(Mods.currentModDirectory + '/' + modKey)) || existsCached(mods(modKey))
 				|| cne.compatibility.CNECompat.cneFile(Mods.currentModDirectory, modKey) != null)
 				return true;
 			#if linux
-			else if (FileSystem.exists(findFile(modKey)))
+			else if (existsCached(findFile(modKey)))
 				return true;
 			#end
 		}
@@ -486,7 +583,7 @@ class Paths
 		}
 
 		var myXml:Dynamic = getPath('images/$key.xml', TEXT, parentFolder, true);
-		if(OpenFlAssets.exists(myXml) #if MODS_ALLOWED || (FileSystem.exists(myXml) && (useMod = true)) #end )
+		if(OpenFlAssets.exists(myXml) #if MODS_ALLOWED || (existsCached(myXml) && (useMod = true)) #end )
 		{
 			#if MODS_ALLOWED
 			return FlxAtlasFrames.fromSparrow(imageLoaded, (useMod ? readTextFileBom(myXml) : myXml));
@@ -497,7 +594,7 @@ class Paths
 		else
 		{
 			var myJson:Dynamic = getPath('images/$key.json', TEXT, parentFolder, true);
-			if(OpenFlAssets.exists(myJson) #if MODS_ALLOWED || (FileSystem.exists(myJson) && (useMod = true)) #end )
+			if(OpenFlAssets.exists(myJson) #if MODS_ALLOWED || (existsCached(myJson) && (useMod = true)) #end )
 			{
 				#if MODS_ALLOWED
 				return FlxAtlasFrames.fromTexturePackerJson(imageLoaded, (useMod ? readTextFileBom(myJson) : myJson));
@@ -543,11 +640,11 @@ class Paths
 		// 2) Mod yolu openfl asset'i degil; flixel path'i Assets.getText ile
 		//    okuyamaz ve icerik gibi Xml.parse'a dusup patlar.
 		var xml:String = modsXml(key);
-		if (FileSystem.exists(xml))
+		if (existsCached(xml))
 			return FlxAtlasFrames.fromSparrow(imageLoaded, readTextFileBom(xml));
 
 		var xmlPath:String = getPath(Language.getFileTranslation('images/$key') + '.xml', TEXT, parentFolder);
-		if (FileSystem.exists(xmlPath))
+		if (existsCached(xmlPath))
 			return FlxAtlasFrames.fromSparrow(imageLoaded, readTextFileBom(xmlPath));
 		return FlxAtlasFrames.fromSparrow(imageLoaded, xmlPath); // gomulu asset: flixel Assets.getText ile okur
 		#else
@@ -561,11 +658,11 @@ class Paths
 		if (imageLoaded == null) { Log.warn('asset', 'Packer PNG yüklenemedi: $key'); return null; }
 		#if MODS_ALLOWED
 		var txt:String = modsTxt(key);
-		if (FileSystem.exists(txt))
+		if (existsCached(txt))
 			return FlxAtlasFrames.fromSpriteSheetPacker(imageLoaded, readTextFileBom(txt));
 
 		var txtPath:String = getPath(Language.getFileTranslation('images/$key') + '.txt', TEXT, parentFolder);
-		if (FileSystem.exists(txtPath))
+		if (existsCached(txtPath))
 			return FlxAtlasFrames.fromSpriteSheetPacker(imageLoaded, readTextFileBom(txtPath));
 		return FlxAtlasFrames.fromSpriteSheetPacker(imageLoaded, txtPath);
 		#else
@@ -579,11 +676,11 @@ class Paths
 		if (imageLoaded == null) { Log.warn('asset', 'Aseprite PNG yüklenemedi: $key'); return null; }
 		#if MODS_ALLOWED
 		var json:String = modsImagesJson(key);
-		if (FileSystem.exists(json))
+		if (existsCached(json))
 			return FlxAtlasFrames.fromTexturePackerJson(imageLoaded, readTextFileBom(json));
 
 		var jsonPath:String = getPath(Language.getFileTranslation('images/$key') + '.json', TEXT, parentFolder);
-		if (FileSystem.exists(jsonPath))
+		if (existsCached(jsonPath))
 			return FlxAtlasFrames.fromTexturePackerJson(imageLoaded, readTextFileBom(jsonPath));
 		return FlxAtlasFrames.fromTexturePackerJson(imageLoaded, jsonPath);
 		#else
@@ -607,7 +704,7 @@ class Paths
 		if(!currentTrackedSounds.exists(file))
 		{
 			#if sys
-			if(FileSystem.exists(file))
+			if(existsCached(file))
 				currentTrackedSounds.set(file, Sound.fromFile(file));
 			#else
 			if(OpenFlAssets.exists(file, SOUND))
@@ -709,7 +806,7 @@ class Paths
 		if(Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0)
 		{
 			var fileToCheck:String = mods(Mods.currentModDirectory + '/' + key);
-			if(FileSystem.exists(fileToCheck))
+			if(existsCached(fileToCheck))
 				return fileToCheck;
 			// CODENAME ENGINE KÖPRÜSÜ: CNE modları asset'lerini 'assets/' altında tutar.
 			var cneCheck:String = cne.compatibility.CNECompat.cneFile(Mods.currentModDirectory, key);
@@ -718,7 +815,7 @@ class Paths
 			// V-SLICE KÖPRÜSÜ: V-Slice modları asset'lerini 'shared/' altında tutar.
 			// Psych '<key>' ararken, mods/<mod>/shared/<key> de denensin.
 			var vsliceCheck:String = mods(Mods.currentModDirectory + '/shared/' + key);
-			if(FileSystem.exists(vsliceCheck))
+			if(existsCached(vsliceCheck))
 				return vsliceCheck;
 			#if linux
 			else
@@ -733,7 +830,7 @@ class Paths
 		for(mod in Mods.getGlobalMods())
 		{
 			var fileToCheck:String = mods(mod + '/' + key);
-			if(FileSystem.exists(fileToCheck))
+			if(existsCached(fileToCheck))
 				return fileToCheck;
 			// CODENAME ENGINE KÖPRÜSÜ: global CNE modlarında assets/ altını dene.
 			var cneCheck:String = cne.compatibility.CNECompat.cneFile(mod, key);
@@ -741,7 +838,7 @@ class Paths
 				return cneCheck;
 			// V-SLICE KÖPRÜSÜ: global modlarda da shared/ altını dene.
 			var vsliceCheck:String = mods(mod + '/shared/' + key);
-			if(FileSystem.exists(vsliceCheck))
+			if(existsCached(vsliceCheck))
 				return vsliceCheck;
 			#if linux
 			else

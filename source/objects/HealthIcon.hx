@@ -24,6 +24,10 @@ class HealthIcon extends FlxSprite
 
 	private var iconOffsets:Array<Float> = [0, 0];
 	public function changeIcon(char:String, ?allowGPU:Bool = true) {
+		// FURTHER PERF: aynı ikon tekrar atanıyorsa CNE çözümlemesi (mod klasörlerinde
+		// arama + XML okuma) dahil hiçbir iş yapılmaz. Aşağıdaki blok zaten bu koşulu
+		// bekliyor; erken çıkış davranışı değiştirmez.
+		if (this.char == char) return;
 		#if MODS_ALLOWED
 		// CODENAME ENGINE KÖPRÜSÜ: CNE karakter XML'indeki icon attribute'u
 		// karakter adından farklı olabiliyor; varsa onu kullan.

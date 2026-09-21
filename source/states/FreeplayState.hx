@@ -95,6 +95,14 @@ class FreeplayState extends MusicBeatState
 	var dropdownScrollOffset:Int = 0;
 	var dropdownTargetY:Float = 0;
 	var dropdownCurrentY:Float = 0;
+	// FURTHER PERF: dropdown yalnızca gerçekten değişince yeniden kurulur; updateTexts
+	// liste durmuşken boş çalışmaz. (bkz. refreshDropdownVisuals / updateTexts)
+	var _dropdownDirty:Bool = true;
+	var _dropdownBGHeight:Int = -1;
+	var _dropdownBGWidth:Int = -1;
+	var _lastTextLerp:Float = 0.0;
+	var _lastTextSel:Int = -999;
+	var _lastTextSongCount:Int = -1;
 
 	public static var recentlyPlayed:Array<String> = [];
 	public static var favoriteSongs:Array<String> = [];
@@ -646,6 +654,7 @@ class FreeplayState extends MusicBeatState
 
 	function buildDropdownItems()
 	{
+		_dropdownDirty = true;
 		dropdownItems = [];
 
 		if (searchString.length == 0)
@@ -781,8 +790,16 @@ class FreeplayState extends MusicBeatState
 		var visibleCount:Int = Std.int(Math.min(dropdownItems.length, dropdownMaxVisible));
 		var dropdownHeight:Int = visibleCount * DROPDOWN_ITEM_HEIGHT + 10;
 
-		dropdownBG.makeGraphic(SEARCH_BAR_WIDTH, Std.int(Math.max(dropdownHeight, 50)), FlxColor.TRANSPARENT);
-						flixel.util.FlxSpriteUtil.drawRoundRect(dropdownBG, 0, 0, SEARCH_BAR_WIDTH, Std.int(Math.max(dropdownHeight, 50)), 12, 12, FlxColor.fromRGB(25, 25, 35));
+		var bgW:Int = SEARCH_BAR_WIDTH;
+		var bgH:Int = Std.int(Math.max(dropdownHeight, 50));
+		// FURTHER PERF: boyut değişmediyse raster'ı yeniden tahsis etme; eski çizim geçerli.
+		if (_dropdownBGWidth != bgW || _dropdownBGHeight != bgH)
+		{
+			_dropdownBGWidth = bgW;
+			_dropdownBGHeight = bgH;
+			dropdownBG.makeGraphic(bgW, bgH, FlxColor.TRANSPARENT);
+			flixel.util.FlxSpriteUtil.drawRoundRect(dropdownBG, 0, 0, bgW, bgH, 12, 12, FlxColor.fromRGB(25, 25, 35));
+		}
 		dropdownBG.setPosition(barX, barY);
 
 		dropdownTargetY = barY;
@@ -820,6 +837,7 @@ class FreeplayState extends MusicBeatState
 
 	function refreshDropdownVisuals()
 	{
+		_dropdownDirty = false;
 		clearDropdownVisuals();
 
 		var barX:Int = Std.int((FlxG.width - SEARCH_BAR_WIDTH) / 2);
@@ -1340,7 +1358,7 @@ class FreeplayState extends MusicBeatState
 
 		if (blockInputFrames > 0)
 		{
-			updateTexts(elapsed);
+			updateTexts(elapsed, true);
 			super.update(elapsed);
 			if (controls.BACK || (touchPad != null && touchPad.buttonB != null && touchPad.buttonB.pressed))
 				return;
@@ -1350,7 +1368,7 @@ class FreeplayState extends MusicBeatState
 
 		if (rankAnimPlaying)
 		{
-			updateTexts(elapsed);
+			updateTexts(elapsed, true);
 			super.update(elapsed);
 			return;
 		}
@@ -1367,9 +1385,22 @@ class FreeplayState extends MusicBeatState
 
 		if (searchOpen && dropdownBG.alpha > 0)
 		{
+			// FURTHER PERF: FlxMath.lerp asimptotik yaklaştığı için bu dal dropdown açıkken
+			// HER kare doğru kalıyor ve her karede tüm dropdown metinleri + arka plan
+			// raster'ı yeniden üretiliyordu. Şimdi: yaklaşınca snap, sadece y'yi taşı,
+			// içeriği yalnızca dirty ise kur.
 			dropdownCurrentY = FlxMath.lerp(dropdownCurrentY, dropdownTargetY, Math.min(1, elapsed * 12));
-			dropdownBG.y = dropdownCurrentY;
-			refreshDropdownVisuals();
+			if (Math.abs(dropdownTargetY - dropdownCurrentY) < 0.5)
+				dropdownCurrentY = dropdownTargetY;
+			if (dropdownBG.y != dropdownCurrentY)
+			{
+				dropdownBG.y = dropdownCurrentY;
+				// dropdownBG kayarken metinler de yeniden konumlanmalı (startY = dropdownBG.y + 5),
+				// aksi halde açılış kaymasında metinler geride kalır. Sadece kayma süresi kadar.
+				_dropdownDirty = true;
+			}
+			if (_dropdownDirty)
+				refreshDropdownVisuals();
 		}
 
 		checkSearchBarClick();
@@ -1382,6 +1413,7 @@ class FreeplayState extends MusicBeatState
 			var maxScroll:Int = Std.int(Math.max(0, dropdownItems.length - dropdownMaxVisible));
 			if (dropdownScrollOffset > maxScroll)
 				dropdownScrollOffset = maxScroll;
+			_dropdownDirty = true;
 			refreshDropdownVisuals();
 		}
 
@@ -1392,7 +1424,7 @@ class FreeplayState extends MusicBeatState
 			if (controls.UI_DOWN_P)
 				navigateDropdown(1);
 
-			updateTexts(elapsed);
+			updateTexts(elapsed, true);
 			super.update(elapsed);
 			return;
 		}
@@ -1491,7 +1523,7 @@ class FreeplayState extends MusicBeatState
 			&& !player.playingMusic && !searchOpen)
 		{
 			openFreeplaySettings();
-			updateTexts(elapsed);
+			updateTexts(elapsed, true);
 			super.update(elapsed);
 			return;
 		}
@@ -1547,7 +1579,7 @@ class FreeplayState extends MusicBeatState
 			persistentUpdate = false;
 			openSubState(new GameplayChangersSubstate());
 			removeTouchPad();
-			updateTexts(elapsed);
+			updateTexts(elapsed, true);
 			super.update(elapsed);
 			return;
 		}
@@ -1555,7 +1587,7 @@ class FreeplayState extends MusicBeatState
 		{
 			if (songs.length < 1)
 			{
-				updateTexts(elapsed);
+				updateTexts(elapsed, true);
 				super.update(elapsed);
 				return;
 			}
@@ -1686,7 +1718,7 @@ class FreeplayState extends MusicBeatState
 					Mods.clearMenuMod();
 					playUiSound('cancelMenu');
 
-					updateTexts(elapsed);
+					updateTexts(elapsed, true);
 					super.update(elapsed);
 					return;
 				}
@@ -1713,7 +1745,7 @@ class FreeplayState extends MusicBeatState
 		{
 			if (songs.length < 1)
 			{
-				updateTexts(elapsed);
+				updateTexts(elapsed, true);
 				super.update(elapsed);
 				return;
 			}
@@ -1723,7 +1755,7 @@ class FreeplayState extends MusicBeatState
 			openSubState(new ResetScoreSubState(songs[curSelected].songName, curDifficulty, songs[curSelected].songCharacter));
 			removeTouchPad();
 			playUiSound('scrollMenu');
-			updateTexts(elapsed);
+			updateTexts(elapsed, true);
 			super.update(elapsed);
 			return;
 		}
@@ -1975,6 +2007,7 @@ class FreeplayState extends MusicBeatState
 		_lastVisibles = [];
 		songs = [];
 		displayIcons = [];
+		invalidateFreeplayTexts();
 
 		if (!init)
 			instPlaying = -1;
@@ -2108,9 +2141,26 @@ class FreeplayState extends MusicBeatState
 	var _drawDistance:Int = 4;
 	var _lastVisibles:Array<Int> = [];
 
-	public function updateTexts(elapsed:Float = 0.0)
+	/** FURTHER PERF: liste/seçim içeriği değiştiğinde updateTexts erken-çıkışını iptal et. */
+	public function invalidateFreeplayTexts():Void
 	{
-		lerpSelected = FlxMath.lerp(curSelected, lerpSelected, Math.exp(-elapsed * 9.6));
+		_lastTextLerp = Math.NaN;
+		_lastTextSel = -999;
+		_lastTextSongCount = -1;
+	}
+
+	public function updateTexts(elapsed:Float = 0.0, ?force:Bool = false)
+	{
+		var newLerp:Float = FlxMath.lerp(curSelected, lerpSelected, Math.exp(-elapsed * 9.6));
+		// FURTHER PERF: lerp hedefine ulaştıysa, seçim ve şarkı sayısı da aynıysa hiçbir
+		// pozisyon değişmez — her kare sprite'ları yeniden dirty işaretlemeye gerek yok.
+		if (!force && newLerp == _lastTextLerp && curSelected == _lastTextSel && songs.length == _lastTextSongCount
+			&& _lastVisibles.length > 0)
+			return;
+		lerpSelected = newLerp;
+		_lastTextLerp = newLerp;
+		_lastTextSel = curSelected;
+		_lastTextSongCount = songs.length;
 
 		randomText.x = ((randomText.targetY - lerpSelected) * randomText.distancePerItem.x) + randomText.startPosition.x;
 		randomText.y = ((randomText.targetY - lerpSelected) * 1.3 * randomText.distancePerItem.y) + randomText.startPosition.y;
@@ -2119,14 +2169,15 @@ class FreeplayState extends MusicBeatState
 		randomText.visible = randomDist < _drawDistance;
 		randomIcon.visible = randomText.visible;
 
-		for (i in _lastVisibles)
+		// FURTHER PERF: aynı diziyi yeniden kullan (kare başına yeni Array tahsizi yok).
+		while (_lastVisibles.length > 0)
 		{
+			var i:Int = _lastVisibles.pop();
 			if (i < grpSongs.members.length)
 				grpSongs.members[i].visible = grpSongs.members[i].active = false;
 			if (i < displayIcons.length && displayIcons[i] != null)
 				displayIcons[i].visible = displayIcons[i].active = false;
 		}
-		_lastVisibles = [];
 
 		var min:Int = Math.round(Math.max(0, Math.min(songs.length, lerpSelected - _drawDistance)));
 		var max:Int = Math.round(Math.max(0, Math.min(songs.length, lerpSelected + _drawDistance)));

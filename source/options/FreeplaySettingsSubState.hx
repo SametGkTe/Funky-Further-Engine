@@ -48,12 +48,23 @@ class FreeplaySettingsSubState extends BaseOptionsMenu
 		hideOther.onChange = onFreeplayPrefChanged;
 		addOption(hideOther);
 
+		var keepCache:Option = new Option(
+			Language.getPhrase('setting_freeplay_cache', 'Freeplay Bellekte Tutulsun'),
+			Language.getPhrase('description_freeplay_cache',
+				"Açıksa Freeplay grafiklerini (DJ, kartlar, seçim ekranı) bellekten silmez; Freeplay her açıldığında yeniden yüklemek zorunda kalmaz.\nÇOK hızlandırır ama RAM kullanımını artırır. Zayıf cihazlarda kapalı tut."),
+			'freeplayCache',
+			BOOL,
+			null,
+			'freeplay_cache'
+		);
+		addOption(keepCache);
+
 		super();
 	}
 
 	function onFreeplayPrefChanged():Void
 	{
-		FreeplayCatalog.invalidate(); // ZORUNLU: Değişikliklerin anında etkili olması için önbelleği sıfırla!
+		FreeplayCatalog.invalidate();
 		FreeplayCatalog.markDirty();
 		ClientPrefs.saveSettings();
 	}

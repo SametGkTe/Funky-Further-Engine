@@ -584,6 +584,10 @@ class ModpackInstaller {
 	):Void {
 		reportPhase(callbacks, Cleanup, 0.0, "", "Geçici dosyalar temizleniyor...");
 
+		// FURTHER PERF/GÜVENİLİRLİK: yeni kurulan pack'in dosyaları artık diskte.
+		// Önbellek düşürülmezse yeni asset'ler bu oturuza "yok" görünebilir.
+		backend.Paths.clearFileExistsCache();
+
 		try {
 			deleteDirectory(tempDir);
 			trace('[ModpackInstaller] Temp temizlendi: $tempDir');

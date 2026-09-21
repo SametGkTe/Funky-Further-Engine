@@ -352,7 +352,7 @@ class FreeplayState extends MusicBeatSubstate
 		backingImage = new FlxSprite((backingCard?.pinkBack.width ?? 0) * 0.74,
 			0).loadGraphic(styleData == null ? 'freeplay/freeplayBGdad' : styleData.getBgAssetGraphic());
 
-		BPMCache.instance.clearCache();
+		BPMCache.instance.invalidateIfModsChanged();
 
 		super.create();
 		var diffIdsTotalModBinds:Map<String, String> = ["easy" => "", "normal" => "", "hard" => ""];
@@ -405,6 +405,8 @@ class FreeplayState extends MusicBeatSubstate
 					diffIdsTotalModBinds.set(difficulty, sngCard.folder);
 			}
 		}
+
+		BPMCache.instance.flushIfDirty();
 
 		if (backingCard != null)
 		{
@@ -1183,10 +1185,14 @@ class FreeplayState extends MusicBeatSubstate
 		var dropdownHeight:Int = visibleCount * DROPDOWN_ITEM_HEIGHT + 10;
 		var targetHeight:Int = Std.int(Math.max(dropdownHeight, 50));
 
-		// makeGraphic her çağrıda yeni bitmap üretir — boyut değişmediyse atla
+		// makeGraphic her çağrıda yeni bitmap üretir — boyut değişmediyse atla.
+		// FURTHER FIX: eski sürümde `if` gövdesi süslü parantezsizdi; bu yüzden drawRoundRect
+		// her çağrıda koşulsuz çalışıyordu (ve bitmap sıfırlanmadığında üstüne üstüne çiziyordu).
 		if (Std.int(dropdownBG.height) != targetHeight)
+		{
 			dropdownBG.makeGraphic(SEARCH_BAR_WIDTH, targetHeight, FlxColor.TRANSPARENT);
 			flixel.util.FlxSpriteUtil.drawRoundRect(dropdownBG, 0, 0, SEARCH_BAR_WIDTH, targetHeight, 12, 12, FlxColor.fromRGB(25, 25, 35));
+		}
 
 		for (vi in visibleStart...visibleEnd)
 		{

@@ -13,6 +13,24 @@ class ReleaseChecker {
 
 	public static function check(?onDone:Void->Void):Void {
 		if (isChecking) return;
+
+		if (ClientPrefs.data.betaProgram == true)
+		{
+			isChecking = true;
+			BetaChecker.check(function()
+			{
+				isChecking = false;
+				checked = true;
+				hasUpdate = BetaChecker.hasUpdate;
+				latestVersion = BetaChecker.latestVersion;
+				releaseUrl = BetaChecker.releaseUrl;
+				releaseNotes = BetaChecker.releaseNotes;
+				lastError = BetaChecker.lastError;
+				if (onDone != null) onDone();
+			});
+			return;
+		}
+
 		isChecking = true;
 
 		var headers = [

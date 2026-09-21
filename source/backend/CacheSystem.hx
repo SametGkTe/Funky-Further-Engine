@@ -26,6 +26,21 @@ class CacheSystem
 	public static var currentTrackedSounds:Map<String, Sound> = [];
 	public static var localTrackedAssets:Array<String> = [];
 	public static var dumpExclusions:Array<String> = ['music/freakyMenu.${Paths.SOUND_EXT}'];
+	public static var dumpExclusionSegments:Array<String> = ['freeplay/', 'charSelect/'];
+
+	static function isExcludedAsset(key:String):Bool
+	{
+		if (key == null) return false;
+		if (dumpExclusions.contains(key)) return true;
+		if (ClientPrefs.data.freeplayCache == true)
+		{
+			for (seg in dumpExclusionSegments)
+			{
+				if (key.indexOf(seg) != -1) return true;
+			}
+		}
+		return false;
+	}
 
 	// ──── Akıllı GC politikası ────────────────────────────────────────
 	// Her state geçişinde Gc.compact() yapmak ana thread'i 1–3 sn dondurur.
@@ -47,7 +62,7 @@ class CacheSystem
 		var freed:Int = 0;
 		for (key in currentTrackedAssets.keys())
 		{
-			if (!localTrackedAssets.contains(key) && !dumpExclusions.contains(key))
+			if (!localTrackedAssets.contains(key) && !isExcludedAsset(key))
 			{
 				var graphic = currentTrackedAssets.get(key);
 				if (graphic != null && graphic.useCount <= 0)
@@ -66,7 +81,7 @@ class CacheSystem
 			if (FlxG.sound.music != null)
 				playingSound = @:privateAccess FlxG.sound.music._sound;
 			if (asset != null && asset == playingSound) continue;
-			if (!localTrackedAssets.contains(key) && !dumpExclusions.contains(key) && asset != null)
+			if (!localTrackedAssets.contains(key) && !isExcludedAsset(key) && asset != null)
 			{
 				Assets.cache.clear(key);
 				currentTrackedSounds.remove(key);
@@ -337,7 +352,7 @@ class CacheSystem
 
 		for (key in currentTrackedAssets.keys())
 		{
-			if (!dumpExclusions.contains(key))
+			if (!isExcludedAsset(key))
 			{
 				var graphic:FlxGraphic = currentTrackedAssets.get(key);
 				if (!protectedGfx.contains(graphic))

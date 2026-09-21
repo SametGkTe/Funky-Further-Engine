@@ -55,6 +55,8 @@ class Mods
 			var pack:Dynamic = getPack(mod);
 			if(pack != null && pack.runsGlobally) globalMods.push(mod);
 		}
+		// FURTHER PERF: global mod listesi değişti → fileExists önbelleği geçersiz.
+		backend.Paths.clearFileExistsCache();
 		return globalMods;
 	}
 
@@ -248,12 +250,15 @@ class Mods
 
 		File.saveContent(#if android StorageUtil.getExternalStorageDirectory() + #else Sys.getCwd() + #end 'modsList.txt', fileStr);
 		updatedOnState = true;
+		// FURTHER PERF: mod aç/kapa değişti → dosya varlığı önbelleğini düşür.
+		backend.Paths.clearFileExistsCache();
 		//trace('Saved modsList.txt');
 		#end
 	}
 
 	public static function loadTopMod()
 	{
+		Paths.invalidateExistsCache();
 		Mods.currentModDirectory = '';
 		if (SafeMode.active) return;
 		

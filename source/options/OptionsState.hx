@@ -22,6 +22,7 @@ class OptionsState extends MusicBeatState
 		{ label: 'Arayüz & Görünüş',           desc: 'HUD, efektler ve görsel tercihler.',                   langKey: 'visuals',         icon: 'interface_and_visuals' },
 		{ label: 'Oynanış',           desc: 'Ok Stili, Görsel efektleri ayarlayın.',                langKey: 'gameplay',        icon: 'gameplay' },
 		{ label: 'Ekstra Ayarlar',    desc: 'Diğer menülerde bulunmayan ek ayarlar.',      langKey: 'extra_settings',  icon: 'extra_settings' },
+		{ label: 'Geliştirici Ayarları', desc: 'Beta programı ve geliştirici araçları.',     langKey: 'developer_settings', icon: 'developer' },
 		#if TRANSLATIONS_ALLOWED
 		{ label: 'Dil',              desc: 'Dilinizi seçin!',                                      langKey: 'language',        icon: 'language' },
 		#end
@@ -79,6 +80,8 @@ class OptionsState extends MusicBeatState
 				openSubState(new options.GameplaySettingsSubState());
 			case 'extra_settings':
 				openSubState(new options.ExtraSettingsState());
+			case 'developer_settings':
+				openSubState(new options.DeveloperSettingsSubState());
 			case 'delay_combo':
 				removeTouchPad();
 				if (mobileManager != null) mobileManager.removeMobilePad();

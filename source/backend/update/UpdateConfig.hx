@@ -44,4 +44,13 @@ class UpdateConfig {
 			'https://api.github.com/repos/$owner/$repo/releases/latest'
 		];
 	}
+
+	public static function betaReleaseUrls():Array<String>
+	{
+		var owner = GITHUB_REPO_OWNER;
+		var repo = GITHUB_REPO_NAME;
+		return [
+			'https://api.github.com/repos/$owner/$repo/releases?per_page=10'
+		];
+	}
 }

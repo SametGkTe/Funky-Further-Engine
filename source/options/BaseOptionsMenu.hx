@@ -113,6 +113,17 @@ class BaseOptionsMenu extends MusicBeatSubstate
 				grpTexts.add(valueText);
 				optionsArray[i].child = valueText;
 			}
+			else if(optionsArray[i].type == OPEN)
+			{
+				optionText.x -= 80;
+				optionText.startPosition.x -= 80;
+				var valueText:AttachedText = new AttachedText('>', optionText.width + 60);
+				valueText.sprTracker = optionText;
+				valueText.copyAlpha = true;
+				valueText.ID = i;
+				grpTexts.add(valueText);
+				optionsArray[i].child = valueText;
+			}
 			else
 			{
 				optionText.x -= 80;
@@ -538,6 +549,14 @@ class BaseOptionsMenu extends MusicBeatSubstate
 						reloadCheckboxes();
 					}
 
+				case OPEN:
+					if(controls.ACCEPT)
+					{
+						nextAccept = 5;
+						if(curOption.onOpen != null) curOption.onOpen();
+						FlxG.sound.play(Paths.sound('confirmMenu'));
+					}
+
 				case DROPDOWN:
 					if(controls.ACCEPT)
 					{
@@ -673,7 +692,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 			if(controls.RESET || touchPad.buttonC.justPressed)
 			{
 				var leOption:Option = optionsArray[curSelected];
-				if(leOption.type != KEYBIND)
+				if(leOption.type != KEYBIND && leOption.type != OPEN)
 				{
 					leOption.setValue(leOption.defaultValue);
 					if(leOption.type != BOOL)
@@ -683,7 +702,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 						updateTextFrom(leOption);
 					}
 				}
-				else
+				else if(leOption.type == KEYBIND)
 				{
 					leOption.setValue(!Controls.instance.controllerMode ? leOption.defaultKeys.keyboard : leOption.defaultKeys.gamepad);
 					updateBind(leOption);
@@ -873,6 +892,13 @@ class BaseOptionsMenu extends MusicBeatSubstate
 		{
 			if(option.child != null)
 				option.child.text = getDropdownArrowText(option, dropdownOpen && optionsArray.indexOf(option) == dropdownOptionIndex);
+			return;
+		}
+
+		if(option.type == OPEN)
+		{
+			if(option.child != null)
+				option.child.text = '>';
 			return;
 		}
 

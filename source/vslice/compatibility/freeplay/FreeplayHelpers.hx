@@ -140,7 +140,7 @@ class FreeplayHelpers
 
 	public static function exitFreeplay()
 	{
-		BPMCache.instance.clearCache();
+		BPMCache.instance.flushIfDirty();
 		Mods.loadTopMod();
 		FlxG.signals.postStateSwitch.dispatch(); // ? for the screenshot plugin to clean itself
 	}

@@ -60,6 +60,9 @@ import states.TitleState;
 	public var pinnedNotes:Bool = false;
 	public var pinnedHud:Bool = false;
 	public var ogAutoPinDone:Bool = false;
+	public var devMode:Bool = false;
+	public var betaProgram:Bool = false;
+	public var freeplayCache:Bool = #if desktop true #else false #end;
 	public var vSliceSpacing:Float = 0.1;
 	public var vSliceCustomX:Bool = false;
 	public var vSliceCustomZones:Bool = false;
@@ -303,7 +306,7 @@ class ClientPrefs {
 
 		#if mobile
 		if (data.loadThreads < 2) data.loadThreads = 2;
-		if (data.loadThreads > 2) data.loadThreads = 2;
+		if (data.loadThreads > 4) data.loadThreads = 4;
 		#end
 		
 		if(Main.fpsVar != null)

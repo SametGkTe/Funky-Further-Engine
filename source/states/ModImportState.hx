@@ -406,6 +406,7 @@ class ModImportState extends MusicBeatState
 		try WeekData.reloadWeekFiles(false) catch (e:Dynamic) {}
 		try FreeplaySongData.clearPathCache() catch (e:Dynamic) {}
 		try BPMCache.instance.clearCache() catch (e:Dynamic) {}
+		try Paths.invalidateExistsCache() catch (e:Dynamic) {}
 		#end
 	}
 
