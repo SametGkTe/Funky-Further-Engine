@@ -182,6 +182,7 @@ class Main extends Sprite
 
 		addChild(new PopupMgr());
 		addChild(new AlertMgr());
+		addChild(new backend.further.DownloadHUD());
 		
 		#if mobile
 		addChild(new TouchVisualizer());

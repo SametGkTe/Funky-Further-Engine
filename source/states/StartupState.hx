@@ -70,6 +70,9 @@ class StartupState extends FlxState
 		ClientPrefs.loadPrefs();
 		MobileConfig.initDefault();
 
+		// FURTHER: global Texture Pack yığınını yükle (mods/ klasöründen bağımsız).
+		backend.further.TexturePackManager.init();
+
 		PerformanceProfiler.applyRuntimeSettings();
 		AudioMixer.syncFromPrefs();
 

@@ -26,6 +26,7 @@ class MainMenuState extends MusicBeatState
 	var rightItem:FlxSprite;
 
 	var optionShit:Array<String> = [
+		'library',
 		'story_mode',
 		'freeplay',
 		#if MODS_ALLOWED 'mods', #end
@@ -117,10 +118,18 @@ class MainMenuState extends MusicBeatState
 		menuItems = new FlxTypedGroup<FlxSprite>();
 		add(menuItems);
 
+		// Faz 3: Custom Menus — mevcut butonların ALTINA eklenir (istenen davranış)
+		backend.further.CustomMenuManager.rescan();
+		for (m in backend.further.CustomMenuManager.menus)
+			optionShit.push('custom_' + m.id);
+
+		// 6+ öğede hepsi ekrana sığsın diye dinamik aralık (eski formülle ~birebir)
+		var nItems:Int = optionShit.length;
+		var spacing:Float = (nItems <= 5) ? 140 : Math.min(140.0, 620.0 / nItems);
 		for (num => option in optionShit)
 		{
-			var item:FlxSprite = createMenuItem(option, 0, (num * 140) + 90);
-			item.y += (4 - optionShit.length) * 70; // Offsets for when you have anything other than 4 items
+			var y:Float = 360 - ((nItems - 1) * spacing) / 2 - 61 + num * spacing;
+			var item:FlxSprite = createMenuItem(option, 0, y);
 			item.screenCenter(X);
 		}
 
@@ -254,7 +263,10 @@ class MainMenuState extends MusicBeatState
 	function createMenuItem(name:String, x:Float, y:Float):FlxSprite
 	{
 		var menuItem:FlxSprite = new FlxSprite(x, y);
-		menuItem.frames = Paths.getSparrowAtlas('mainmenu/menu_$name');
+		if (StringTools.startsWith(name, 'custom_') && !Paths.fileExists('images/mainmenu/menu_$name.png', openfl.utils.AssetType.IMAGE))
+			menuItem.frames = objects.MenuTextFrames.make(name, backend.further.CustomMenuManager.labelFor(name.substr(7)));
+		else
+			menuItem.frames = Paths.getSparrowAtlas('mainmenu/menu_$name');
 		menuItem.animation.addByPrefix('idle', '$name idle', 24, true);
 		menuItem.animation.addByPrefix('selected', '$name selected', 24, true);
 		menuItem.animation.play('idle');
@@ -455,8 +467,10 @@ class MainMenuState extends MusicBeatState
 
 				FlxFlicker.flicker(item, 1, 0.06, false, false, function(flick:FlxFlicker)
 				{
-					switch (option)
+						switch (option)
 					{
+						case 'library':
+							MusicBeatState.switchState(new states.further.FurtherLibraryState());
 						case 'story_mode':
 							MenuStyleRouter.goToStoryMode();
 						case 'freeplay':
@@ -489,9 +503,20 @@ class MainMenuState extends MusicBeatState
 							selectedSomethin = false;
 							item.visible = true;
 						default:
-							trace('Menu Item ${option} doesn\'t do anything');
-							selectedSomethin = false;
-							item.visible = true;
+							if (option != null && StringTools.startsWith(option, 'custom_'))
+							{
+								if (!backend.further.CustomMenuManager.open(option.substr(7)))
+								{
+									selectedSomethin = false;
+									item.visible = true;
+								}
+							}
+							else
+							{
+								trace('Menu Item ${option} doesn\'t do anything');
+								selectedSomethin = false;
+								item.visible = true;
+							}
 					}
 				});
 				

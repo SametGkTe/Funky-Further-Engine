@@ -1,0 +1,7 @@
+{
+  "id": "coolmenu",
+  "label": "Cool Menu",
+  "class": "CoolMenu",
+  "order": 50,
+  "icon": ""
+}

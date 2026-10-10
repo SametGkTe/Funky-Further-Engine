@@ -1,0 +1,8 @@
+{
+  "id": "example-character-pack",
+  "name": "Ornek Karakter Pack",
+  "description": "Character Select'e ornek karakter ekler. Sozlesme: data/players/<id>.json + characters/<id>.json",
+  "author": "FNF-Further",
+  "type": "character",
+  "version": "1.0.0"
+}

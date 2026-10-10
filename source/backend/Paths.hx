@@ -549,6 +549,10 @@ class Paths
 			var modKey:String = key;
 			if(parentFolder == 'songs') modKey = 'songs/$key';
 
+			// FURTHER: global Texture Pack katmanı (modFolders hook'uyla aynı sözleşme)
+			if (backend.further.TexturePackManager.resolve(modKey) != null)
+				return true;
+
 			for(mod in Mods.getGlobalMods())
 				if (existsCached(mods('$mod/$modKey')))
 					return true;
@@ -802,6 +806,12 @@ class Paths
 	{
 		if (SafeMode.active)
 			return (#if android StorageUtil.getExternalStorageDirectory() + #else Sys.getCwd() + #end 'mods/__SAFE_MODE_DISABLED__/' + key);
+
+		// FURTHER: global Texture Pack katmanı — modlardan BAĞIMSIZ, üst öncelikli.
+		// Sözleşme: docs/TEXTUREPACK_TR.md (yığın: dosya bazlı, tema: en üst kazanır)
+		var tpFile:String = backend.further.TexturePackManager.resolve(key);
+		if (tpFile != null)
+			return tpFile;
 
 		if(Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0)
 		{

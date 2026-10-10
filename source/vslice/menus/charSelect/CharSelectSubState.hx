@@ -253,6 +253,10 @@ class CharSelectSubState extends MusicBeatSubState
 			}
 		}
 
+		// FURTHER: Extension Pack'ler (further/extensionpacks) da karakter besleyebilir.
+		for (marker in backend.further.ExtensionPackManager.packMarkersWithPlayers())
+			if (!result.contains(marker)) result.push(marker);
+
 		trace("[CS] All mods from folder: " + result.join(", "));
 		return result;
 	}

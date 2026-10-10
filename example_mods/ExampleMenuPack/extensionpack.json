@@ -1,0 +1,8 @@
+{
+  "id": "example-menu-pack",
+  "name": "Ornek Menu Pack",
+  "description": "Ana menuye 'Pack Menu' butonu ekler. Sozlesme: menus/<id>/menu.json + scripts/<Sinif>.hxc",
+  "author": "FNF-Further",
+  "type": "menu",
+  "version": "1.0.0"
+}

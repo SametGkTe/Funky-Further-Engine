@@ -1,0 +1,18 @@
+{
+  "version": "1.0.0",
+  "name": "Cool BF",
+  "ownedChars": [
+    "cool-bf"
+  ],
+  "showUnownedChars": false,
+  "unlocked": true,
+  "freeplayStyle": "bf",
+  "charSelect": {
+    "position": 6,
+    "gf": {
+      "assetPath": "charSelect/gfChill",
+      "animInfoPath": "charSelect/gfAnimInfo",
+      "visualizer": false
+    }
+  }
+}

@@ -324,12 +324,7 @@ class DownloadManager {
 	}
 
 	function doFetchUrlText(url:String, onData:String->Void, onError:String->Void):Void {
-		var content:Null<String> = fetchPageContent(url);
-		if (content == null || content.length == 0) {
-			if (onError != null) onError("Sayfa yüklenemedi: $url");
-			return;
-		}
-		if (onData != null) onData(content);
+		backend.update.SafeHttp.get(url, null, onData, onError);
 	}
 
 	public function download(url:String, savePath:String, callbacks:DownloadCallbacks):Void {
@@ -363,13 +358,51 @@ class DownloadManager {
 			}
 		}
 
-		#if target.threaded
-		Thread.create(() -> {
-			doStreamDownload(url, savePath, callbacks, 0);
-		});
-		#else
-		doStreamDownload(url, savePath, callbacks, 0);
-		#end
+		limeStreamDownload(url, savePath, callbacks);
+	}
+	function limeStreamDownload(url:String, savePath:String, callbacks:DownloadCallbacks):Void {
+		try {
+			var req = new lime.net.HTTPRequest<haxe.io.Bytes>();
+			req.followRedirects = true;
+			req.userAgent = 'Further-Engine/1.0';
+			req.timeout = 0;
+
+			var tmpPath:String = savePath + '.part';
+
+			req.load(url).onComplete(function(data:haxe.io.Bytes) {
+				if (_cancelled) {
+					finishCancel(callbacks);
+					return;
+				}
+				if (data == null || data.length == 0) {
+					finishError(callbacks, 'Bos yanit alindi: $url');
+					return;
+				}
+				try {
+					var out = sys.io.File.write(tmpPath, true);
+					out.write(data);
+					out.close();
+					if (sys.FileSystem.exists(savePath))
+						sys.FileSystem.deleteFile(savePath);
+					sys.FileSystem.rename(tmpPath, savePath);
+					_downloading = false;
+					_cancelled = false;
+					trace('[DownloadManager] OK indirme tamam: $savePath (' + data.length + ' bayt)');
+					if (callbacks != null && callbacks.onComplete != null)
+						callbacks.onComplete(savePath);
+				} catch (e:Dynamic) {
+					finishError(callbacks, 'Dosya yazilamadi: ' + Std.string(e));
+				}
+			}).onError(function(err:Dynamic) {
+				if (_cancelled) {
+					finishCancel(callbacks);
+					return;
+				}
+				finishError(callbacks, 'Indirme hatasi: ' + Std.string(err));
+			});
+		} catch (e:Dynamic) {
+			finishError(callbacks, 'Indirme istisnasi: ' + Std.string(e));
+		}
 	}
 
 	public function downloadFromGitHub(url:String, savePath:String, callbacks:DownloadCallbacks):Void {

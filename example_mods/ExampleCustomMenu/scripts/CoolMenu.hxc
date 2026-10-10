@@ -1,0 +1,71 @@
+// =============================================================
+//  DEMO: Further Engine — Custom Menu (Faz 3)
+//  Konum: mods/ExampleCustomMenu/scripts/CoolMenu.hxc
+//
+//  Kurallar:
+//  - dosya adi = sinif adi (CoolMenu.hxc -> class CoolMenu)
+//  - superclass MUTLAKA import edilmeli (hscript extends'i import
+//    listesinden cozer - motorun DemoBf.hxc ornegiyle ayni)
+//  - klavye icin controls.BACK / controls.ACCEPT kullan
+//    (FlxG.keys.justPressed.X hscript'te guvenilir degil)
+// =============================================================
+import backend.Paths;
+import flixel.FlxG;
+import flixel.FlxSprite;
+import flixel.text.FlxText;
+import flixel.tweens.FlxEase;
+import flixel.tweens.FlxTween;
+import flixel.tweens.FlxTweenType;
+import flixel.util.FlxColor;
+import flixel.util.FlxTimer;
+import funkin.modding.base.ScriptedMusicBeatState;
+import states.MainMenuState;
+
+class CoolMenu extends ScriptedMusicBeatState
+{
+	var title:FlxText;
+
+	function new()
+	{
+		super();
+	}
+
+	override function create():Void
+	{
+		super.create();
+
+		var bg:FlxSprite = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, 0xFF0A0A0C);
+		bg.scrollFactor.set();
+		add(bg);
+
+		title = new FlxText(0, 240, 0, "MERHABA CUSTOM MENU!", 56);
+		title.setFormat("assets/fonts/title.ttf", 56, 0xFFFF2E63);
+		title.screenCenter();
+		add(title);
+
+		var hint:FlxText = new FlxText(0, 360, 0, "Bu menusul HX ile eklendi - kaynak kod gerekmedi.", 18);
+		hint.setFormat("assets/fonts/vcr.ttf", 18, 0xFF9A9AAB);
+		hint.screenCenter();
+		hint.y = 360;
+		add(hint);
+
+		var hint2:FlxText = new FlxText(0, 400, 0, "ESC / BACKSPACE ile ana menuye don.", 18);
+		hint2.setFormat("assets/fonts/vcr.ttf", 18, 0xFF9A9AAB);
+		hint2.screenCenter();
+		hint2.y = 400;
+		add(hint2);
+
+		FlxTween.tween(title.scale, {x: 1.08, y: 1.08}, 0.5, {ease: FlxEase.quadInOut, type: FlxTweenType.PINGPONG});
+	}
+
+	override function update(elapsed:Float):Void
+	{
+		super.update(elapsed);
+
+		if (controls.BACK)
+		{
+			FlxG.sound.play(Paths.sound('cancelMenu'));
+			FlxG.switchState(new MainMenuState());
+		}
+	}
+}

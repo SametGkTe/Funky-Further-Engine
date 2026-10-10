@@ -1,0 +1,6 @@
+{
+  "id": "packmenu",
+  "label": "Pack Menu",
+  "class": "PackMenu",
+  "order": 60
+}

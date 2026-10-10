@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "packs": [
+    {
+      "id": "example-character-pack",
+      "name": "Ornek Karakter Pack",
+      "type": "character",
+      "author": "FNF-Further",
+      "description": "Character Select'e ornek karakter ekler (BF gorunumlu). Extension Pack sozlesmesini gosterir.",
+      "url": "https://github.com/FNF-Further/Funky-Further-Engine/raw/main/docs/extensionpacks/example-character-pack.zip",
+      "version": "1.0.0"
+    },
+    {
+      "id": "example-menu-pack",
+      "name": "Ornek Menu Pack",
+      "type": "menu",
+      "author": "FNF-Further",
+      "description": "Ana menuye 'Pack Menu' butonu ekler. Menu Pack sozlesmesini gosterir.",
+      "url": "https://github.com/FNF-Further/Funky-Further-Engine/raw/main/docs/extensionpacks/example-menu-pack.zip",
+      "version": "1.0.0"
+    }
+  ]
+}

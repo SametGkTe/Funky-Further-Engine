@@ -1,0 +1,51 @@
+import backend.Paths;
+import flixel.FlxG;
+import flixel.FlxSprite;
+import flixel.text.FlxText;
+import flixel.util.FlxColor;
+import funkin.modding.base.ScriptedMusicBeatState;
+import states.MainMenuState;
+
+class PackMenu extends ScriptedMusicBeatState
+{
+  var info:FlxText;
+
+  function new()
+  {
+    super();
+  }
+
+  override function create()
+  {
+    super.create();
+
+    var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, 0xFF1A2A22);
+    bg.scrollFactor.set(0, 0);
+    add(bg);
+
+    var title = new FlxText(0, 180, FlxG.width, "PACK MENU", 72);
+    title.setFormat(Paths.font("vcr.ttf"), 72, 0xFFFFD24A, "center");
+    title.scrollFactor.set(0, 0);
+    add(title);
+
+    info = new FlxText(0, 330, FlxG.width, "Extension Pack uzerinden gelen menu!\n\nACCEPT (ENTER) - efekt   |   BACK (ESC) - geri", 26);
+    info.setFormat(Paths.font("vcr.ttf"), 26, FlxColor.WHITE, "center");
+    info.scrollFactor.set(0, 0);
+    add(info);
+  }
+
+  override function update(elapsed:Float)
+  {
+    super.update(elapsed);
+
+    if (controls.ACCEPT)
+    {
+      info.color = FlxG.random.getObject([0xFFFF2E63, 0xFF2E63FF, 0xFFFFD24A, 0xFF5EFF8A]);
+    }
+
+    if (controls.BACK)
+    {
+      FlxG.switchState(new MainMenuState());
+    }
+  }
+}
