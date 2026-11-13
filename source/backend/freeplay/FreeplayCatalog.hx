@@ -35,6 +35,8 @@ class FreeplayCatalog
 
 	public static function invalidate():Void
 	{
+		_sigCache = null;
+		_sigStamp = 0;
 		_invalidated = true;
 		_loaded = false;
 		_packCache = null;
@@ -146,7 +148,25 @@ class FreeplayCatalog
 		return entries;
 	}
 
+	// FURTHER PERF: currentSignature() her ensureLoaded() çağrısında modsList.txt +
+	// modpack manifestlerini okuyordu. Kısa TTL'li önbellek (invalidate() temizler).
+	static var _sigCache:String = null;
+	static var _sigStamp:Float = 0;
+	static inline var SIG_CACHE_TTL:Float = 2.0;
+
 	public static function currentSignature():String
+	{
+		var stampNow:Float = openfl.Lib.getTimer() / 1000.0;
+		if (_sigCache != null && (stampNow - _sigStamp) < SIG_CACHE_TTL)
+			return _sigCache;
+
+		var sig:String = computeSignature();
+		_sigCache = sig;
+		_sigStamp = stampNow;
+		return sig;
+	}
+
+	static function computeSignature():String
 	{
 		var enabled:Array<String> = [];
 		#if MODS_ALLOWED

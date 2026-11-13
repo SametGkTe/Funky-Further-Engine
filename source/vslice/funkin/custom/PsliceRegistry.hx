@@ -8,6 +8,7 @@ import vslice.compatibility.ModsHelper;
 import openfl.utils.Assets as OpenFlAssets;
 import openfl.utils.AssetType;
 import backend.Paths;
+import backend.fs.DirCache;
 
 #if sys
 import sys.FileSystem;
@@ -26,7 +27,8 @@ class PsliceRegistry
 	static function fsExists(path:String):Bool
 	{
 		#if sys
-		return FileSystem.exists(path);
+		// FURTHER PERF: V-Slice dosya sistemi erişiminin tek geçiş noktası.
+		return DirCache.hasPath(path);
 		#else
 		return NativeFileSystem.exists(path);
 		#end
@@ -35,7 +37,7 @@ class PsliceRegistry
 	static function fsIsDirectory(path:String):Bool
 	{
 		#if sys
-		return FileSystem.exists(path) && FileSystem.isDirectory(path);
+		return DirCache.isDir(path);
 		#else
 		return NativeFileSystem.exists(path);
 		#end
@@ -44,7 +46,7 @@ class PsliceRegistry
 	static function fsReadDirectory(path:String):Array<String>
 	{
 		#if sys
-		return FileSystem.readDirectory(path);
+		return DirCache.list(path);
 		#else
 		return NativeFileSystem.readDirectory(path);
 		#end

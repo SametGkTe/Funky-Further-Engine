@@ -63,6 +63,9 @@ import states.TitleState;
 	public var devMode:Bool = false;
 	public var betaProgram:Bool = false;
 	public var freeplayCache:Bool = #if desktop true #else false #end;
+	// FURTHER PERF: dizin listesi önbelleği (backend/fs/DirCache). Kapatınca motor
+	// her "dosya var mı?" sorusunu doğrudan diske sorar (harici depolamada ÇOK yavaş).
+	public var fastFS:Bool = true;
 	public var vSliceSpacing:Float = 0.1;
 	public var vSliceCustomX:Bool = false;
 	public var vSliceCustomZones:Bool = false;
@@ -299,6 +302,10 @@ class ClientPrefs {
 
 	public static function loadPrefs() {
 		#if ACHIEVEMENTS_ALLOWED Achievements.load(); #end
+		#if sys
+		// FURTHER PERF: dosya sistemi önbelleğini tercihe göre başlat.
+		try backend.fs.DirCache.enabled = data.fastFS catch (e:Dynamic) {}
+		#end
 
 		for (key in Reflect.fields(data))
 			if (key != 'gameplaySettings' && Reflect.hasField(FlxG.save.data, key))

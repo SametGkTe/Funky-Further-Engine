@@ -356,6 +356,9 @@ class ModsMenuState extends MusicBeatState
 		
 		var path:String = #if android StorageUtil.getExternalStorageDirectory() + #else Sys.getCwd() + #end 'modsList.txt';
 		File.saveContent(path, fileStr);
+		// FURTHER PERF: parseList önbelleğini düşür (aksi halde 2 sn eski liste döner).
+		Mods.invalidateListCache();
+		backend.Paths.clearFileExistsCache(); // dizin/varlık önbelleği de tazelensin
 		Mods.parseList();
 		Mods.loadTopMod();
 		backend.freeplay.FreeplayCatalog.invalidate();

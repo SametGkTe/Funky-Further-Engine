@@ -1,5 +1,7 @@
 package options;
 
+import backend.TesterProgram;
+
 class DevInfoSubState extends MusicBeatSubstate
 {
 	var bg:FlxSprite;
@@ -64,7 +66,8 @@ class DevInfoSubState extends MusicBeatSubstate
 		var lines:Array<String> = [];
 
 		lines.push('Motor: ' + UpdateConfig.ENGINE_NAME + '  v' + UpdateConfig.CURRENT_ENGINE_VERSION);
-		lines.push('Kanal: ' + (ClientPrefs.data.betaProgram ? 'BETA (pre-release)' : 'Kararlı (stable)'));
+		lines.push('Kanal: ' + (TesterProgram.isTester() ? 'BETA (pre-release)' : 'Kararlı (stable)')
+			+ '   [Tester: ' + TesterProgram.statusLabel() + ']');
 		lines.push('Geliştirici Modu: ' + (ClientPrefs.data.devMode ? 'AÇIK' : 'kapalı'));
 		lines.push('Güvenli Mod: ' + (backend.SafeMode.active ? 'AKTİF' : 'kapalı'));
 		lines.push('');

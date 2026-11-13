@@ -1,21 +1,34 @@
 package options;
 
+import backend.TesterProgram;
 import backend.update.BetaChecker;
 
+/**
+ * TESTER PROGRAMI ekranı.
+ *
+ * Eskiden "Beta Programı" adındaki bu ekran sadece yerel bir bool'u açıp
+ * kapatıyordu (kayıt dosyası elle düzenlenerek tester olunabiliyordu).
+ * Artık karar SUNUCUDA: Supabase'deki tester_program kaydı.
+ *
+ * Buradaki ekran sadece:
+ *   - sunucudan gelen durumu gösterir,
+ *   - katıl / ayrıl çağrısını yapar,
+ *   - onaylı tester'a beta güncelleme araçlarını açar.
+ */
 class BetaProgramSubState extends MusicBeatSubstate
 {
 	var bg:FlxSprite;
 	var titleText:Alphabet;
 	var infoText:FlxText;
 	var statusText:FlxText;
-	var hintText:FlxText;
 	var items:Array<Alphabet> = [];
 	var curSelected:Int = 0;
 	var checking:Bool = false;
 
-	static inline var ITEM_TOGGLE:Int = 0;
-	static inline var ITEM_CHECK:Int = 1;
-	static inline var ITEM_DOWNLOAD:Int = 2;
+	static inline var ITEM_JOIN:Int = 0;
+	static inline var ITEM_REFRESH:Int = 1;
+	static inline var ITEM_CHECK:Int = 2;
+	static inline var ITEM_DOWNLOAD:Int = 3;
 
 	override function create()
 	{
@@ -28,7 +41,7 @@ class BetaProgramSubState extends MusicBeatSubstate
 		bg.scrollFactor.set();
 		add(bg);
 
-		titleText = new Alphabet(70, 40, Language.getPhrase('beta_program_title', 'Beta Programı'), true);
+		titleText = new Alphabet(70, 40, Language.getPhrase('tester_program_title', 'Tester Programı'), true);
 		titleText.setScale(0.75);
 		titleText.scrollFactor.set();
 		add(titleText);
@@ -45,10 +58,9 @@ class BetaProgramSubState extends MusicBeatSubstate
 		statusText.scrollFactor.set();
 		add(statusText);
 
-		var labels:Array<String> = ['', 'Beta Güncellemelerini Denetle', 'Yeni Beta İndirme Sayfasını Aç'];
-		for (i in 0...3)
+		for (i in 0...4)
 		{
-			var item:Alphabet = new Alphabet(90, 380, labels[i], false);
+			var item:Alphabet = new Alphabet(90, 380, '', true);
 			item.isMenuItem = true;
 			item.targetY = i;
 			item.scrollFactor.set();
@@ -56,41 +68,79 @@ class BetaProgramSubState extends MusicBeatSubstate
 			items.push(item);
 		}
 
-		hintText = new FlxText(0, FlxG.height - 40, FlxG.width, 'A: Seç    B: Geri', 16);
-		hintText.setFormat(Paths.font('vcr.ttf'), 16, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-		hintText.borderSize = 1.5;
-		hintText.scrollFactor.set();
-		add(hintText);
-
 		addTouchPad('UP_DOWN', 'A_B');
 
-		refreshJoinLabel();
-		refreshInfo();
-		refreshItems();
+		refreshAll();
 		changeSelection(0, false);
+
+		// Durumu sunucudan tazele; cevap gelince ekran kendini günceller.
+		TesterProgram.refresh(function(_) {
+			refreshAll();
+		});
 	}
 
-	function isJoined():Bool
-		return ClientPrefs.data.betaProgram == true;
+	// ------------------------------------------------------------------ GÖRÜNÜM
 
-	function refreshJoinLabel():Void
+	function refreshAll():Void
 	{
-		items[ITEM_TOGGLE].text = isJoined() ? 'Beta Programı: KATILDI  (Ayrılmak için seç)' : 'Beta Programı: KATILMADI  (Katılmak için seç)';
+		refreshInfo();
+		refreshItems();
 	}
 
 	function refreshInfo():Void
 	{
-		infoText.text = 'Beta sürümleri yeni özellikleri herkesten önce dener; kararsız olabilir.\n'
-			+ 'Programa katılırsan oyun içi güncelleme denetimi beta (pre-release) kanalına geçer.\n\n'
-			+ 'Kurulu sürüm: v' + UpdateConfig.CURRENT_ENGINE_VERSION + '\n'
-			+ 'Güncelleme kanalı: ' + (isJoined() ? 'BETA (pre-release)' : 'Kararlı (stable)');
+		var logged:Bool = TesterProgram.isLoggedIn();
+		var lines:Array<String> = [];
+
+		lines.push('Tester Programı, Oyunun test sürümlerini (CİDDİ SEVİYEDE BUG BULUNDURUR) test edebilmenize yarar.');
+		lines.push('Katılmak için bir further hesabına giriş yapman gerekir; kararı yapımcılar verilir.');
+		lines.push('Onaylanan tester\'lar Credits bölümünde "Testers" bölümünde listelenir.');
+		lines.push('');
+
+		if (!logged)
+		{
+			lines.push('Durum: Giriş yapılmadı');
+			lines.push('Katılmak için önce hesabına giriş yap.');
+		}
+		else
+		{
+			lines.push('Durum: ' + TesterProgram.statusLabel());
+			var why:String = TesterProgram.reasonLabel();
+			if (why.length > 0) lines.push('Not: ' + why);
+			if (TesterProgram.maxTesters > 0)
+				lines.push('Kontenjan: ' + TesterProgram.approvedCount + ' / ' + TesterProgram.maxTesters);
+		}
+
+		if (!TesterProgram.programOpen)
+			lines.push('Yeni katılım şu an kapalı.');
+
+		infoText.text = lines.join('\n');
 	}
 
 	function refreshItems():Void
 	{
-		items[ITEM_DOWNLOAD].visible = BetaChecker.hasUpdate;
+		var logged:Bool = TesterProgram.isLoggedIn();
+		var tester:Bool = TesterProgram.isTester();
+
+		// 0: Katıl / Ayrıl / Giriş yap
+		if (!logged)
+			items[ITEM_JOIN].text = 'Hesaba Giriş Yap';
+		else if (tester)
+			items[ITEM_JOIN].text = 'Tester Programından Ayrıl';
+		else
+			items[ITEM_JOIN].text = 'Tester Programına Katıl';
+
+		items[ITEM_REFRESH].text = 'Durumu Yenile';
+		items[ITEM_CHECK].text = 'Beta Güncellemelerini Denetle';
+		items[ITEM_DOWNLOAD].text = 'Yeni Beta İndirme Sayfasını Aç';
+
+		// Beta araçları yalnızca onaylı tester için
+		items[ITEM_CHECK].visible = tester;
+		items[ITEM_DOWNLOAD].visible = tester && BetaChecker.hasUpdate;
+
 		if (!items[curSelected].visible)
-			curSelected = ITEM_TOGGLE;
+			curSelected = ITEM_JOIN;
+
 		for (i in 0...items.length)
 			items[i].alpha = items[i].visible ? 0.6 : 0;
 		items[curSelected].alpha = 1;
@@ -99,25 +149,89 @@ class BetaProgramSubState extends MusicBeatSubstate
 	function setStatus(msg:String):Void
 		statusText.text = msg;
 
+	// ------------------------------------------------------------------ EYLEMLER
+
 	function toggleJoin():Void
 	{
-		ClientPrefs.data.betaProgram = !isJoined();
-		ClientPrefs.saveSettings();
-		refreshJoinLabel();
-		refreshInfo();
-		setStatus(isJoined()
-			? 'Beta Programına katıldın! Beta sürümleri hata içerebilir; kayıtlarını yedeklemeni öneririz.'
-			: 'Beta Programından ayrıldın. Güncelleme denetimleri kararlı kanaldan yapılacak.');
-		FlxG.sound.play(Paths.sound('confirmMenu'));
-		refreshItems();
+		if (!TesterProgram.isLoggedIn())
+		{
+			// Giriş yapılmamış → giriş ekranına gönder
+			FlxG.sound.play(Paths.sound('confirmMenu'));
+			MusicBeatState.switchState(new states.LoginState());
+			return;
+		}
+
+		if (TesterProgram.isBusy)
+		{
+			setStatus('İşlem sürüyor, bekle...');
+			return;
+		}
+
+		if (TesterProgram.isTester())
+		{
+			setStatus('Ayrılma isteği gönderiliyor...');
+			TesterProgram.leaveProgram(function(ok:Bool, result:String)
+			{
+				if (ok)
+				{
+					setStatus('Programdan ayrıldın. Credits listesinden de kaldırıldın.');
+					FlxG.sound.play(Paths.sound('cancelMenu'));
+				}
+				else
+				{
+					setStatus('Ayrılma başarısız: ' + result);
+					FlxG.sound.play(Paths.sound('cancelMenu'));
+				}
+				refreshAll();
+			});
+		}
+		else
+		{
+			setStatus('Katılım isteği gönderiliyor...');
+			TesterProgram.joinProgram(function(ok:Bool, result:String)
+			{
+				if (ok)
+				{
+					if (TesterProgram.isTester())
+						setStatus('Tester Programına katıldın! Credits ekranında görüneceksin.');
+					else
+						setStatus('Başvurun alındı. Onaylandığında Credits listesinde görüneceksin.');
+					FlxG.sound.play(Paths.sound('confirmMenu'));
+				}
+				else
+				{
+					setStatus('Katılım başarısız: ' + TesterProgram.reasonLabel());
+					FlxG.sound.play(Paths.sound('cancelMenu'));
+				}
+				refreshAll();
+			});
+		}
+	}
+
+	function refresh():Void
+	{
+		if (TesterProgram.isBusy)
+		{
+			setStatus('Durum sorgulanıyor...');
+			return;
+		}
+		setStatus('Durum sunucudan alınıyor...');
+		TesterProgram.refresh(function(ok:Bool)
+		{
+			setStatus(ok
+				? 'Durum: ' + TesterProgram.statusLabel()
+				: 'Sunucuya ulaşılamadı. İnternetini kontrol edip tekrar dene.');
+			refreshAll();
+			FlxG.sound.play(Paths.sound('scrollMenu'));
+		}, true);
 	}
 
 	function startCheck():Void
 	{
 		if (checking) return;
-		if (!isJoined())
+		if (!TesterProgram.isTester())
 		{
-			setStatus('Önce Beta Programına katılmalısın.');
+			setStatus('Beta güncellemeleri için onaylı tester olmalısın.');
 			FlxG.sound.play(Paths.sound('cancelMenu'));
 			return;
 		}
@@ -149,6 +263,7 @@ class BetaProgramSubState extends MusicBeatSubstate
 
 	function openDownload():Void
 	{
+		if (!TesterProgram.isTester()) return;
 		if (BetaChecker.releaseUrl == '') return;
 		FlxG.openURL(BetaChecker.releaseUrl);
 		FlxG.sound.play(Paths.sound('confirmMenu'));
@@ -158,8 +273,10 @@ class BetaProgramSubState extends MusicBeatSubstate
 	{
 		switch (curSelected)
 		{
-			case ITEM_TOGGLE:
+			case ITEM_JOIN:
 				toggleJoin();
+			case ITEM_REFRESH:
+				refresh();
 			case ITEM_CHECK:
 				startCheck();
 			case ITEM_DOWNLOAD:
@@ -201,11 +318,5 @@ class BetaProgramSubState extends MusicBeatSubstate
 
 		if (controls.ACCEPT)
 			activateSelected();
-	}
-
-	override function destroy()
-	{
-		ClientPrefs.saveSettings();
-		super.destroy();
 	}
 }

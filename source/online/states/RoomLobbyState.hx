@@ -6,6 +6,7 @@ import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import backend.MusicBeatState;
 import backend.ui.PsychUIInputText;
+import backend.Discord;
 import online.GameClient;
 import online.NetThread;
 import online.ui.SimpleTextField;
@@ -42,6 +43,11 @@ class RoomLobbyState extends MusicBeatState {
 	override function create() {
 		super.create();
 		FlxG.mouse.visible = true;
+
+		// Discord RPC: Room Lobby with room code
+		#if DISCORD_ALLOWED
+		DiscordClient.changePresenceOnlineLobby(GameClient.roomCode(), GameClient.isHost());
+		#end
 
 		add(new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.fromRGB(8, 12, 22)));
 
@@ -344,6 +350,9 @@ class RoomLobbyState extends MusicBeatState {
 		GameClient.onWelcome = null;
 		GameClient.onSongChanged = null;
 		GameClient.onLobbyReset = null;
+		#if DISCORD_ALLOWED
+		DiscordClient.resetOnlinePresence();
+		#end
 		super.destroy();
 	}
 }

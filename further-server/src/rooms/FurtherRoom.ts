@@ -63,6 +63,13 @@ export class FurtherRoom extends Room<{ state: RoomState }> {
       });
 
       this.broadcast("log", `Host set song: ${this.state.song} [${this.state.chartHash.slice(0, 8)}…]`);
+      this.broadcast("songChanged", {
+        song: this.state.song,
+        folder: this.state.folder,
+        diff: this.state.diff,
+        chartHash: this.state.chartHash,
+        diffList: Array.from(this.state.diffList)
+      });
       console.log(`[FurtherRoom] ${this.roomId} song=${this.state.song} hash=${this.state.chartHash}`);
     });
 
@@ -185,6 +192,14 @@ export class FurtherRoom extends Room<{ state: RoomState }> {
           p.hasEnded = false;
           p.hasSong = true; // keep song unless host changes
         });
+        // Notify clients to reset lobby UI
+        this.broadcast("lobbyReset", {
+          song: this.state.song,
+          folder: this.state.folder,
+          diff: this.state.diff,
+          chartHash: this.state.chartHash,
+          host: this.state.host
+        });
         try { this.unlock(); } catch (_) {}
       }
     });
@@ -260,8 +275,15 @@ export class FurtherRoom extends Room<{ state: RoomState }> {
 
     try {
       if (!consented) {
+        // Notify the other player that opponent is reconnecting
+        this.broadcast("log", `Waiting for ${this.player(client)?.name ?? client.sessionId} to reconnect... (15s)`);
+        this.broadcast("alert", ["Connection Lost", "Opponent disconnected. Waiting for reconnection..."], { except: client });
+
         await this.allowReconnection(client, 15);
         console.log(`[FurtherRoom] ${client.sessionId} reconnected`);
+
+        // Notify that player reconnected successfully
+        this.broadcast("log", `${this.player(client)?.name ?? client.sessionId} reconnected!`);
         return;
       }
     } catch {

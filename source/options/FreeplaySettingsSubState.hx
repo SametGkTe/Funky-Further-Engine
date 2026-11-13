@@ -59,6 +59,25 @@ class FreeplaySettingsSubState extends BaseOptionsMenu
 		);
 		addOption(keepCache);
 
+		var fastFs:Option = new Option(
+			Language.getPhrase('setting_fast_fs', 'Hızlı Dosya Sistemi'),
+			Language.getPhrase('description_fast_fs',
+				"Dizin listelerini bellekte tutar; menüler ve Freeplay çok daha hızlı açılır.\nHarici depolamada (EXTERNAL_PE) fark çok büyüktür.\nBir sorun görürsen kapat."),
+			'fastFS',
+			BOOL,
+			null,
+			'fast_fs'
+		);
+		fastFs.onChange = function()
+		{
+			#if sys
+			backend.fs.DirCache.enabled = ClientPrefs.data.fastFS;
+			backend.fs.DirCache.invalidateAll();
+			#end
+			ClientPrefs.saveSettings();
+		};
+		addOption(fastFs);
+
 		super();
 	}
 

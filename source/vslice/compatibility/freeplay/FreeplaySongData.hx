@@ -1,5 +1,7 @@
 package vslice.compatibility.freeplay;
 
+import backend.fs.DirCache;
+
 import vslice.menus.freeplay.obj.SngCapsuleData;
 import vslice.menus.freeplay.pslice.BPMCache;
 import vslice.funkin.Scoring.ScoringRank;
@@ -199,12 +201,12 @@ class FreeplaySongData extends SngCapsuleData
 			return discoveredDiffs;
 
 		#if sys
-		if (!sys.FileSystem.exists(sngDataPath) || !sys.FileSystem.isDirectory(sngDataPath))
+		// FURTHER PERF: tek readdir + bellek (DirCache). Eskiden her şarkı için
+		// exists + isDirectory + readDirectory = 3 disk çağrısı yapılıyordu.
+		if (!DirCache.isDir(sngDataPath))
 			return discoveredDiffs;
 
-		var chartFiles = sys.FileSystem.readDirectory(sngDataPath).filter(s ->
-			s != null && s.toLowerCase().endsWith('.json')
-		);
+		var chartFiles:Array<String> = DirCache.filesWithExt(sngDataPath, '.json');
 		var diffNames:Array<String> = [];
 
 		for (file in chartFiles)
@@ -335,13 +337,10 @@ class FreeplaySongData extends SngCapsuleData
 		#if sys
 		try
 		{
-			if (path == null || !sys.FileSystem.exists(path) || !sys.FileSystem.isDirectory(path))
-				return false;
-			for (file in sys.FileSystem.readDirectory(path))
-			{
-				if (file != null && file.toLowerCase().endsWith(".json"))
-					return true;
-			}
+			if (path == null) return false;
+			// FURTHER PERF: dizin listesi önbellekten; disk çağrısı yok.
+			if (DirCache.filesWithExt(path, ".json").length > 0)
+				return true;
 		}
 		catch (e:Dynamic) {}
 		#end
@@ -356,7 +355,7 @@ class FreeplaySongData extends SngCapsuleData
 		{
 			path = normalizePath(path);
 			if (path == null || path.length == 0) return null;
-			if (!sys.FileSystem.exists(path) || !sys.FileSystem.isDirectory(path))
+			if (!DirCache.isDir(path))
 				return null;
 			if (dirHasJson(path))
 				return path;
@@ -498,11 +497,9 @@ class FreeplaySongData extends SngCapsuleData
 
 		var discoveredDiffs:Array<String> = [];
 		
-		if (sngDataPath != null && sys.FileSystem.exists(sngDataPath) && sys.FileSystem.isDirectory(sngDataPath))
+		if (sngDataPath != null && DirCache.isDir(sngDataPath))
 		{
-			var chartFiles = sys.FileSystem.readDirectory(sngDataPath).filter(s ->
-				s != null && s.toLowerCase().endsWith(".json")
-			);
+			var chartFiles:Array<String> = DirCache.filesWithExt(sngDataPath, ".json");
 			var diffNames:Array<String> = [];
 
 			for (file in chartFiles)
@@ -627,6 +624,6 @@ class FreeplaySongData extends SngCapsuleData
 	{
 		var fileSngName = Paths.formatToSongPath(songId + "-erect");
 		var sngDataPath = resolveSongDataPath(fileSngName);
-		return sngDataPath != null && sys.FileSystem.exists(sngDataPath) && sys.FileSystem.isDirectory(sngDataPath);
+		return sngDataPath != null && DirCache.isDir(sngDataPath);
 	}
 }

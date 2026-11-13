@@ -8,6 +8,7 @@ import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import backend.MusicBeatState;
 import backend.ui.PsychUIInputText;
+import backend.Discord;
 import online.GameClient;
 import online.NetConfig;
 import online.NetThread;
@@ -31,6 +32,11 @@ class OnlineMenuState extends MusicBeatState {
 	override function create() {
 		super.create();
 		FlxG.mouse.visible = true;
+
+		// Discord RPC: Online Lobby
+		#if DISCORD_ALLOWED
+		DiscordClient.changePresenceOnlineLobby(null, true);
+		#end
 
 		add(new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.fromRGB(10, 12, 28)));
 
@@ -175,6 +181,9 @@ class OnlineMenuState extends MusicBeatState {
 	function goBack() {
 		PsychUIInputText.focusOn = null;
 		GameClient.leaveRoom("menu back");
+		#if DISCORD_ALLOWED
+		DiscordClient.resetOnlinePresence();
+		#end
 		MusicBeatState.switchState(new states.MainMenuState());
 	}
 }

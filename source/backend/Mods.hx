@@ -179,9 +179,33 @@ class Mods
 	}
 
 	public static var updatedOnState:Bool = false;
-	inline public static function parseList():ModsList {
+	// FURTHER PERF: modsList.txt her parseList() çağrısında yeniden okunuyordu.
+	// Menü açılışlarında bu dosya onlarca kez okunuyor (harici depolamada her
+	// okuma ~2-6 ms). Kısa TTL'li önbellek + değişiklikte invalidate.
+	static var _listCache:ModsList = null;
+	static var _listCacheStamp:Float = 0;
+	static inline var LIST_CACHE_TTL:Float = 2.0;
+
+	public static function invalidateListCache():Void
+	{
+		_listCache = null;
+		_listCacheStamp = 0;
+	}
+
+	public static function parseList():ModsList {
+		if (SafeMode.active) return {enabled: [], disabled: [], all: []};
+
+		var stamp:Float = openfl.Lib.getTimer() / 1000.0;
+		if (_listCache != null && (stamp - _listCacheStamp) < LIST_CACHE_TTL)
+			return _listCache;
+
+		_listCache = readListUncached();
+		_listCacheStamp = stamp;
+		return _listCache;
+	}
+
+	static function readListUncached():ModsList {
 		var list:ModsList = {enabled: [], disabled: [], all: []};
-		if (SafeMode.active) return list;
 		if(!updatedOnState) updateModList();
 
 		#if MODS_ALLOWED
@@ -209,6 +233,7 @@ class Mods
 	{
 		// CODENAME ENGINE KÖPRÜSÜ: mod klasörleri değişmiş olabilir, tespiti tazele.
 		cne.compatibility.CNECompat.invalidate();
+		invalidateListCache();
 		#if MODS_ALLOWED
 		// Find all that are already ordered
 		var list:Array<Array<Dynamic>> = [];
@@ -251,6 +276,7 @@ class Mods
 		File.saveContent(#if android StorageUtil.getExternalStorageDirectory() + #else Sys.getCwd() + #end 'modsList.txt', fileStr);
 		updatedOnState = true;
 		// FURTHER PERF: mod aç/kapa değişti → dosya varlığı önbelleğini düşür.
+		invalidateListCache();
 		backend.Paths.clearFileExistsCache();
 		//trace('Saved modsList.txt');
 		#end

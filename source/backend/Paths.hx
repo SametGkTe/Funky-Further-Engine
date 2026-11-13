@@ -6,6 +6,7 @@ import flixel.graphics.FlxGraphic;
 import flixel.math.FlxRect;
 import flixel.system.FlxAssets;
 import backend.Log;
+import backend.fs.DirCache;
 
 import openfl.display.BitmapData;
 import openfl.display3D.textures.RectangleTexture;
@@ -30,53 +31,20 @@ class Paths
 	inline public static var SOUND_EXT = #if web "mp3" #else "ogg" #end;
 	inline public static var VIDEO_EXT = "mp4";
 
-	static var _existsMemo:Map<String, Bool> = new Map();
-	static var _existsMemoStamp:Float = 0;
-	static inline var EXISTS_MEMO_TTL:Float = 10;
-	#if cpp
-	static var _existsMutex:cpp.vm.Mutex = null;
-	#end
-
+	/**
+	 * FURTHER PERF: Forkun tek dosya sistemi önbelleği `backend.fs.DirCache`.
+	 * Burada ayrıca ikinci bir memo tutmuyoruz (eskiden _existsMemo vardı);
+	 * DirCache zaten parent dizin listesinden yanıt veriyor, tek katman yeterli.
+	 */
 	public static function invalidateExistsCache():Void
 	{
-		#if cpp
-		if (_existsMutex != null) _existsMutex.acquire();
-		#end
-		_existsMemo = new Map();
-		_existsMemoStamp = 0;
-		#if cpp
-		if (_existsMutex != null) _existsMutex.release();
-		#end
+		DirCache.invalidateAll();
 	}
 
 	public static function existsCached(path:String):Bool
 	{
 		#if sys
-		if (path == null || path.length == 0) return false;
-		#if cpp
-		if (_existsMutex == null) _existsMutex = new cpp.vm.Mutex();
-		_existsMutex.acquire();
-		#end
-		var now = openfl.Lib.getTimer() / 1000.0;
-		if (_existsMemoStamp == 0 || (now - _existsMemoStamp) > EXISTS_MEMO_TTL)
-		{
-			_existsMemo = new Map();
-			_existsMemoStamp = now;
-		}
-		var r:Bool;
-		if (_existsMemo.exists(path))
-		{
-			r = _existsMemo.get(path);
-		}
-		else
-		{
-			r = sys.FileSystem.exists(path);
-			_existsMemo.set(path, r);
-		}
-		#if cpp
-		_existsMutex.release();
-		#end
-		return r;
+		return DirCache.hasPath(path);
 		#else
 		return false;
 		#end
@@ -518,6 +486,8 @@ class Paths
 	public static function clearFileExistsCache():Void
 	{
 		_fileExistsCache = new Map();
+		// Dizin listeleri de bayatlamış olabilir (mod kurulumu / dosya import).
+		DirCache.invalidateAll();
 	}
 
 	public static function fileExists(key:String, type:AssetType, ?ignoreMods:Bool = false, ?parentFolder:String = null)
@@ -988,7 +958,8 @@ class Paths
 	public static function readDirectory(directory:String):Array<String>
 	{
 		#if MODS_ALLOWED
-		return FileSystem.readDirectory(directory);
+		// FURTHER PERF: dizin listeleri DirCache'te tutulur (1 readdir, sonrası bellek).
+		return DirCache.list(directory);
 		#else
 		var dirs:Array<String> = [];
 		for(dir in Assets.list().filter(folder -> folder.startsWith(directory)))

@@ -3,6 +3,7 @@ package backend;
 import lime.utils.Assets;
 import openfl.utils.Assets as OpenFlAssets;
 import haxe.Json;
+import backend.fs.DirCache;
 
 typedef WeekFile =
 {
@@ -87,10 +88,14 @@ class WeekData {
 		#end
 
 		var sexList:Array<String> = CoolUtil.coolTextFile(Paths.getSharedPath('weeks/weekList.txt'));
+		// FURTHER PERF: eskiden her hafta x her dizin için FileSystem.exists yapılıyordu
+		// (40 modda ~840 stat). Artık dizin listeleri bir kez okunuyor (DirCache) ve
+		// "dosya var mı?" sorusu bellekte yanıtlanıyor.
 		for (i in 0...sexList.length) {
 			for (j in 0...directories.length) {
-				var fileToCheck:String = directories[j] + 'weeks/' + sexList[i] + '.json';
-				if(!weeksLoaded.exists(sexList[i])) {
+				var weekDir:String = directories[j] + 'weeks';
+				if(!weeksLoaded.exists(sexList[i]) && DirCache.has(weekDir, sexList[i] + '.json')) {
+					var fileToCheck:String = weekDir + '/' + sexList[i] + '.json';
 					var week:WeekFile = getWeekFile(fileToCheck);
 					if(week != null) {
 						var weekFile:WeekData = new WeekData(week, sexList[i]);
@@ -113,38 +118,33 @@ class WeekData {
 		#if MODS_ALLOWED
 		for (i in 0...directories.length) {
 			var directory:String = directories[i] + 'weeks/';
-			if(FileSystem.exists(directory)) {
+			// FURTHER PERF: tek readdir (DirCache) — her dosya için isDirectory stat'ı yok.
+			var weekFiles:Array<String> = DirCache.filesWithExt(directory, '.json');
+			var hasWeeksDir:Bool = (weekFiles.length > 0) || DirCache.isDir(directory);
+			if(hasWeeksDir) {
 				var listOfWeeks:Array<String> = CoolUtil.coolTextFile(directory + 'weekList.txt');
 				for (daWeek in listOfWeeks)
 				{
-					var path:String = directory + daWeek + '.json';
-					if(FileSystem.exists(path))
+					if (DirCache.has(directory, daWeek + '.json'))
 					{
-						addWeek(daWeek, path, directories[i], i, originalLength);
+						addWeek(daWeek, directory + daWeek + '.json', directories[i], i, originalLength);
 					}
 				}
 
-				for (file in Paths.readDirectory(directory))
+				for (file in weekFiles)
 				{
-					var path = haxe.io.Path.join([directory, file]);
-					if (!FileSystem.isDirectory(path) && file.endsWith('.json'))
-					{
-						addWeek(file.substr(0, file.length - 5), path, directories[i], i, originalLength);
-					}
+					// ".json" uzantılı girdiler zaten dosya; isDirectory stat'ına gerek yok.
+					addWeek(file.substr(0, file.length - 5), directory + file, directories[i], i, originalLength);
 				}
 			}
 
 			// V-SLICE KÖPRÜSÜ: Psych 'weeks/' yoksa, V-Slice modunun
 			// 'data/levels/<level>.json' dosyalarını Psych week'e çevir.
-			if (!FileSystem.exists(directory)) {
+			if (!hasWeeksDir) {
 				var vdir:String = directories[i] + 'data/levels/';
-				if (FileSystem.exists(vdir)) {
-					for (file in Paths.readDirectory(vdir)) {
-						if (file.endsWith('.json')) {
-							var levelName:String = file.substr(0, file.length - 5);
-							addVSliceWeek(levelName, vdir + file, directories[i], i, originalLength);
-						}
-					}
+				for (file in DirCache.filesWithExt(vdir, '.json')) {
+					var levelName:String = file.substr(0, file.length - 5);
+					addVSliceWeek(levelName, vdir + file, directories[i], i, originalLength);
 				}
 			}
 		}
@@ -268,7 +268,8 @@ class WeekData {
 	private static function getWeekFile(path:String):WeekFile {
 		var rawJson:String = null;
 		#if MODS_ALLOWED
-		if(FileSystem.exists(path)) {
+		// FURTHER PERF: yol zaten DirCache listesinden geliyor → stat yerine bellek kontrolü.
+		if(DirCache.hasPath(path)) {
 			rawJson = File.getContent(path);
 		}
 		#else

@@ -117,6 +117,73 @@ class DiscordClient
 		//trace('Discord RPC Updated. Arguments: $details, $state, $smallImageKey, $hasStartTimestamp, $endTimestamp, $largeImageKey');
 	}
 
+	// === ONLINE PRESENCE HELPERS ===
+
+	/**
+	 * Online Lobby: Waiting for opponent / creating room
+	 */
+	public static function changePresenceOnlineLobby(?roomCode:String, ?isHost:Bool)
+	{
+		var details = "In Online Lobby";
+		var state = "";
+		if (roomCode != null && roomCode != "") {
+			details = "Waiting for Opponent";
+			state = "Room Code: " + roomCode.toUpperCase();
+		} else if (isHost) {
+			state = "Creating Room...";
+		} else {
+			state = "Joining Room...";
+		}
+		changePresence(details, state, "online_lobby", true, 0, "icon");
+	}
+
+	/**
+	 * Online Match: Currently playing a song
+	 */
+	public static function changePresenceOnlineMatch(songName:String, folder:String, diff:Int, ?myScore:Int, ?opponentScore:Int, ?maxCombo:Int)
+	{
+		var diffName = "";
+		switch (diff) {
+			case 0: diffName = "Easy";
+			case 1: diffName = "Normal";
+			case 2: diffName = "Hard";
+			default: diffName = "Difficulty " + diff;
+		}
+
+		var details = "Playing: " + songName + " [" + diffName + "]";
+		var state = "";
+		if (myScore != null && opponentScore != null) {
+			state = "Score: " + myScore + " vs " + opponentScore;
+			if (maxCombo != null && maxCombo > 0) state += " | Max Combo: " + maxCombo;
+		} else if (maxCombo != null && maxCombo > 0) {
+			state = "Max Combo: " + maxCombo;
+		}
+
+		changePresence(details, state, "online_match", true, 0, "icon");
+	}
+
+	/**
+	 * Online Results: Match finished
+	 */
+	public static function changePresenceOnlineResults(won:Bool, songName:String, ?myScore:Int, ?opponentScore:Int)
+	{
+		var result = won ? "Won" : "Lost";
+		var details = result + " - " + songName;
+		var state = "";
+		if (myScore != null && opponentScore != null) {
+			state = "Final: " + myScore + " vs " + opponentScore;
+		}
+		changePresence(details, state, "online_results", false, 0, "icon");
+	}
+
+	/**
+	 * Reset presence when leaving online mode back to main menu
+	 */
+	public static function resetOnlinePresence()
+	{
+		changePresence("In the Menus", null, "icon", false, 0, "icon");
+	}
+
 	public static function updatePresence()
 	{
 		Discord.UpdatePresence(cpp.RawConstPointer.addressOf(presence.__presence));

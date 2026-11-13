@@ -888,6 +888,8 @@ class LoginState extends MusicBeatState
 					#if ACHIEVEMENTS_ALLOWED
 					backend.AchievementSync.flushQueue();
 					#end
+					// Tester Programı: giriş yapıldı → sunucudan durumu çek.
+					backend.TesterProgram.refresh(null, true);
 					new FlxTimer().start(0.8, function(_) { goBack(); });
 				} else showError(msg);
 			});

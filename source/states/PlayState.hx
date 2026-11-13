@@ -3,6 +3,8 @@ package states;
 #if FURTHER_ONLINE
 import online.PlayStateSync;
 import online.GameClient;
+import online.OnlineHUD;
+import online.EmoteManager;
 #end
 
 import sys.thread.Thread;
@@ -453,6 +455,10 @@ class PlayState extends MusicBeatState
 	private var gameFroze:Bool = false;
 	private var requiresSyncing:Bool = false;
 	private var lastCorrectSongPos:Float = -1.0;
+
+	#if FURTHER_ONLINE
+	private var onlineHUD:OnlineHUD;
+	#end
 
 	private static var _lastLoadedModDirectory:String = '';
 	public static var nextReloadAll:Bool = false;
@@ -982,6 +988,9 @@ class PlayState extends MusicBeatState
 			cpuControlled = false;
 			// CRITICAL: window minimize / alt-tab must NOT pause the song (desync)
 			FlxG.autoPause = false;
+
+			// Initialize OnlineHUD
+			onlineHUD = new OnlineHUD();
 		}
 		#end
 	}
@@ -2335,8 +2344,11 @@ class PlayState extends MusicBeatState
 
 	override public function update(elapsed:Float)
 	{
-		#if FURTHER_ONLINE
-		PlayStateSync.update(this);
+	#if FURTHER_ONLINE
+		PlayStateSync.update(this, elapsed);
+		if (onlineHUD != null) onlineHUD.update();
+		EmoteManager.update();
+
 		if (PlayStateSync.isWaitingStart() || PlayStateSync.isMatchOver())
 		{
 			// Freeze gameplay until startSong / after matchEnded
@@ -4394,6 +4406,10 @@ class PlayState extends MusicBeatState
 	override function destroy() {
 		#if FURTHER_ONLINE
 		PlayStateSync.unbind();
+		if (onlineHUD != null) {
+			onlineHUD.destroy();
+			onlineHUD = null;
+		}
 		#end
 		#if POLYMOD_ALLOWED
 		VSScriptEventDispatcher.dispatchPlayState('onDestroy');

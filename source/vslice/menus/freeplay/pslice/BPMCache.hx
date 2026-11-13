@@ -1,5 +1,7 @@
 package vslice.menus.freeplay.pslice;
 
+import backend.fs.DirCache;
+
 typedef BpmEntry = {
 	b:Int,
 	s:Int,
@@ -57,7 +59,8 @@ class BPMCache {
 	{
 		if (path == null || path.length == 0) return false;
 		try {
-			return sys.FileSystem.exists(path);
+			// FURTHER PERF: parent dizin listesinden yanıt (stat yok).
+			return DirCache.hasPath(path);
 		} catch(e:Dynamic) {
 			return false;
 		}
@@ -65,9 +68,8 @@ class BPMCache {
 
 	private function isDir(path:String):Bool
 	{
-		if (!pathExists(path)) return false;
 		try {
-			return sys.FileSystem.isDirectory(path);
+			return DirCache.isDir(path);
 		} catch(e:Dynamic) {
 			return false;
 		}
@@ -214,7 +216,7 @@ class BPMCache {
 
 		var chartFiles:Array<String>;
 		try {
-			chartFiles = sys.FileSystem.readDirectory(normalPath);
+			chartFiles = DirCache.list(normalPath);
 		} catch(e:Dynamic) {
 			trace('[BPMCache] Failed to read directory: $normalPath — $e');
 			return 0;

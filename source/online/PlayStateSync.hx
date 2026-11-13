@@ -2,11 +2,16 @@ package online;
 
 #if FURTHER_ONLINE
 import flixel.FlxG;
+import flixel.math.FlxMath;
 import objects.Note;
 import objects.StrumNote;
 import states.PlayState;
 import backend.Conductor;
 import backend.MusicBeatState;
+import online.EmoteManager;
+#if DISCORD_ALLOWED
+import backend.Discord;
+#end
 #end
 
 /**
@@ -17,6 +22,7 @@ class PlayStateSync {
 	static var bound:Bool = false;
 	static var endedSent:Bool = false;
 	static var lastScoreSent:Int = -1;
+	static var lastComboSent:Int = -1;
 	static var countdownStarted:Bool = false;
 	static var waitingStartSong:Bool = false;
 	static var matchOver:Bool = false;
@@ -30,6 +36,7 @@ class PlayStateSync {
 		endedSent = false;
 		matchOver = false;
 		lastScoreSent = -1;
+		lastComboSent = -1;
 		countdownStarted = false;
 		waitingStartSong = true;
 
@@ -37,6 +44,26 @@ class PlayStateSync {
 		GameClient.onNoteHit = onNoteHit;
 		GameClient.onNoteMiss = onNoteMiss;
 		GameClient.onCharPlay = onCharPlay;
+		GameClient.onChat = function(message:Dynamic) {
+			try {
+				var msg = Std.string(Reflect.field(message, "text"));
+				var sid = Std.string(Reflect.field(message, "sid"));
+				var fromName = Std.string(Reflect.field(message, "from"));
+				EmoteManager.onEmoteReceived(fromName, sid, msg);
+			} catch (e:Dynamic) {}
+		};
+
+		GameClient.onGameStarted = function(data:Dynamic) {
+			#if DISCORD_ALLOWED
+			if (GameClient.room != null && GameClient.room.state != null) {
+				var roomState = GameClient.room.state;
+				var songName = roomState.song;
+				var folder = roomState.folder;
+				var diff = Std.int(roomState.diff);
+				DiscordClient.changePresenceOnlineMatch(songName, folder, diff);
+			}
+			#end
+		};
 
 		GameClient.onStartSong = function() {
 			if (matchOver) return;
@@ -95,7 +122,13 @@ class PlayStateSync {
 		GameClient.onCharPlay = null;
 		GameClient.onStartSong = null;
 		GameClient.onMatchEnded = null;
+		GameClient.onGameStarted = null;
 		waitingStartSong = false;
+
+		// Reset Discord presence when leaving match
+		#if DISCORD_ALLOWED
+		DiscordClient.resetOnlinePresence();
+		#end
 	}
 
 	public static inline function active():Bool {
@@ -110,7 +143,7 @@ class PlayStateSync {
 		return matchOver;
 	}
 
-	public static function update(ps:PlayState):Void {
+	public static function update(ps:PlayState, ?elapsed:Float = 0.016):Void {
 		if (!bound || ps == null) return;
 
 		// Connection lost mid-match
@@ -143,12 +176,13 @@ class PlayStateSync {
 			return;
 		}
 
-		// Server health
+		// Server health (with smooth interpolation)
 		try {
 			if (GameClient.room != null && GameClient.room.state != null) {
 				var h:Float = Std.parseFloat(Std.string(GameClient.room.state.health));
-				if (!Math.isNaN(h))
-					ps.health = h;
+				if (!Math.isNaN(h)) {
+					ps.health = FlxMath.lerp(ps.health, h, Math.min(1, elapsed * 15));
+				}
 			}
 		} catch (e:Dynamic) {}
 
@@ -157,6 +191,46 @@ class PlayStateSync {
 			lastScoreSent = ps.songScore;
 			GameClient.send("setScore", ps.songScore);
 		}
+
+		// Combo sync (throttled by value change, live during match)
+		if (ps.combo != lastComboSent) {
+			lastComboSent = ps.combo;
+			GameClient.send("updateMaxCombo", ps.combo);
+		}
+
+		// Discord RPC: Live match presence with scores
+		#if DISCORD_ALLOWED
+		if (GameClient.room != null && GameClient.room.state != null) {
+			var roomState = GameClient.room.state;
+			var myScore = 0;
+			var opponentScore = 0;
+			var myMaxCombo = 0;
+			try {
+				var items = Reflect.field(roomState.players, "items");
+				if (items != null) {
+					for (sid in Reflect.fields(items)) {
+						var p = Reflect.field(items, sid);
+						if (p == null) continue;
+						var isMe = sid == GameClient.room.sessionId;
+						if (isMe) {
+							myScore = Std.int(p.score);
+							myMaxCombo = Std.int(p.maxCombo);
+						} else {
+							opponentScore = Std.int(p.score);
+						}
+					}
+				}
+			} catch (e:Dynamic) {}
+			DiscordClient.changePresenceOnlineMatch(
+				roomState.song,
+				roomState.folder,
+				Std.int(roomState.diff),
+				myScore,
+				opponentScore,
+				myMaxCombo
+			);
+		}
+		#end
 	}
 
 	public static function sendStrumPressed(key:Int):Void {
@@ -185,6 +259,13 @@ class PlayStateSync {
 		if (!note.isSustainNote && rating != null && rating != "")
 			GameClient.send("addHitJudge", rating);
 		GameClient.send("strumPlay", ["confirm", note.noteData, 0]);
+
+		// Immediately send combo update on hit (if combo increased)
+		var ps = boundPlayState;
+		if (ps != null && ps.combo != lastComboSent) {
+			lastComboSent = ps.combo;
+			GameClient.send("updateMaxCombo", ps.combo);
+		}
 	}
 
 	public static function sendNoteMiss(note:Note, direction:Int):Void {
@@ -222,11 +303,10 @@ class PlayStateSync {
 			if (Math.isNaN(reset)) reset = 0;
 
 			// Remote player's strums = the lane they play.
-			// Local BF: remote is opp → opponentStrums
-			// Local OPP: remote is BF → playerStrums (their mustPress lane is left/opponent visually as player after flip...)
-			// After side swap, local player always uses playerStrums for their mustPress notes.
-			// Remote hits appear on the OTHER strum group.
-			var strums = ps.opponentStrums;
+			// If local is BF (playsAsBF() == true), remote is opponent -> ps.opponentStrums.
+			// If local is Opponent (playsAsBF() == false), remote is BF -> ps.playerStrums.
+			var isBF:Bool = GameClient.playsAsBF();
+			var strums = isBF ? ps.opponentStrums : ps.playerStrums;
 			if (strums == null || key < 0 || key >= strums.length) return;
 			var spr:StrumNote = strums.members[key];
 			if (spr == null) return;
@@ -251,15 +331,35 @@ class PlayStateSync {
 			var noteData:Int = Std.int(payload[1]);
 			var isSus:Bool = payload[2] == true;
 
-			// Remote notes are the ones WE don't press (mustPress == false)
+			// Remote notes: if local is BF, remote is opponent (mustPress == false).
+			// If local is Opponent, remote is BF (mustPress == true).
+			var isBF:Bool = GameClient.playsAsBF();
+			var targetMustPress:Bool = isBF ? false : true;
 			var found:Note = null;
 			if (ps.notes != null) {
 				ps.notes.forEachAlive(function(note:Note) {
 					if (found != null) return;
-					if (note.mustPress) return;
+					if (note.mustPress != targetMustPress) return;
 					if (note.noteData != noteData) return;
 					if (note.isSustainNote != isSus) return;
-					if (Math.abs(note.strumTime - strumTime) > 5.0) return; // slightly looser for lag
+					// Latency compensation: account for one-way network delay (approximate)
+				var latencyOffset = 0.0;
+				try {
+					if (GameClient.room != null && GameClient.room.state != null) {
+						var items = Reflect.field(GameClient.room.state.players, "items");
+						if (items != null) {
+							for (sid in Reflect.fields(items)) {
+								if (sid == GameClient.room.sessionId) continue;
+								var p = Reflect.field(items, sid);
+								if (p != null) {
+									latencyOffset = Std.int(p.ping) / 2000.0; // ms -> seconds, half RTT
+									break;
+								}
+							}
+						}
+					}
+				} catch (e:Dynamic) {}
+				if (Math.abs(note.strumTime - (strumTime + latencyOffset)) > 60.0) return; // more forgiving with compensation
 					found = note;
 				});
 			}

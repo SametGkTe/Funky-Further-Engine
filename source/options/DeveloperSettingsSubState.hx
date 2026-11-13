@@ -7,8 +7,8 @@ class DeveloperSettingsSubState extends BaseOptionsMenu
 		title = Language.getPhrase('developer_settings_menu', 'Geliştirici Ayarları');
 		rpcTitle = 'Developer Settings Menu';
 
-		var option:Option = new Option('Beta Programı',
-			'Beta sürümlerine erken erişim programını açar. Katılım, beta güncelleme denetimi ve ayrılma bu ekrandan yapılır.',
+		var option:Option = new Option('Tester Programı',
+			'Supabase hesabınla katıldığın tester programı. Onaylı tester\'lar beta (pre-release) sürümlerine erişir ve Credits ekranındaki Testerler bölümünde listelenir. Katılma/ayrılma ve beta denetimi bu ekrandan yapılır.',
 			'',
 			OPEN);
 		option.onOpen = function() openSubState(new BetaProgramSubState());

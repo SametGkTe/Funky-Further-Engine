@@ -5,6 +5,9 @@ import flixel.FlxSprite;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import backend.MusicBeatState;
+import backend.Discord;
+import backend.LeaderboardAPI;
+import backend.AuthManager;
 import online.GameClient;
 import online.NetThread;
 
@@ -20,6 +23,41 @@ class OnlineResultsState extends MusicBeatState {
 		super.create();
 		FlxG.mouse.visible = true;
 		// Keep net pump; stay in room for rematch
+
+		// Discord RPC: Match Results
+		#if DISCORD_ALLOWED
+		{
+			var data = lastPayload;
+			var won = false;
+			var myScore:Int = 0;
+			var opponentScore:Int = 0;
+			var songName = Std.string(Reflect.field(data, "song"));
+			try {
+				var players:Dynamic = Reflect.field(data, "players");
+				if (players != null) {
+					var fieldNames:Array<String> = Reflect.fields(players);
+					if (fieldNames != null) {
+						for (sid in fieldNames) {
+							var p:Dynamic = Reflect.field(players, sid);
+							if (p == null) continue;
+							var isMe = sid == GameClient.room?.sessionId;
+							if (isMe) myScore = Std.int(Reflect.field(p, "score"));
+							else opponentScore = Std.int(Reflect.field(p, "score"));
+						}
+						won = myScore >= opponentScore;
+					}
+				}
+			} catch (e:Dynamic) {}
+			DiscordClient.changePresenceOnlineResults(won, songName, myScore, opponentScore);
+
+			// Auto-submit score to leaderboard
+			if (AuthManager.isLoggedIn) {
+				var rank = won ? "WIN" : "LOSS";
+				LeaderboardAPI.submitScore(AuthManager.currentUsername, songName, "Normal", myScore, 100.0, rank);
+			}
+		}
+		#end
+
 		add(new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.fromRGB(8, 10, 24)));
 
 		var title = new FlxText(0, 36, FlxG.width, "MATCH RESULTS", 32);
@@ -158,6 +196,16 @@ class OnlineResultsState extends MusicBeatState {
 	function leaveAll() {
 		lastPayload = null;
 		GameClient.leaveRoom("results leave");
+		#if DISCORD_ALLOWED
+		DiscordClient.resetOnlinePresence();
+		#end
 		MusicBeatState.switchState(new OnlineMenuState());
+	}
+
+	override function destroy() {
+		#if DISCORD_ALLOWED
+		DiscordClient.resetOnlinePresence();
+		#end
+		super.destroy();
 	}
 }
