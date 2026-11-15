@@ -24,6 +24,22 @@ class SupabaseClient {
     static var _cacheLoaded:Bool = false;
 
     // ============================================
+    // ANA THREAD DISPATCH — FIX: onUpdate leak yerine NetThread
+    // ============================================
+    // ESKİ KOD: lime.app.Application.current.onUpdate.add(function(_) { callback(...) });
+    // → Her istekte yeni listener ekleniyor, asla remove edilmiyor = leak.
+    // YENİ: NetThread.enqueue → MusicBeatState her frame pump() çağırıyor, tek seferlik çalışır.
+    static inline function dispatchToMain(fn:Void->Void):Void {
+        #if (target.threaded)
+        // NetThread zaten thread-safe queue + mutex kullanıyor
+        online.NetThread.enqueue(fn);
+        #else
+        // Thread yoksa direkt çalıştır (html5, interp)
+        fn();
+        #end
+    }
+
+    // ============================================
     // DOSYA YOLU
     // ============================================
     static function _getAuthFilePath():String {
@@ -218,7 +234,7 @@ class SupabaseClient {
     }
 
     // ============================================
-    // HTTP - POST ASYNC
+    // HTTP - POST ASYNC  [FIXED]
     // ============================================
     public static function postAsync(endpoint:String, body:Dynamic, token:String = "", callback:Int->String->Void, ?extraHeaders:Map<String, String>):Void {
         #if sys
@@ -243,13 +259,14 @@ class SupabaseClient {
 
                 http.onData = function(d) {
                     if (responseStatus == 0) responseStatus = 200;
-                    lime.app.Application.current.onUpdate.add(function(_) {
+                    // FIX: onUpdate.add leak → NetThread.enqueue one-shot
+                    dispatchToMain(function() {
                         if (!responseDone) { responseDone = true; callback(responseStatus, d); }
                     });
                 };
                 http.onStatus = function(s) { responseStatus = s; };
                 http.onError = function(e) {
-                    lime.app.Application.current.onUpdate.add(function(_) {
+                    dispatchToMain(function() {
                         if (!responseDone) { responseDone = true; callback(responseStatus, e); }
                     });
                 };
@@ -257,7 +274,10 @@ class SupabaseClient {
                 http.setPostData(haxe.Json.stringify(body));
                 http.request(true);
             } catch(e:Dynamic) {
-                callback(0, Std.string(e));
+                // Thread içindeki exception da main thread'e taşınmalı
+                dispatchToMain(function() {
+                    callback(0, Std.string(e));
+                });
             }
         });
         #end
@@ -265,7 +285,7 @@ class SupabaseClient {
     }
 
     // ============================================
-    // HTTP - GET ASYNC
+    // HTTP - GET ASYNC  [FIXED]
     // ============================================
     public static function getAsync(endpoint:String, token:String = "", callback:Int->String->Void):Void {
         #if sys
@@ -286,20 +306,22 @@ class SupabaseClient {
 
                 http.onData = function(d) {
                     if (responseStatus == 0) responseStatus = 200;
-                    lime.app.Application.current.onUpdate.add(function(_) {
+                    dispatchToMain(function() {
                         if (!responseDone) { responseDone = true; callback(responseStatus, d); }
                     });
                 };
                 http.onStatus = function(s) { responseStatus = s; };
                 http.onError = function(e) {
-                    lime.app.Application.current.onUpdate.add(function(_) {
+                    dispatchToMain(function() {
                         if (!responseDone) { responseDone = true; callback(responseStatus, e); }
                     });
                 };
 
                 http.request(false);
             } catch(e:Dynamic) {
-                callback(0, Std.string(e));
+                dispatchToMain(function() {
+                    callback(0, Std.string(e));
+                });
             }
         });
         #end
@@ -336,7 +358,7 @@ class SupabaseClient {
     #end
 
     // ============================================
-    // HTTP - POST SYNC
+    // HTTP - POST SYNC (aynı, thread yok)
     // ============================================
     public static function post(endpoint:String, body:Dynamic, token:String = "", callback:Int->String->Void):Void {
         var fullUrl = '${URL}${endpoint}';
@@ -365,7 +387,7 @@ class SupabaseClient {
     }
 
     // ============================================
-    // HTTP - GET SYNC
+    // HTTP - GET SYNC (aynı)
     // ============================================
     public static function get(endpoint:String, token:String = "", callback:Int->String->Void):Void {
         var fullUrl = '${URL}${endpoint}';

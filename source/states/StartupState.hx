@@ -76,12 +76,9 @@ class StartupState extends FlxState
 		PerformanceProfiler.applyRuntimeSettings();
 		AudioMixer.syncFromPrefs();
 
-		Log.infoLazy('boot', function() return 'Ayarlar yüklendi, menüye geçiliyor (guvenliMod=' + SafeMode.active + ')');
-		if (!ClientPrefs.data.disableIntroVideo)
-			FlxG.switchState(new FurtherIntroState());
-		else if (!ClientPrefs.data.setupWizardCompleted || SetupWizardState.debugMode)
-			FlxG.switchState(new SetupWizardState());
-		else
-			FlxG.switchState(new TitleState());
+		Log.infoLazy('boot', function() return 'Ayarlar yüklendi, FurtherBootState\'e geçiliyor (guvenliMod=' + SafeMode.active + ')');
+		// YENİ AKIŞ: Her şeyi tek ekranda yükleyen FurtherBootState (video loop + durum metni)
+		// Eski FurtherIntroState artık kullanılmıyor; BootState içinde furtherout oynuyor.
+		FlxG.switchState(new FurtherBootState());
 	}
 }

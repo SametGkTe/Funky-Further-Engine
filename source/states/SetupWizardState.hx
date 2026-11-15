@@ -1554,7 +1554,7 @@ class SetupWizardState extends MusicBeatState
 			}
 			FlxTransitionableState.skipNextTransIn = true;
 			FlxTransitionableState.skipNextTransOut = true;
-			FlxG.switchState(new TitleState());
+			FlxG.switchState(new FurtherIntroState());
 		}}, function(v)
 		{
 			for (el in allElements) el.sprite.alpha = v;

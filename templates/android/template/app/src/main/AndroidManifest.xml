@@ -15,7 +15,7 @@
 		<meta-data android:name="SDL_ENV.SDL_IOS_ORIENTATIONS" android:value="LandscapeLeft LandscapeRight" />
 		::end::
 
-		<activity ::foreach ANDROID_ACTIVITY::::if ((value != null) && (value != ""))::::key::="::value::" ::end::::end::>
+		<activity android:launchMode="singleTask" android:exported="true" ::foreach ANDROID_ACTIVITY::::if ((value != null) && (value != ""))::::key::="::value::" ::end::::end::>
 
 			<intent-filter>
 				<action android:name="android.intent.action.MAIN" />

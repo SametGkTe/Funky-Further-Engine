@@ -1,6 +1,13 @@
 package backend.update;
 import haxe.Json;
 import backend.modpack.ModpackTier;
+import backend.modpack.ModpackPaths;
+import backend.modpack.ModpackCatalogTypes;
+import backend.modpack.ModDeltaInstaller;
+import backend.update.SafeHttp;
+import haxe.Json;
+import sys.FileSystem;
+import sys.io.File;
 
 typedef ModpackListData = {
     @:optional var lastUpdated:String;
@@ -66,6 +73,116 @@ class UpdateChecker {
     {
         hasPendingModpackUpdates = false;
     }
+
+    // ── Delta-aware tam kontrol (pack sürümü + içerideki mod sürümleri) ──
+    // Ana Menü'deki ünlem için: pack güncellenmese bile içindeki tek mod değiştiyse rozet çıkar.
+    public function checkAllUpdatesIncludingDelta(?callback:Bool->Void):Void
+    {
+        fetchModpackList(function(result:CheckResult) {
+            var packPending:Bool = (result != null && result.hasUpdates);
+            if (packPending)
+            {
+                hasPendingModpackUpdates = true;
+                if (callback != null) callback(true);
+                return;
+            }
+            // Pack sürümü aynı — yine de içerik kataloğundaki mod sürümlerini kontrol et
+            checkDeltaUpdates(function(deltaPending:Bool) {
+                hasPendingModpackUpdates = deltaPending;
+                if (callback != null) callback(deltaPending);
+            });
+        });
+    }
+
+    // Kurulu pack'lerin contentCatalogUrl'lerini çekip ModDeltaInstaller.hasPending ile karşılaştırır
+    public function checkDeltaUpdates(?callback:Bool->Void):Void
+    {
+        #if !sys
+        if (callback != null) callback(false);
+        return;
+        #end
+        if (cachedModpacks == null || cachedModpacks.length == 0)
+        {
+            if (callback != null) callback(false);
+            return;
+        }
+        // Kurulu manifest'leri bul
+        var installedIds:Array<String> = [];
+        try {
+            var dir:String = ModpackPaths.getInstalledDirectory();
+            if (FileSystem.exists(dir))
+            {
+                for (entry in FileSystem.readDirectory(dir))
+                {
+                    if (!StringTools.endsWith(entry, ".json")) continue;
+                    var id:String = entry.substr(0, entry.length - 5);
+                    if (id.length > 0) installedIds.push(id);
+                }
+            }
+        } catch (_:Dynamic) {}
+
+        if (installedIds.length == 0)
+        {
+            if (callback != null) callback(false);
+            return;
+        }
+
+        // Bu kurulu pack'lere ait RemoteModpackInfo'ları bul (contentCatalogUrl lazım)
+        var toCheck:Array<RemoteModpackInfo> = [];
+        for (id in installedIds)
+        {
+            for (mp in cachedModpacks)
+            {
+                if (Std.string(mp.id) == id && mp.contentCatalogUrl != null && Std.string(mp.contentCatalogUrl).length > 0)
+                {
+                    toCheck.push(mp);
+                    break;
+                }
+            }
+        }
+
+        if (toCheck.length == 0)
+        {
+            if (callback != null) callback(false);
+            return;
+        }
+
+        var pendingCount:Int = 0;
+        var done:Int = 0;
+        var total:Int = toCheck.length;
+        var finished:Bool = false;
+
+        function tryFinish():Void
+        {
+            if (finished) return;
+            if (done >= total)
+            {
+                finished = true;
+                if (callback != null) callback(pendingCount > 0);
+            }
+        }
+
+        for (mp in toCheck)
+        {
+            var urls:Array<String> = ModpackCatalog.catalogUrls(Std.string(mp.contentCatalogUrl));
+            SafeHttp.getFirst(urls, ["User-Agent" => "Further-Engine-Updater"], function(data:String) {
+                try {
+                    var catalog:ContentCatalog = cast Json.parse(data);
+                    if (catalog != null && catalog.mods != null)
+                    {
+                        var di:ModDeltaInstaller = new ModDeltaInstaller();
+                        if (di.hasPending(catalog)) pendingCount++;
+                    }
+                } catch (_:Dynamic) {}
+                done++;
+                tryFinish();
+            }, function(_err:String) {
+                done++;
+                tryFinish();
+            });
+        }
+    }
+
 
     static var _instance:UpdateChecker;
     public static var instance(get, never):UpdateChecker;

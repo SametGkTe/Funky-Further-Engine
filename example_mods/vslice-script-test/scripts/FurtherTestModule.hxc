@@ -122,6 +122,9 @@ class FurtherTestModule extends Module
 
 	override function onSongEvent(event:SongEventScriptEvent)
 	{
+		// FIX: Camera Follow Pos her frame spamliyordu (blammed-noimix chart'ında yoğun)
+		// Sadece önemli event'leri logla, kamera event'lerini atla
+		if (event.eventData.eventKind == "Camera Follow Pos") return;
 		trace('[FETest] onSongEvent — kind=' + event.eventData.eventKind + ' value=' + event.eventData.value);
 	}
 

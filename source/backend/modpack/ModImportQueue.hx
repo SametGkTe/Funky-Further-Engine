@@ -22,8 +22,11 @@ class ModImportQueue
 
 		FlxG.signals.focusGained.add(function()
 		{
-			poll();
-			considerPresenting();
+			// onNewIntent -> focusGained sırası cihaza göre değişir, 150ms geciktir
+			new flixel.util.FlxTimer().start(0.15, function(_) {
+				poll();
+				considerPresenting();
+			});
 		});
 		FlxG.signals.postStateSwitch.add(function()
 		{
@@ -46,6 +49,9 @@ class ModImportQueue
 	public static function poll():Void
 	{
 		#if android
+		// Eğer zaten bekleyen bir zip varsa, onu tüketmeden yeni poll yapma — queue gibi davran
+		if (pendingZipPath != null && StringTools.trim(pendingZipPath).length > 0)
+			return;
 		try
 		{
 			var jni = lime.system.JNI.createStaticMethod('furtherengine/util/ShareImportUtil', 'consumeSharedZip', '()Ljava/lang/String;');
@@ -56,7 +62,10 @@ class ModImportQueue
 				{
 					var text:String = StringTools.trim(Std.string(path));
 					if (text.length > 0)
+					{
 						pendingZipPath = text;
+						trace('[ModImportQueue] poll got zip: $text');
+					}
 				}
 			}
 		}

@@ -38,10 +38,9 @@ public class ShareImportUtil extends Extension
 
 	@Override public void onNewIntent(Intent intent)
 	{
-		// Oyun arka plandayken paylaşılan yeni ZIP GameActivity tarafından bu
-		// extension'a iletilir. getIntent() tek başına yeni intent'i göstermeyebilir.
 		pendingIntent = intent;
 		if (Extension.mainActivity != null) Extension.mainActivity.setIntent(intent);
+		android.util.Log.i("ShareImport", "onNewIntent received: " + (intent != null ? intent.getAction() : "null"));
 	}
 
 	public static String consumeSharedZip()
@@ -62,7 +61,7 @@ public class ShareImportUtil extends Extension
 		else if (Intent.ACTION_VIEW.equals(action) || Intent.ACTION_EDIT.equals(action))
 			uri = intent.getData();
 
-		if (uri == null) return null;
+		if (uri == null) { clearShareIntent(activity); return null; }
 
 		String name = queryDisplayName(activity, uri);
 		if (name == null || name.length() < 1) name = "shared-mod.zip";
@@ -127,10 +126,13 @@ public class ShareImportUtil extends Extension
 
 	private static void clearShareIntent(Activity activity)
 	{
+		pendingIntent = null;
 		try
 		{
 			Intent clean = new Intent(Intent.ACTION_MAIN);
+			clean.addCategory(Intent.CATEGORY_LAUNCHER);
 			clean.setPackage(activity.getPackageName());
+			clean.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 			activity.setIntent(clean);
 		}
 		catch (Exception ignored) {}

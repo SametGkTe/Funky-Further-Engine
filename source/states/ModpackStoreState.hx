@@ -627,6 +627,13 @@ class ModpackStoreState extends MusicBeatState {
 		var modPart:String = mp.modCount != null ? '${mp.modCount} mod' : "";
 		var tierPart:String = ModpackTier.labelFor(tierId);
 		detailMeta.text = '[$tierPart]  •  $sizePart  •  $modPart  •  ${mp.author != null ? Std.string(mp.author) : ""}';
+		// Kurulu + güncelleme varsa rozet bilgisi (delta-aware)
+		try {
+			var _pid:String = mp.id != null ? Std.string(mp.id) : "";
+			var _installed:Bool = installer.isInstalled(_pid);
+			if (_installed && UpdateChecker.instance.hasPendingModpackUpdates)
+				detailMeta.text += "  •  GÜNCELLEME VAR!";
+		} catch (_:Dynamic) {}
 
 		detailImage.visible = false;
 		var imgW:Int = Std.int((FlxG.width - 60) * 0.42);
@@ -660,11 +667,32 @@ class ModpackStoreState extends MusicBeatState {
 		setLinkRow(0, mfUrl, "MediaFire");
 		setLinkRow(1, ghUrl, "GitHub");
 
-		#if mobile
-		controlsText.text = "[A] Seçili link  |  [X] Kaldır  |  [B] Geri";
-		#else
-		controlsText.text = "[1] MediaFire  [2] GitHub  |  [ENTER] Seçili  |  [X] Kaldır  |  [ESC] Geri";
-		#end
+		try {
+			var _pid2:String = mp.id != null ? Std.string(mp.id) : "";
+			var _isUpd2:Bool = installer.isInstalled(_pid2) && UpdateChecker.instance.hasPendingModpackUpdates;
+			if (_isUpd2)
+			{
+				#if mobile
+				controlsText.text = "[A] GÜNCELLE  |  [X] Kaldır  |  [B] Geri";
+				#else
+				controlsText.text = "[ENTER] GÜNCELLE  |  [X] Kaldır  |  [ESC] Geri";
+				#end
+			}
+			else
+			{
+				#if mobile
+				controlsText.text = "[A] Seçili link  |  [X] Kaldır  |  [B] Geri";
+				#else
+				controlsText.text = "[1] MediaFire  [2] GitHub  |  [ENTER] Seçili  |  [X] Kaldır  |  [ESC] Geri";
+				#end
+			}
+		} catch (_:Dynamic) {
+			#if mobile
+			controlsText.text = "[A] Seçili link  |  [X] Kaldır  |  [B] Geri";
+			#else
+			controlsText.text = "[1] MediaFire  [2] GitHub  |  [ENTER] Seçili  |  [X] Kaldır  |  [ESC] Geri";
+			#end
+		}
 	}
 
 	function loadDetailThumbnail(packId:String, url:String, fitW:Int, fitH:Int):Void {

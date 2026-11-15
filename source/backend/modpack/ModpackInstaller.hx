@@ -14,6 +14,9 @@ import backend.modpack.zip.ZipSecurity;
 import backend.modpack.zip.ZipTypes;
 import backend.modpack.zip.IZipExtractor;
 import backend.update.UpdateConfig;
+#if target.threaded
+import sys.thread.Mutex;
+#end
 #end
 
 class ModpackInstaller {
@@ -30,6 +33,37 @@ class ModpackInstaller {
 	var _extractor:IZipExtractor;
 	var _installing:Bool = false;
 	var _cancelled:Bool = false;
+#if target.threaded
+	var _mutex:Mutex = new Mutex();
+#end
+
+	// ── Thread-safe installing flag ──────────────────────────────────────────
+	inline function tryAcquireInstalling():Bool {
+#if target.threaded
+		_mutex.acquire();
+		if (_installing) { _mutex.release(); return false; }
+		_installing = true;
+		_cancelled = false;
+		_mutex.release();
+		return true;
+#else
+		if (_installing) return false;
+		_installing = true;
+		_cancelled = false;
+		return true;
+#end
+	}
+	inline function releaseInstalling():Void {
+#if target.threaded
+		_mutex.acquire();
+		_installing = false;
+		_cancelled = false;
+		_mutex.release();
+#else
+		_installing = false;
+		_cancelled = false;
+#end
+	}
 
 	public function new() {
 		_extractor = ZipExtractorFactory.createSafe();
@@ -37,7 +71,7 @@ class ModpackInstaller {
 	}
 
 	public function install(zipPath:String, packId:String, callbacks:ModpackInstallCallbacks):Void {
-		if (_installing) {
+		if (!tryAcquireInstalling()) {
 			warn(callbacks, "Zaten bir kurulum devam ediyor.");
 			return;
 		}
@@ -59,9 +93,6 @@ class ModpackInstaller {
 		} else {
 			trace('[ModpackInstaller] Tier: ${tier.getLabel()} (${tier})');
 		}
-
-		_installing = true;
-		_cancelled = false;
 
 		trace('[ModpackInstaller] Kurulum başladı. packId=$packId zipPath=$zipPath');
 
@@ -132,6 +163,17 @@ class ModpackInstaller {
 		return ids;
 	}
 
+	/** FIX: Diğer kurulu pack'lerin kullandığı mod klasörlerini topla (ortak klasör koruması). */
+	function getFoldersUsedByOthers(excludePackId:String):Map<String, Bool> {
+		var used:Map<String, Bool> = new Map();
+		for (otherId in getOtherInstalledPackIds(excludePackId)) {
+			var other = getInstalledManifest(otherId);
+			if (other == null || other.modFolders == null) continue;
+			for (f in other.modFolders) used.set(f, true);
+		}
+		return used;
+	}
+
 	function deleteInstalledManifest(packId:String):Void {
 		try {
 			var manifestPath = ModpackPaths.getInstalledManifestPath(packId);
@@ -166,7 +208,7 @@ class ModpackInstaller {
 
 	public function uninstall(packId:String, callbacks:ModpackInstallCallbacks):Void {
 		#if sys
-		if (_installing) {
+		if (!tryAcquireInstalling()) {
 			warn(callbacks, "Zaten bir kurulum/kaldırma işlemi devam ediyor.");
 			return;
 		}
@@ -176,9 +218,6 @@ class ModpackInstaller {
 			fail(callbacks, 'Kurulu paket bulunamadı: $packId');
 			return;
 		}
-
-		_installing = true;
-		_cancelled = false;
 
 		trace('[ModpackInstaller] Kaldırma başladı: ${manifest.displayName} v${manifest.version}');
 
@@ -197,8 +236,14 @@ class ModpackInstaller {
 
 	function doUninstall(packId:String, manifest:ModpackManifest, callbacks:ModpackInstallCallbacks):Void {
 		var modsDir = ModpackPaths.getModsDirectory();
-
+		// FIX: Ortak klasörler başka kurulu pack tarafından kullanılıyorsa silme
+		var usedByOthers:Map<String, Bool> = getFoldersUsedByOthers(packId);
 		for (folder in manifest.modFolders) {
+			if (usedByOthers.exists(folder)) {
+				trace('[ModpackInstaller] Atlandı (başka pack kullanıyor): $folder');
+				warn(callbacks, '"$folder" başka bir pack tarafından kullanıldığı için korunuyor.');
+				continue;
+			}
 			var folderPath = Path.join([modsDir, folder]);
 			if (FileSystem.exists(folderPath)) {
 				deleteDirectory(folderPath);
@@ -217,8 +262,7 @@ class ModpackInstaller {
 			warn(callbacks, 'Kurulum manifesti silinemedi: ${e.message}');
 		}
 
-		_installing = false;
-		_cancelled = false;
+		releaseInstalling();
 
 		trace('[ModpackInstaller] ✓ Kaldırma tamamlandı: ${manifest.packId}');
 
@@ -611,8 +655,7 @@ class ModpackInstaller {
 	}
 
 	function step_complete(manifest:ModpackManifest, callbacks:ModpackInstallCallbacks):Void {
-		_installing = false;
-		_cancelled = false;
+		releaseInstalling();
 
 		reportPhase(
 			callbacks, Complete, 1.0, "",
@@ -680,8 +723,7 @@ class ModpackInstaller {
 	}
 
 	function fail(callbacks:ModpackInstallCallbacks, message:String, ?cleanupPath:String):Void {
-		_installing = false;
-		_cancelled = false;
+		releaseInstalling();
 
 		trace('[ModpackInstaller] ✗ Hata: $message');
 
@@ -705,8 +747,7 @@ class ModpackInstaller {
 	}
 
 	function handleCancel(callbacks:ModpackInstallCallbacks):Void {
-		_installing = false;
-		_cancelled = false;
+		releaseInstalling();
 
 		trace('[ModpackInstaller] Kurulum iptal edildi.');
 

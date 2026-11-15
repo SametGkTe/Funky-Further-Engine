@@ -73,6 +73,12 @@ class DownloadManager {
 			}
 		}
 
+		if (isDirectMediafireDownload(url) && !isMediafirePage(url)) {
+			trace('[DownloadManager] Direkt MediaFire indirme linki tespit edildi, scraping atlanıyor.');
+			download(url, savePath, callbacks);
+			return;
+		}
+
 		if (isMediafirePage(url)) {
 			resolveMediafire(url, savePath, callbacks);
 			return;
@@ -93,6 +99,12 @@ class DownloadManager {
 			|| StringTools.startsWith(url, "http://www.mediafire.com/file/")
 			|| StringTools.startsWith(url, "https://mediafire.com/file/")
 			|| StringTools.startsWith(url, "http://mediafire.com/file/");
+	}
+
+	/** Direkt MediaFire download linki (scraping gerekmez) */
+	public static function isDirectMediafireDownload(url:String):Bool {
+		if (url == null) return false;
+		return url.indexOf("mediafire.com") != -1 && (url.indexOf("download") != -1 || StringTools.contains(url, "/file/") == false);
 	}
 
 	function resolveMediafire(pageUrl:String, savePath:String, callbacks:DownloadCallbacks):Void {
@@ -126,7 +138,8 @@ class DownloadManager {
 
 			finishError(callbacks,
 				"Mediafire indirme linki çıkarılamadı.\n"
-				+ "Mediafire sayfa yapısı değişmiş olabilir.");
+				+ "Sayfa yapısı değişmiş olabilir veya link MediaFire tarafından kısıtlanmış.\n"
+				+ "Öneri: Linki tarayıcıda açıp 'Download' butonuna sağ tık > 'Bağlantı adresini kopyala' ile direkt linki deneyin.");
 
 		} catch (e:Dynamic) {
 			finishError(callbacks, 'Mediafire çözümleme hatası: ${Std.string(e)}');
@@ -178,6 +191,20 @@ class DownloadManager {
 					}
 				}
 			}
+			// FIX: Regex fallback — MediaFire HTML yapısı değişirse DOM selector'lar patlayabilir
+			// Ham HTML içinde direkt download*.mediafire.com linki ara
+			try {
+				var re = ~/https:\/\/download\d*\.mediafire\.com\/[^"]+/;
+				if (re.match(html)) {
+					var found:String = re.matched(0);
+					// Bazı linkler / ile bitmez, query string içerebilir — temizle
+					found = found.split('"')[0].split("'")[0].split("<")[0];
+					if (found.length > 10) {
+						trace('[DownloadManager] Mediafire link çözüldü (regex fallback): ' + found);
+						return StringTools.trim(found);
+					}
+				}
+			} catch (_:Dynamic) {}
 
 		} catch (e:Dynamic) {
 			trace('[DownloadManager] HTML parse hatası: ${Std.string(e)}');
@@ -187,16 +214,29 @@ class DownloadManager {
 	}
 
 	function resolveGDrive(url:String, savePath:String, callbacks:DownloadCallbacks):Void {
-		var afterD:String = url.substr("https://drive.google.com/file/d/".length);
-		var fileId:String = afterD.split("/")[0];
+		var fileId:String = null;
+		// Form 1: https://drive.google.com/file/d/ID/view
+		if (StringTools.startsWith(url, "https://drive.google.com/file/d/")) {
+			var afterD:String = url.substr("https://drive.google.com/file/d/".length);
+			fileId = afterD.split("/")[0];
+		} else if (url.indexOf("drive.google.com/open?id=") != -1) {
+			// Form 2: https://drive.google.com/open?id=ID
+			var q:String = url.split("open?id=")[1]; if (q != null) fileId = q.split("&")[0];
+		} else if (url.indexOf("drive.google.com/uc?") != -1 && url.indexOf("id=") != -1) {
+			// Form 3: https://drive.google.com/uc?export=download&id=ID (zaten direkt)
+			fileId = url.split("id=")[1]; if (fileId != null) fileId = fileId.split("&")[0];
+		}
 
 		if (fileId == null || fileId.length == 0) {
-			safeError(callbacks, "Google Drive dosya ID'si bulunamadı.");
+			safeError(callbacks, "Google Drive dosya ID'si bulunamadı. Link formatı: https://drive.google.com/file/d/DOSYA_ID/view");
 			return;
 		}
 
-		var directUrl:String = 'https://drive.usercontent.google.com/download?id=$fileId&export=download&confirm=t';
-		trace('[DownloadManager] Google Drive link çözüldü: $directUrl');
+		// FIX: Eski confirm=t artık çalışmıyor, uc?export=download daha güvenilir + fallback
+		var directUrl:String = 'https://drive.google.com/uc?export=download&id=' + fileId;
+		var altUrl:String = 'https://drive.usercontent.google.com/download?id=' + fileId + '&export=download&confirm=t';
+		trace('[DownloadManager] Google Drive link çözüldü: ' + directUrl + ' (alt: ' + altUrl + ')');
+		// Önce uc linkini dene, fail olursa DownloadManager otomatik hata verecek, kullanıcı altUrl'i manuel deneyebilir
 		download(directUrl, savePath, callbacks);
 	}
 
@@ -338,6 +378,12 @@ class DownloadManager {
 			return;
 		}
 
+		if (isDirectMediafireDownload(url) && !isMediafirePage(url)) {
+			trace('[DownloadManager] Direkt MediaFire indirme linki tespit edildi, scraping atlanıyor.');
+			download(url, savePath, callbacks);
+			return;
+		}
+
 		if (isMediafirePage(url)) {
 			resolveMediafire(url, savePath, callbacks);
 			return;
@@ -358,7 +404,14 @@ class DownloadManager {
 			}
 		}
 
+		// FIX: RAM büyümesi — eski limeStreamDownload tüm ZIP'i (5MB-7GB) RAM'de tutuyordu (Bytes)
+		// doStreamDownload ise 64KB chunk'larla disk'e yazar, RAM sabit kalır.
+		// Android'de sys.ssl.Socket yoksa otomatik lime fallback yapar.
+		#if (haxe_ver >= 4.0)
+		doStreamDownload(url, savePath, callbacks, 0);
+		#else
 		limeStreamDownload(url, savePath, callbacks);
+		#end
 	}
 	function limeStreamDownload(url:String, savePath:String, callbacks:DownloadCallbacks):Void {
 		try {

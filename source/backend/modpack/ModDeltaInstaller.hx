@@ -492,18 +492,72 @@ class ModDeltaInstaller {
 			}
 
 			var dirs:Array<String> = [];
+			var files:Array<String> = [];
 			for (entry in FileSystem.readDirectory(extractRoot)) {
 				if (StringTools.startsWith(entry, ".")) continue;
+				if (StringTools.startsWith(entry, "__")) continue;
 				if (FileSystem.isDirectory(Path.join([extractRoot, entry])))
 					dirs.push(entry);
+				else
+					files.push(entry);
 			}
-			if (dirs.length == 1)
+			if (dirs.length == 1 && files.length == 0)
 				return Path.join([extractRoot, dirs[0]]);
+
+			// FIX: SystemZipExtractor wrapper klasörü zaten sıyırdıysa (blammed noimix/ -> doğrudan içerik)
+			// extractRoot içinde doğrudan Psych mod klasörleri (data/, images/, songs/ ...) olur.
+			// Bu durumda extractRoot'un kendisi mod içeriğidir — __mod__ altına sar.
+			if (isSingleModInternalLayout(dirs, files)) {
+				trace('[ModDeltaInstaller] Stripped wrapper algılandı, doğrudan Psych mod yapısı — sarılıyor: ' + folder);
+				var wrapDir = Path.join([extractRoot, "__mod__"]);
+				FileSystem.createDirectory(wrapDir);
+				for (entry in FileSystem.readDirectory(extractRoot)) {
+					if (entry == "__mod__") continue;
+					var src = Path.join([extractRoot, entry]);
+					var dst = Path.join([wrapDir, entry]);
+					try {
+						FileSystem.rename(src, dst);
+					} catch (e:Dynamic) {
+						if (FileSystem.isDirectory(src)) {
+							copyDirectory(src, dst);
+							deleteDirectory(src);
+						} else {
+							File.copy(src, dst);
+							FileSystem.deleteFile(src);
+						}
+					}
+				}
+				return wrapDir;
+			}
 
 		} catch (e:Dynamic) {
 			trace('[ModDeltaInstaller] normalize hatası: ${Std.string(e)}');
 		}
 		return null;
+	}
+
+	function isSingleModInternalLayout(dirs:Array<String>, files:Array<String>):Bool {
+		var modInternalFolders = [
+			"data", "images", "songs", "sounds", "music",
+			"characters", "stages", "scripts", "videos",
+			"fonts", "weeks", "shared", "custom_events",
+			"custom_notetypes", "achievements", "shaders"
+		];
+		var all:Array<String> = dirs.concat(files);
+		// Klasör isimleri mod iç klasörleriyle eşleşiyor mu?
+		var matchCount:Int = 0;
+		for (entry in all) {
+			var lower = entry.toLowerCase();
+			// data gibi klasörler veya pack.json gibi dosyalar
+			if (modInternalFolders.indexOf(lower) != -1 || lower == "pack.json" || lower == "mods") matchCount++;
+			else {
+				// songs/blammed-noimix gibi alt klasör barındıran tek dosya değil, direkt dosya
+				// Eğer entry bir Psych file ise (örn. .json) yine mod sayılır
+				if (StringTools.endsWith(lower, ".json") || StringTools.endsWith(lower, ".lua")) matchCount++;
+			}
+		}
+		// En az yarısı Psych mod yapısı ise stripped wrapper'dır
+		return all.length > 0 && matchCount >= Math.ceil(all.length * 0.4);
 	}
 
 	function saveManifest(catalog:ContentCatalog, callbacks:ModpackInstallCallbacks):Void {

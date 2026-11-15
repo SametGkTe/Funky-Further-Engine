@@ -5,10 +5,10 @@ import flixel.FlxState;
 class FurtherIntroState extends FlxState
 {
 	static inline var FADE_IN:Float = 0.4;
-	static inline var FIRST_LOGO_TIME:Float = 1.5;
-	static inline var SECOND_LOGO_TIME:Float = 2.0;
-	static inline var SECRET_LOGO_TIME:Float = 4.0;
-	static inline var FADE_OUT:Float = 1.0;
+	static inline var FIRST_LOGO_TIME:Float = 1.0;
+	static inline var SECOND_LOGO_TIME:Float = 1.6;
+	static inline var SECRET_LOGO_TIME:Float = 2.6;
+	static inline var FADE_OUT:Float = 0.4;
 	static inline var SKIP_FADE:Float = 0.2;
 
 	var logo:FlxSprite;
@@ -26,8 +26,20 @@ class FurtherIntroState extends FlxState
 
 		// Secret intro is still a 15% easter egg, but it plays on its own:
 		// no title1 swap and no BF "yeah" sound.
+		var lang:String = ClientPrefs.data.language;
+		var isTR:Bool = lang != null && (lang == 'tr-TR' || lang.toLowerCase().startsWith('tr'));
+		var titleKey:String = isTR ? 'further/title' : 'further/title_en';
+		// Fallback: if preferred lang file missing, use the other one
+		if (!Paths.fileExists('images/' + titleKey + '.png', IMAGE))
+		{
+			var fallbackKey:String = isTR ? 'further/title_en' : 'further/title';
+			if (Paths.fileExists('images/' + fallbackKey + '.png', IMAGE))
+				titleKey = fallbackKey;
+			else if (!Paths.fileExists('images/further/title.png', IMAGE) && !Paths.fileExists('images/further/title_en.png', IMAGE))
+				trace('[FurtherIntroState] Missing both title.png and title_en.png, skipping intro');
+		}
 		secretIntro = FlxG.random.bool(15) && Paths.fileExists('images/further/titlesecret.png', IMAGE);
-		var graphic = secretIntro ? Paths.image('further/titlesecret') : Paths.image('further/title');
+		var graphic = secretIntro ? Paths.image('further/titlesecret') : Paths.image(titleKey);
 		if (graphic == null)
 		{
 			goToTitle();
@@ -52,7 +64,7 @@ class FurtherIntroState extends FlxState
 		}
 		else
 		{
-			// 0–2 seconds: title.png. The initial fade-in is included in this time.
+			// 0–1.0s: title/title_en.png (fade-in included)
 			phaseTimer = new FlxTimer().start(FIRST_LOGO_TIME, function(_)
 			{
 				showSecondLogo();
@@ -80,7 +92,7 @@ class FurtherIntroState extends FlxState
 		else
 			trace('[FurtherIntroState] Missing assets/shared/sounds/bf-yeah.${Paths.SOUND_EXT}.');
 
-		// 2–4 seconds: title1.png, 4–5 seconds: fade-out.
+		// 1.0–2.6s: title1.png, 2.6–3.0s: fade-out (~3s total)
 		phaseTimer = new FlxTimer().start(SECOND_LOGO_TIME, function(_)
 		{
 			startFadeOut(FADE_OUT);

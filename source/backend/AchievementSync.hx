@@ -189,12 +189,13 @@ class AchievementSync {
         });
     }
 
-    static function _mainThread(func:Void->Void):Void {
-        var cb:Dynamic = null;
-        cb = function(_) {
-            lime.app.Application.current.onUpdate.remove(cb);
-            func();
-        };
-        lime.app.Application.current.onUpdate.add(cb);
+    // FIX: NetThread kullan — onUpdate leak yerine tek seferlik queue
+    static inline function _mainThread(func:Void->Void):Void {
+        #if (target.threaded)
+        online.NetThread.enqueue(func);
+        #else
+        // thread yoksa direkt (html5)
+        func();
+        #end
     }
 }

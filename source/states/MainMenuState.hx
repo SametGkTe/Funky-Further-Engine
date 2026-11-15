@@ -180,8 +180,13 @@ class MainMenuState extends MusicBeatState
 		
 		addTouchPad('NONE', 'E');
 
+		// İlk: cache'de zaten pending varsa hemen göster, yoksa delta dahil tam kontrol et
 		if (UpdateChecker.instance.hasPendingModpackUpdates)
 			setupModpackBadge();
+		else
+			UpdateChecker.instance.checkAllUpdatesIncludingDelta(function(pending:Bool) {
+				if (pending) setupModpackBadge();
+			});
 	}
 
 	function setupModpackBadge():Void
@@ -201,7 +206,12 @@ class MainMenuState extends MusicBeatState
 			modpackBadge = new FlxSprite();
 			try
 			{
-				modpackBadge.loadGraphic(Paths.image('other/inter'));
+				// Ünlem görseli: assets/shared/images/mainmenu/modsUpdateBadge.png  — sen koyacaksın, yoksa turuncu fallback
+			try { modpackBadge.loadGraphic(Paths.image('mainmenu/modsUpdateBadge')); } catch (_:Dynamic) {
+				try { modpackBadge.loadGraphic(Paths.image('other/modsUpdateBadge')); } catch (_:Dynamic) {
+					modpackBadge.loadGraphic(Paths.image('other/inter'));
+				}
+			}
 			}
 			catch (e:Dynamic)
 			{
@@ -303,22 +313,7 @@ class MainMenuState extends MusicBeatState
 					modpackBadge.y = modpackBadgeFinalY + Math.sin(modpackBadgeIdleTimer * 3) * 5;
 				}
 
-				if (modpackBadgeTimer >= 5.0)
-				{
-					modpackBadgeDone = true;
-					FlxTween.tween(modpackBadge, {alpha: 0}, 0.6, {
-						onComplete: function(_)
-						{
-							modpackBadge.visible = false;
-						}
-					});
-					FlxTween.tween(modpackBadgeText, {alpha: 0}, 0.6, {
-						onComplete: function(_)
-						{
-							modpackBadgeText.visible = false;
-						}
-					});
-				}
+				// Kalıcı ünlem — 5sn sonra kaybolma kaldırıldı, güncelleme yapılana kadar nabız atar
 			}
 		}
 
