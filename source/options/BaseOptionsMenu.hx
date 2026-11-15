@@ -88,10 +88,14 @@ class BaseOptionsMenu extends MusicBeatSubstate
 
 		for (i in 0...optionsArray.length)
 		{
-			var optionText:Alphabet = new Alphabet(220, 260, optionsArray[i].name, false);
+			// FAZ 0: bold atlas = BEYAZ BUYUK harf. bold=false iken atlasin 'uppercase'/
+			// 'lowercase' frameleri SIYAH dolgulu geliyordu (koyu zeminde okunmuyordu).
+			var optionText:Alphabet = new Alphabet(220, 260, optionsArray[i].name, true);
 			optionText.isMenuItem = true;
 			optionText.targetY = i;
+			optionText.distancePerItem.y = 130; // 2 satirli etiketler icin nefes payi
 			grpOptions.add(optionText);
+			layoutLabel(optionText, optionsArray[i].name);
 
 			if(optionsArray[i].type == BOOL)
 			{
@@ -106,7 +110,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 				optionText.startPosition.x -= 80;
 				// Show arrow indicator
 				var displayVal:String = getDropdownArrowText(optionsArray[i], false);
-				var valueText:AttachedText = new AttachedText(displayVal, optionText.width + 60);
+				var valueText:AttachedText = new AttachedText(displayVal, VALUE_COLUMN_X - optionText.x, 0, true);
 				valueText.sprTracker = optionText;
 				valueText.copyAlpha = true;
 				valueText.ID = i;
@@ -117,7 +121,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 			{
 				optionText.x -= 80;
 				optionText.startPosition.x -= 80;
-				var valueText:AttachedText = new AttachedText('>', optionText.width + 60);
+				var valueText:AttachedText = new AttachedText('>', VALUE_COLUMN_X - optionText.x, 0, true);
 				valueText.sprTracker = optionText;
 				valueText.copyAlpha = true;
 				valueText.ID = i;
@@ -128,7 +132,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 			{
 				optionText.x -= 80;
 				optionText.startPosition.x -= 80;
-				var valueText:AttachedText = new AttachedText('' + optionsArray[i].getValue(), optionText.width + 60);
+				var valueText:AttachedText = new AttachedText('' + optionsArray[i].getValue(), VALUE_COLUMN_X - optionText.x, 0, true);
 				valueText.sprTracker = optionText;
 				valueText.copyAlpha = true;
 				valueText.ID = i;
@@ -208,7 +212,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 			var isActive:Bool = (opt.options[si] == currentValue);
 			var prefix:String = isActive ? "> " : "- ";
 
-			var subText:Alphabet = new Alphabet(280, 260, prefix + label, false);
+			var subText:Alphabet = new Alphabet(280, 260, prefix + label, true);
 			subText.isMenuItem = true;
 			subText.setScale(0.7);
 			subText.alpha = 0.6;
@@ -592,7 +596,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 						FlxTween.tween(bindingBlack, {alpha: 0.6}, 0.35, {ease: FlxEase.linear});
 						add(bindingBlack);
 
-						bindingText = new Alphabet(FlxG.width / 2, 160, Language.getPhrase('controls_rebinding', 'Rebinding {1}', [curOption.name]), false);
+						bindingText = new Alphabet(FlxG.width / 2, 160, Language.getPhrase('controls_rebinding', 'Rebinding {1}', [curOption.name]), true);
 						bindingText.alignment = CENTERED;
 						bindingText.scrollFactor.set();
 						add(bindingText);
@@ -821,6 +825,64 @@ class BaseOptionsMenu extends MusicBeatSubstate
 	}
 
 	final MAX_KEYBIND_WIDTH = 320;
+
+	// FAZ 0.1 — Tipografi yerlesimi (bold atlas + sigdirma)
+	// Bold atlasta otomatik satir kaydirma YOK ve setScale sol-ust capali kucultur
+	// (harflerin y'si sabit kalir) -> metin "yukari kaymis" gorunur.
+	// Politika: hafif uniform kucultme -> dengeli 2 satir -> son care daha cok kucult.
+	// Her olceklemede merkez, startPosition.y ile telafi edilir.
+	// Faz 1'de backend/ui/OptionTypography.hx icine tasinacak.
+	static inline var LABEL_SCALE:Float = 0.85;      // tum etiketler icin uniform olcek
+	static inline var MIN_LABEL_SCALE:Float = 0.62;  // taban olcek (altina inme)
+	static inline var MAX_LABEL_WIDTH:Float = 660;   // ekranda izin verilen genislik (olcekli)
+	static inline var VALUE_COLUMN_X:Float = 820;    // degerlerin hizalandigi sabit kolon
+
+	static function layoutLabel(text:Alphabet, raw:String):Void
+	{
+		if (text == null || text.letters == null || text.letters.length == 0) return;
+
+		// Ham (olceksiz) genislikte izin verilen ust sinir
+		var maxRaw:Float = MAX_LABEL_WIDTH / LABEL_SCALE;
+
+		// 1- Tek satir sigmiyorsa dengeli iki satira bol
+		if (text.width > 1 && text.width > maxRaw)
+		{
+			var words:Array<String> = raw.split(' ');
+			if (words.length > 1)
+			{
+				var best:Int = 1;
+				var bestScore:Float = 1e9;
+				for (k in 1...words.length)
+				{
+					var a:String = words.slice(0, k).join(' ');
+					var b:String = words.slice(k).join(' ');
+					// en uzun satiri kucult, satirlar arasi dengesizligi de hafifce cezalandir
+					var score:Float = Math.max(a.length, b.length) + Math.abs(a.length - b.length) * 0.25;
+					if (score < bestScore)
+					{
+						bestScore = score;
+						best = k;
+					}
+				}
+				text.text = words.slice(0, best).join(' ') + '\n' + words.slice(best).join(' ');
+			}
+		}
+
+		// 2- Hedef olcek: uniform LABEL_SCALE, hala tasiyorsa daha da kucult
+		var targetScale:Float = LABEL_SCALE;
+		var w:Float = text.width;
+		if (w > 1 && w * LABEL_SCALE > MAX_LABEL_WIDTH)
+			targetScale = Math.max(MIN_LABEL_SCALE, MAX_LABEL_WIDTH / w);
+
+		if (targetScale != 1)
+		{
+			var oldH:Float = text.height;
+			text.setScale(targetScale);
+			// merkezi koru: kuculen yuksekligin yarisini asagi kaydir
+			if (oldH > 1) text.startPosition.y += (oldH - oldH * targetScale) * 0.5;
+		}
+	}
+
 	function updateBind(?text:String = null, ?option:Option = null)
 	{
 		if(option == null) option = curOption;
@@ -835,7 +897,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 		}
 
 		var bind:AttachedText = cast option.child;
-		var attach:AttachedText = new AttachedText(text, bind.offsetX);
+		var attach:AttachedText = new AttachedText(text, bind.offsetX, 0, true);
 		attach.sprTracker = bind.sprTracker;
 		attach.copyAlpha = true;
 		attach.ID = bind.ID;
