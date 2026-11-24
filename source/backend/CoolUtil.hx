@@ -11,9 +11,16 @@ import objects.AlertMgr.AlertMsg;
 #end
 class CoolUtil
 {
+	/**
+	 * URL'den çevrimiçi sürümü okur ve döndürür.
+	 * NOT: Ana güncelleme denetimi backend.update.ReleaseChecker üzerinden
+	 * yapılır; bu yardımcı yalnızca verilen (ya da varsayılan) depodaki
+	 * gitVersion.txt'yi okur. Varsayılan URL BU projenin deposudur — eskisi
+	 * gibi başka bir motorun (Psych Engine Mobile) sürümüyle karıştırılmamalı.
+	 */
 	public static function checkForUpdates(url:String = null):String {
 		if (url == null || url.length == 0)
-			url = "https://raw.githubusercontent.com/MobilePorting/FNF-PsychEngine-Mobile/main/gitVersion.txt";
+			url = "https://raw.githubusercontent.com/SametGkTe/Funky-Further-Engine/main/gitVersion.txt";
 		var version:String = states.MainMenuState.psychEngineVersion.trim();
 		if(ClientPrefs.data.checkForUpdates) {
 			trace('checking for updates...');

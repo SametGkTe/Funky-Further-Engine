@@ -120,7 +120,7 @@ Further Library → EXT → **KATALOG** sekmesi, repodaki kurucu listeyi çeker:
 ```
 
 - Kaynak: `ExtensionPackManager.CATALOG_URL` (varsayılan
-  `https://raw.githubusercontent.com/FNF-Further/Funky-Further-Engine/main/extensions.json`).
+  `https://raw.githubusercontent.com/SametGkTe/Funky-Further-Engine/main/extensions.json`).
   Fork'un kendi reposuna taşıdıysan bu sabiti güncellemen yeterli.
 - İnternet yoksa gömülü kopya (`assets/shared/data/further/extensions.json`) kullanılır.
 - `url`, **zip kökünde `extensionpack.json` bulunan** paket zip'idir.

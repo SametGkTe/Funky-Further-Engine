@@ -73,7 +73,7 @@ class DownloadManager {
 			}
 		}
 
-		if (isDirectMediafireDownload(url) && !isMediafirePage(url)) {
+		if (isDirectMediafireDownload(url)) {
 			trace('[DownloadManager] Direkt MediaFire indirme linki tespit edildi, scraping atlanıyor.');
 			download(url, savePath, callbacks);
 			return;
@@ -98,13 +98,22 @@ class DownloadManager {
 		return StringTools.startsWith(url, "https://www.mediafire.com/file/")
 			|| StringTools.startsWith(url, "http://www.mediafire.com/file/")
 			|| StringTools.startsWith(url, "https://mediafire.com/file/")
-			|| StringTools.startsWith(url, "http://mediafire.com/file/");
+			|| StringTools.startsWith(url, "http://mediafire.com/file/")
+			|| StringTools.startsWith(url, "https://www.mediafire.com/download/")
+			|| StringTools.startsWith(url, "http://www.mediafire.com/download/")
+			|| StringTools.startsWith(url, "https://mediafire.com/download/")
+			|| StringTools.startsWith(url, "http://mediafire.com/download/");
 	}
 
-	/** Direkt MediaFire download linki (scraping gerekmez) */
+	/**
+	 * Direkt MediaFire download linki (scraping gerekmez).
+	 * Yalnızca gerçek CDN host'u eşleşir: downloadXXX.mediafire.com/...
+	 * (Eski sezgisel test her "/file/" içermeyen mediafire.com URL'sini
+	 * "direkt" sanıp HTML sayfasını mod dosyası olarak kaydediyordu.)
+	 */
 	public static function isDirectMediafireDownload(url:String):Bool {
 		if (url == null) return false;
-		return url.indexOf("mediafire.com") != -1 && (url.indexOf("download") != -1 || StringTools.contains(url, "/file/") == false);
+		return ~/^https?:\/\/download\d*\.mediafire\.com\//i.match(url);
 	}
 
 	function resolveMediafire(pageUrl:String, savePath:String, callbacks:DownloadCallbacks):Void {
@@ -258,7 +267,13 @@ class DownloadManager {
 		try {
 			if (useSSL) {
 				#if (haxe_ver >= 4.0)
-				socket = new sys.ssl.Socket();
+				var sslSocket = new sys.ssl.Socket();
+				// Sertifika doğrulama + SNI: MITM'e karşı açık kalmamak için açıkça zorla.
+				try {
+					sslSocket.verifyCert = true;
+					sslSocket.hostname = host;
+				} catch (e:Dynamic) {}
+				socket = sslSocket;
 				#else
 				return null;
 				#end
@@ -295,10 +310,11 @@ class DownloadManager {
 				if (location == null || location.length == 0)
 					return null;
 
-				if (StringTools.startsWith(location, "/")) {
-					var scheme = useSSL ? "https" : "http";
-					location = '$scheme://$host$location';
-				}
+				location = resolveRedirectLocation(location, useSSL, host, path);
+
+				// Güvenlik: https → http düşüşüne izin verme.
+				if (useSSL && StringTools.startsWith(location, "http://"))
+					return null;
 
 				return fetchPageContent(location, redirectCount + 1);
 			}
@@ -314,38 +330,57 @@ class DownloadManager {
 				contentLength = cl != null ? cl : -1;
 			}
 
-			var body = new StringBuf();
-			var buffer = Bytes.alloc(8192);
+			var te = headerResult.headers.get("transfer-encoding");
+			var isChunked = te != null && te.toLowerCase().indexOf("chunked") != -1;
+
+			// Gövde önce bayt olarak biriktirilir ve tek seferde UTF-8 decode edilir.
+			// (Parça parça toString() çağrısı chunk sınırına denk gelen çok baytlı
+			// karakterleri — özellikle Türkçe karakterleri — bozuyordu.)
+			var bodyBytes = new haxe.io.BytesBuffer();
 			var totalRead:Int = 0;
 			var maxRead:Int = 2 * 1024 * 1024;
+			var overflow = false;
 
-			while (true) {
-				var bytesRead:Int = 0;
-				try {
-					bytesRead = socket.input.readBytes(buffer, 0, 8192);
-				} catch (e:haxe.io.Eof) {
-					break;
-				} catch (e:Dynamic) {
-					break;
+			var collect = function(buf:Bytes, n:Int):Bool {
+				totalRead += n;
+				if (totalRead > maxRead) {
+					overflow = true;
+					return false;
 				}
+				bodyBytes.addBytes(buf, 0, n);
+				return true;
+			};
 
-				if (bytesRead <= 0) break;
+			var bodyOk = true;
+			if (isChunked) {
+				bodyOk = readChunkedBody(socket, collect);
+			} else {
+				var buffer = Bytes.alloc(8192);
+				while (true) {
+					var bytesRead:Int = 0;
+					try {
+						bytesRead = socket.input.readBytes(buffer, 0, 8192);
+					} catch (e:haxe.io.Eof) {
+						break;
+					} catch (e:Dynamic) {
+						break;
+					}
 
-				body.add(buffer.sub(0, bytesRead).toString());
-				totalRead += bytesRead;
-
-			if (totalRead >= maxRead) break;
-			if (contentLength > 0 && totalRead >= contentLength) break;
-			}
-
-			// Bağlantı koparsa eksik metni 'tam' sayma (katalog JSON'u yarım gelmesin)
-			if (contentLength > 0 && totalRead < contentLength) {
-				closeSocket(socket);
-				return null;
+					if (bytesRead <= 0) break;
+					if (!collect(buffer, bytesRead)) break;
+					if (contentLength > 0 && totalRead >= contentLength) break;
+				}
 			}
 
 			closeSocket(socket);
-			return body.toString();
+
+			// 2MB sınırı aşıldıysa ya da bağlantı koptuysa eksik metni 'tam' sayma
+			// (katalog JSON'u yarım gelmesin)
+			if (overflow) return null;
+			if (isChunked && !bodyOk) return null;
+			if (contentLength > 0 && totalRead < contentLength) return null;
+
+			return bodyBytes.getBytes().toString();
 
 		} catch (e:Dynamic) {
 			closeSocket(socket);
@@ -378,16 +413,9 @@ class DownloadManager {
 			return;
 		}
 
-		if (isDirectMediafireDownload(url) && !isMediafirePage(url)) {
-			trace('[DownloadManager] Direkt MediaFire indirme linki tespit edildi, scraping atlanıyor.');
-			download(url, savePath, callbacks);
-			return;
-		}
-
-		if (isMediafirePage(url)) {
-			resolveMediafire(url, savePath, callbacks);
-			return;
-		}
+		// NOT: MediaFire/GDrive yönlendirmesi yalnızca smartDownload() içinde yapılır.
+		// (Buradaki eski dispatch blogu download()'ı kendisi çağırıyordu → direkt
+		// MediaFire linklerinde sonsuz rekürsyon / stack overflow.)
 
 		_downloading = true;
 		_cancelled = false;
@@ -497,7 +525,13 @@ class DownloadManager {
 		try {
 			if (useSSL) {
 				#if (haxe_ver >= 4.0)
-				socket = new sys.ssl.Socket();
+				var sslSocket = new sys.ssl.Socket();
+				// Sertifika doğrulama + SNI: MITM'e karşı açık kalmamak için açıkça zorla.
+				try {
+					sslSocket.verifyCert = true;
+					sslSocket.hostname = host;
+				} catch (e:Dynamic) {}
+				socket = sslSocket;
 				#else
 				finishError(callbacks, 'HTTPS bu platformda desteklenmiyor.');
 				return;
@@ -513,7 +547,7 @@ class DownloadManager {
 
 			var request = 'GET $path HTTP/1.1\r\n'
 				+ 'Host: $host\r\n'
-				+ 'User-Agent: PsychEngineTR-Updater/1.0\r\n'
+				+ 'User-Agent: Further-Engine/1.0\r\n'
 				+ 'Accept: */*\r\n'
 				+ 'Connection: close\r\n'
 				+ '\r\n';
@@ -548,9 +582,13 @@ class DownloadManager {
 					return;
 				}
 
-				if (StringTools.startsWith(location, "/")) {
-					var scheme = useSSL ? "https" : "http";
-					location = '$scheme://$host$location';
+				location = resolveRedirectLocation(location, useSSL, host, path);
+
+				// Güvenlik: https → http düşüşüne izin verme (indirmeyi MITM ele geçirebilir).
+				if (useSSL && StringTools.startsWith(location, "http://")) {
+					closeSocket(socket);
+					finishError(callbacks, 'Güvenli olmayan yönlendirme reddedildi (https → http): $location');
+					return;
 				}
 
 				trace('[DownloadManager] Yönlendirme → $location');
@@ -566,37 +604,22 @@ class DownloadManager {
 				return;
 			}
 
+			// Transfer-Encoding: chunked ise Content-Length yok sayılır (RFC 9112).
+			var teHdr = headers.get("transfer-encoding");
+			var isChunked = teHdr != null && teHdr.toLowerCase().indexOf("chunked") != -1;
+
 			// Önce geçici dosyaya yaz — indirme yarım kalırsa bozuk dosya kalmasın
 			fileOutput = File.write(tmpPath, true);
 
 			var downloadedBytes:Float = 0;
 			var startTime:Float = Sys.time();
 			var lastProgressTime:Float = startTime;
-			var buffer = Bytes.alloc(BUFFER_SIZE);
 
-			while (true) {
-				if (_cancelled) {
-					closeFileOutput(fileOutput);
-					closeSocket(socket);
-					deleteFileSafe(tmpPath);
-					finishCancel(callbacks);
-					return;
-				}
-
-				var bytesRead:Int = 0;
-				try {
-					bytesRead = socket.input.readBytes(buffer, 0, BUFFER_SIZE);
-				} catch (e:haxe.io.Eof) {
-					break;
-				} catch (e:Dynamic) {
-					break;
-				}
-
-				if (bytesRead <= 0) break;
-
-				fileOutput.writeBytes(buffer, 0, bytesRead);
+			var writeChunk = function(buf:Bytes, n:Int):Bool {
+				if (_cancelled) return false;
+				fileOutput.writeBytes(buf, 0, n);
 				fileOutput.flush();
-				downloadedBytes += bytesRead;
+				downloadedBytes += n;
 
 				var now = Sys.time();
 				if (now - lastProgressTime >= PROGRESS_INTERVAL) {
@@ -613,16 +636,52 @@ class DownloadManager {
 						speed: speed
 					});
 				}
+				return true;
+			};
 
-				if (contentLength > 0 && downloadedBytes >= contentLength) break;
+			var bodyOk = true;
+			if (isChunked) {
+				bodyOk = readChunkedBody(socket, writeChunk);
+			} else {
+				var buffer = Bytes.alloc(BUFFER_SIZE);
+				while (true) {
+					if (_cancelled) break;
+
+					var bytesRead:Int = 0;
+					try {
+						bytesRead = socket.input.readBytes(buffer, 0, BUFFER_SIZE);
+					} catch (e:haxe.io.Eof) {
+						break;
+					} catch (e:Dynamic) {
+						break;
+					}
+
+					if (bytesRead <= 0) break;
+					if (!writeChunk(buffer, bytesRead)) break;
+					if (contentLength > 0 && downloadedBytes >= contentLength) break;
+				}
 			}
 
 			closeFileOutput(fileOutput);
 			closeSocket(socket);
 
+			if (_cancelled) {
+				deleteFileSafe(tmpPath);
+				finishCancel(callbacks);
+				return;
+			}
+
+			// Chunked yanıt eksik/bozuk geldiyse başarı sayma
+			if (isChunked && !bodyOk) {
+				deleteFileSafe(tmpPath);
+				finishError(callbacks, 'Chunked yanıt eksik veya bozuk geldi: $fileName');
+				return;
+			}
+
 			// Bağlantı ortasında koptuysa eksik dosyayı 'başarı' SAYMA
 			// (eski kodda okuma hatası 'akış bitti' sanılıyordu → kesik ZIP kuruluyordu)
-			if (contentLength > 0 && downloadedBytes < contentLength) {
+			// Chunked yanıtta Content-Length geçersizdir (RFC 9112) — kontrol edilmez.
+			if (!isChunked && contentLength > 0 && downloadedBytes < contentLength) {
 				deleteFileSafe(tmpPath);
 				finishError(callbacks, 'İndirme tamamlanamadı (bağlantı kesildi): $fileName — ${Std.int(downloadedBytes)}/${Std.int(contentLength)} bayt');
 				return;
@@ -732,6 +791,60 @@ class DownloadManager {
 			return null;
 		}
 		return line.toString();
+	}
+
+	/**
+	 * Chunked (Transfer-Encoding: chunked) HTTP gövdesini okur (RFC 9112).
+	 * onData her veri parçasını alır; false dönerse okuma iptal edilir.
+	 * Dönüş: true = gövde tamamlandı, false = protokol hatası / iptal.
+	 */
+	function readChunkedBody(socket:Socket, onData:Bytes->Int->Bool):Bool {
+		var buffer = Bytes.alloc(BUFFER_SIZE);
+		while (true) {
+			var sizeLine = readLine(socket);
+			if (sizeLine == null) return false;
+			// chunk uzantıları (";...") yok sayılır
+			var semi = sizeLine.indexOf(";");
+			if (semi != -1) sizeLine = sizeLine.substr(0, semi);
+			sizeLine = StringTools.trim(sizeLine);
+			if (sizeLine.length == 0) return false;
+			var size:Null<Int> = Std.parseInt("0x" + sizeLine); // chunk boyutu hex yazılır
+			if (size == null || size < 0) return false;
+			if (size == 0) {
+				// trailer satırlarını tüket (boş satıra kadar)
+				while (true) {
+					var t = readLine(socket);
+					if (t == null || t.length == 0) break;
+				}
+				return true;
+			}
+			var remaining:Int = size;
+			while (remaining > 0) {
+				var want:Int = remaining > BUFFER_SIZE ? BUFFER_SIZE : remaining;
+				var bytesRead:Int = 0;
+				try {
+					bytesRead = socket.input.readBytes(buffer, 0, want);
+				} catch (e:Dynamic) {
+					return false;
+				}
+				if (bytesRead <= 0) return false;
+				if (!onData(buffer, bytesRead)) return false;
+				remaining -= bytesRead;
+			}
+			// veri sonrası CRLF
+			if (readLine(socket) == null) return false;
+		}
+	}
+
+	/** Location header'ını mutlak URL'ye çevirir ("/path", göreli yol veya tam URL olabilir). */
+	function resolveRedirectLocation(location:String, useSSL:Bool, host:String, path:String):String {
+		var scheme = useSSL ? "https" : "http";
+		if (StringTools.startsWith(location, "/"))
+			return '$scheme://$host$location';
+		if (StringTools.startsWith(location, "https://") || StringTools.startsWith(location, "http://"))
+			return location;
+		// göreli yol → mevcut isteğin dizinine göre çöz		var dir = path.indexOf("/") != -1 ? path.substr(0, path.lastIndexOf("/")) : "";
+		return '$scheme://$host$dir/$location';
 	}
 
 	function parseUrl(url:String):Null<ParsedUrl> {

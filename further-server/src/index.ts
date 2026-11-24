@@ -34,8 +34,9 @@ async function main() {
   });
 
   app.get("/api/onlinecount", (_req, res) => {
-    // simple placeholder — clients may poll
-    res.type("text").send(String(gameServer.presence ? 0 : 0));
+    // TODO(henüz gerçek değil): presence tabanlı canlı sayaç implemente edilecek;
+    // şimdilik yer tutucu — her zaman "0" döner.
+    res.type("text").send("0");
   });
 
   app.get("/health", (_req, res) => res.send("ok"));

@@ -23,11 +23,40 @@ type SongPayload = {
  * - Match: strumPlay + noteHit/noteMiss relay, server health
  * - End: playerEnded gate
  */
-export class FurtherRoom extends Room<{ state: RoomState }> {
+export class FurtherRoom extends Room<RoomState> {
   maxClients = MAX_PLAYERS;
-  autoDispose = true;
+  // autoDispose Room'da accessor (get/set) olarak tanımlı; alan olarak ezmek
+  // TS2610'a yol açıyordu. Room'un varsayılanı zaten true (oda boşalınca imha).
 
   private lastPong = new Map<string, number>();
+  private msgBudget = new Map<string, { count: number; windowStart: number }>();
+
+  /**
+   * Basit istemci-başına hız sınırı: pencere başına en fazla `max` mesaj.
+   * Relay/spam mesajlarının sunucuyu ve diğer istemciyi boğmasını engeller.
+   */
+  private allow(client: Client, bucket: string, max: number, windowMs = 1000): boolean {
+    const key = `${client.sessionId}:${bucket}`;
+    const now = Date.now();
+    let b = this.msgBudget.get(key);
+    if (!b || now - b.windowStart >= windowMs) {
+      b = { count: 0, windowStart: now };
+      this.msgBudget.set(key, b);
+    }
+    b.count++;
+    return b.count <= max;
+  }
+
+  private clearBudgets(sessionId: string) {
+    for (const key of this.msgBudget.keys()) {
+      if (key.startsWith(sessionId + ":")) this.msgBudget.delete(key);
+    }
+  }
+
+  /** Relay edilecek payload'larda yalnızca basit (JSON-güvenli) türlere izin ver. */
+  private static isPrimitive(v: unknown): boolean {
+    return v == null || typeof v === "string" || typeof v === "number" || typeof v === "boolean";
+  }
 
   onCreate(_options: any) {
     this.setState(new RoomState());
@@ -44,6 +73,7 @@ export class FurtherRoom extends Room<{ state: RoomState }> {
         return;
       }
       if (this.state.isStarted) return;
+      if (!this.allow(client, "setSong", 2, 3000)) return;
 
       this.state.song = String(message?.song ?? "");
       this.state.folder = String(message?.folder ?? "");
@@ -84,6 +114,7 @@ export class FurtherRoom extends Room<{ state: RoomState }> {
     const toggleReady = (client: Client) => {
       const p = this.player(client);
       if (!p || this.state.isStarted) return;
+      if (!this.allow(client, "ready", 5)) return;
       if (!p.hasSong) {
         client.send("alert", ["Not ready", "Load/verify the chart first (hasSong)."]);
         return;
@@ -116,59 +147,101 @@ export class FurtherRoom extends Room<{ state: RoomState }> {
 
     // --- realtime relay ---
     // strumPlay allowed in lobby too (StrumTestState sandbox)
+    // Payload biçimi (PlayStateSync): ["pressed"|"static"|"confirm", key:Int, reset:Float]
     this.onMessage("strumPlay", (client, message: unknown) => {
       if (!this.player(client)) return;
-      if (!Array.isArray(message) || message.length < 2) return;
-      this.broadcast("strumPlay", [client.sessionId, message], { except: client });
+      if (!this.allow(client, "strum", 120)) return;
+      if (!Array.isArray(message) || message.length < 2 || message.length > 4) return;
+      const anim = message[0];
+      const key = message[1];
+      if (typeof anim !== "string" || anim.length > 16) return;
+      if (typeof key !== "number" || !Number.isFinite(key) || key < 0 || key > 31 || Math.floor(key) !== key) return;
+      const reset = message.length > 2 && typeof message[2] === "number" && Number.isFinite(message[2]) ? message[2] : 0;
+      this.broadcast("strumPlay", [client.sessionId, [anim, key, reset]], { except: client });
     });
 
+    // Payload biçimi (PlayStateSync): [strumTime, noteData, isSustain, rating, noteType, 0, mustPress]
     this.onMessage("noteHit", (client, message: unknown) => {
       if (!this.player(client)) return;
-      if (!Array.isArray(message) || message.length < 3) return;
-      this.broadcast("noteHit", [client.sessionId, message], { except: client });
+      if (!this.allow(client, "hit", 80)) return;
+      if (!Array.isArray(message) || message.length < 3 || message.length > 8) return;
+      const strumTime = message[0];
+      const noteData = message[1];
+      const isSus = message[2];
+      if (typeof strumTime !== "number" || !Number.isFinite(strumTime)) return;
+      if (typeof noteData !== "number" || !Number.isFinite(noteData) || noteData < 0 || noteData > 31 || Math.floor(noteData) !== noteData) return;
+      if (!FurtherRoom.isPrimitive(message[3]) || !FurtherRoom.isPrimitive(message[4])) return;
+      const clean = [
+        strumTime,
+        noteData,
+        isSus === true,
+        String(message[3] ?? "").slice(0, 16),
+        String(message[4] ?? "").slice(0, 32),
+        0,
+        message[6] === true,
+      ];
+      this.broadcast("noteHit", [client.sessionId, clean], { except: client });
       if (this.state.isStarted) this.applyHealth(client, "hit");
     });
 
+    // Payload biçimi (PlayStateSync): [strumTime, noteData, isSustain]
     this.onMessage("noteMiss", (client, message: unknown) => {
       if (!this.player(client)) return;
-      if (!Array.isArray(message) || message.length < 3) return;
-      this.broadcast("noteMiss", [client.sessionId, message], { except: client });
+      if (!this.allow(client, "miss", 80)) return;
+      if (!Array.isArray(message) || message.length < 3 || message.length > 4) return;
+      const strumTime = message[0];
+      const noteData = message[1];
+      if (typeof strumTime !== "number" || !Number.isFinite(strumTime)) return;
+      if (typeof noteData !== "number" || !Number.isFinite(noteData) || noteData < 0 || noteData > 31) return;
+      this.broadcast("noteMiss", [client.sessionId, [strumTime, noteData, message[2] === true]], { except: client });
       if (this.state.isStarted) this.applyHealth(client, "miss");
     });
 
     this.onMessage("charPlay", (client, message: unknown) => {
       if (!this.player(client)) return;
+      if (!this.allow(client, "char", 40)) return;
+      // Büyük/karmaşık payload'ları reddet (relay şişirmesin).
+      try {
+        if (message != null && JSON.stringify(message).length > 512) return;
+      } catch {
+        return;
+      }
       this.broadcast("charPlay", [client.sessionId, message], { except: client });
     });
 
     this.onMessage("setScore", (client, score: number) => {
       const p = this.player(client);
       if (!p || !this.state.isStarted) return;
-      p.score = Math.max(0, Math.floor(Number(score) || 0));
+      if (!this.allow(client, "score", 5)) return;
+      // Mantık tavanı: sonucu belirleyen bu değer — çıplak istemci iddiasına sınırsız güvenme.
+      p.score = Math.min(99999999, Math.max(0, Math.floor(Number(score) || 0)));
     });
 
     this.onMessage("addHitJudge", (client, rating: string) => {
       const p = this.player(client);
       if (!p || !this.state.isStarted) return;
+      if (!this.allow(client, "judge", 80)) return;
       switch (String(rating)) {
-        case "sick": p.sicks++; break;
-        case "good": p.goods++; break;
-        case "bad": p.bads++; break;
-        case "shit": p.shits++; break;
+        case "sick": if (p.sicks < 99999) p.sicks++; break;
+        case "good": if (p.goods < 99999) p.goods++; break;
+        case "bad": if (p.bads < 99999) p.bads++; break;
+        case "shit": if (p.shits < 99999) p.shits++; break;
       }
     });
 
     this.onMessage("addMiss", (client) => {
       const p = this.player(client);
       if (!p || !this.state.isStarted) return;
-      p.misses++;
+      if (!this.allow(client, "judge", 80)) return;
+      if (p.misses < 99999) p.misses++;
     });
 
     this.onMessage("updateMaxCombo", (client, combo: number) => {
       const p = this.player(client);
       if (!p || !this.state.isStarted) return;
+      if (!this.allow(client, "combo", 10)) return;
       const v = Math.floor(Number(combo) || 0);
-      if (v > p.maxCombo) p.maxCombo = v;
+      if (v > p.maxCombo) p.maxCombo = Math.min(99999, v);
     });
 
     this.onMessage("playerEnded", (client) => {
@@ -216,6 +289,7 @@ export class FurtherRoom extends Room<{ state: RoomState }> {
     this.onMessage("chat", (client, text: string) => {
       const p = this.player(client);
       if (!p) return;
+      if (!this.allow(client, "chat", 4, 2000)) return;
       const msg = String(text ?? "").slice(0, 200);
       if (!msg.trim()) return;
       this.broadcast("chat", { from: p.name, sid: client.sessionId, text: msg });
@@ -236,13 +310,12 @@ export class FurtherRoom extends Room<{ state: RoomState }> {
     if (protocol !== PROTOCOL) {
       client.send("alert", [
         "Protocol mismatch",
-        `Server=${PROTOCOL} Client=${protocol}. Update Further Online.`,
+        `Server=${PROTOCOL} Client=${options?.protocol ?? "missing"}. Update Further Online.`,
       ]);
-      // Still allow join in spike for easier testing if protocol omitted
-      if (options?.protocol != null && protocol !== PROTOCOL) {
-        client.leave(4000);
-        return;
-      }
+      // Uyumsuz istemci kesinlikle içeri girmez (protokol alanı eksik olsa bile).
+      // İstemci tarafı FurtherOnline.PROTOCOL'ü her zaman gönderir (GameClient.buildOptions).
+      client.leave(4000);
+      return;
     }
 
     if (this.state.players.size >= MAX_PLAYERS) {
@@ -291,10 +364,19 @@ export class FurtherRoom extends Room<{ state: RoomState }> {
     }
 
     const p = this.player(client);
-    const name = p?.name ?? client.sessionId;
+    if (!p) {
+      // Kayıt hiç oluşmadıysa (ör. protokol uyuşmazlığıyla reddedildiyse)
+      // yalnızca yan kayıtları temizle.
+      this.lastPong.delete(client.sessionId);
+      this.clearBudgets(client.sessionId);
+      return;
+    }
+
+    const name = p.name;
     const wasStarted = this.state.isStarted;
     this.state.players.delete(client.sessionId);
     this.lastPong.delete(client.sessionId);
+    this.clearBudgets(client.sessionId);
 
     if (this.state.host === client.sessionId) {
       let next: string | null = null;
