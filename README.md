@@ -9,11 +9,13 @@
 **Further Engine, FNF Kullanıcıların Oyun deneyimini en iyi hale getirmeyi amaçlar diğer adı ile "Psych Engine Türkiye" olarak bilinir**
 
 [![Sürüm](https://img.shields.io/badge/sürüm-1.7.0-9a6bff?style=for-the-badge)](https://github.com/SametGkTe/Funky-Further-Engine/tags)
-[![Durum](https://img.shields.io/badge/durum-Release%202%20Beta%20Full-ff4fc8?style=for-the-badge)](#proje-durumu))
+[![Durum](https://img.shields.io/badge/durum-Release%202%20Beta%20Full-ff4fc8?style=for-the-badge)](#proje-durumu)
 [![Haxe](https://img.shields.io/badge/Haxe-OpenFL%20%2B%20HaxeFlixel-ea8220?style=for-the-badge&logo=haxe&logoColor=white)](https://haxe.org/)
 [![Lisans](https://img.shields.io/badge/Lisans-Apache%202.0-35e7ff?style=for-the-badge)](LICENSE)
 
 </div>
+
+### Proje Durumu
 
 > [!ÖNEMLİ]
 > Proje yapılma aşamasındadır. Özellikle mobil desteği, sunucular ve yeni menülerde platforma bağlı sorunlarla karşılaşılabilir. Bir hata alırsan kullandığın platformu ve mümkünse crash logunu (pc: oyun/logs/ensonaldığınlog, mobilde: KULLANDIĞIN DEPOLAMA TÜRÜ/logs/ensonaldığınlog) ekleyerek [issue açabilirsin](https://github.com/SametGkTe/Funky-Further-Engine/issues/new/choose).
@@ -23,42 +25,31 @@
 
 [**Derleme rehberi**](docs/BUILDING_TR.md) · [**Modlama rehberi**](docs/MODDING_TR.md) · [**Hata bildir**](https://github.com/SametGkTe/Funky-Further-Engine/issues/new/choose)
 
-### Arayüzler
-
-![Yeni Serbest Oyun](docs/img/wfreeplay.png)
-
-![Yeni Ana Menü](docs/img/wmainmenu.png)
-
-Klasik Psych Engine görünümü ile yeni V-Slice  menü stili arasında geçiş yap. Ana menü, Story Mode, Freeplay gibi menülerde etkili olur. Fakat cihazınızda donma / kasma problemleri oluşabilir
-
-</td>
-<td width="50%" valign="top">
-
-### Modpackler
-**YAKINDA**
-
-![Mod Paketleri](docs/img/modpack.png)
-
-Further için onaylanmış Modpackleri oyun içinden indir, içe aktar, güncelle veya kaldır. GitHub ve MediaFire kaynakları (Beta)
-
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
-
-### Mobil Desteği
-
-Android için **Psych Hitbox** ve **V-Slice Kontrolü**, mobil kontrol opaklığı, hitbox görünümü, ve farklı depolama ayarları.
-
-</td>
-<td width="50%" valign="top">
-
-### Further Mod Desteği
-
-**Galeri Sistemi**; Resim, Spritesheet, video, müzik ve ses efektlerini galeriye koy. Mod yapımcıları kendi `gallery.json` içeriğini ekleyebilir. (mod/other/gallery.json)
-
-</td>
-</tr>
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>Arayüzler</h3>
+      <img src="docs/img/wfreeplay.png" alt="Yeni Serbest Oyun">
+      <img src="docs/img/wmainmenu.png" alt="Yeni Ana Menü">
+      <p>Klasik Psych Engine görünümü ile yeni V-Slice menü stili arasında geçiş yap. Ana menü, Story Mode, Freeplay gibi menülerde etkili olur. Fakat cihazınızda donma / kasma problemleri oluşabilir.</p>
+    </td>
+    <td width="50%" valign="top">
+      <h3>Modpackler</h3>
+      <p><strong>YAKINDA</strong></p>
+      <img src="docs/img/modpack.png" alt="Mod Paketleri">
+      <p>Further için onaylanmış Modpackleri oyun içinden indir, içe aktar, güncelle veya kaldır. GitHub ve MediaFire kaynakları (Beta).</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>Mobil Desteği</h3>
+      <p>Android için <strong>Psych Hitbox</strong> ve <strong>V-Slice Kontrolü</strong>, mobil kontrol opaklığı, hitbox görünümü, ve farklı depolama ayarları.</p>
+    </td>
+    <td width="50%" valign="top">
+      <h3>Further Mod Desteği</h3>
+      <p><strong>Galeri Sistemi</strong>; Resim, Spritesheet, video, müzik ve ses efektlerini galeriye koy. Mod yapımcıları kendi <code>gallery.json</code> içeriğini ekleyebilir. (mod/other/gallery.json)</p>
+    </td>
+  </tr>
 </table>
 
 

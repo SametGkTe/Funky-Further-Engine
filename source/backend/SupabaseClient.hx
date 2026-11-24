@@ -11,7 +11,13 @@ class SupabaseClient {
     public static final ANON_KEY = "sb_publishable_xShtsNZot0C3cIDqj3s2Ew_V3zJs_1k";
 
     // ============================================
-    // OBFUSCATION KEY (basit XOR şifreleme)
+    // OBFUSCATION KEY (XOR ile karıştırma)
+    // DİKKAT: Bu GERÇEK bir şifreleme DEĞİLDİR! Token'ların dosyada düz
+    // metin durmasını engeller; dosyaya erişen herkes anahtar sabit
+    // olduğu için token'ı geri çıkarabilir. Gerçek koruma için platform
+    // güvenli deposu (Android Keystore / iOS Keychain / masaüstü
+    // keychain) gerekir — TODO. Şimdilik dosya izinleriyle (chmod 600)
+    // ek savunma katmanı ekleniyor (bkz. _saveAuthFile).
     // ============================================
     static inline var OBF_KEY:Int = 0x5A;
 
@@ -115,6 +121,17 @@ class SupabaseClient {
             };
 
             File.saveContent(filePath, Json.stringify(data));
+
+            // Savunma katmanı: dosyayı yalnızca sahibi okuyabilsin (POSIX).
+            // Windows'ta NTFS ACL'leri ayrı ele alınmalı — TODO.
+            #if !windows
+            try {
+                var proc = new sys.io.Process('chmod', ['600', filePath]);
+                proc.exitCode(true);
+                proc.close();
+            } catch (e2:Dynamic) {}
+            #end
+
             trace('[SupabaseClient] Auth saved to: $filePath');
         } catch (e) {
             trace('[SupabaseClient] Failed to save auth file: $e');
@@ -150,13 +167,13 @@ class SupabaseClient {
 
             var parsed = Json.parse(content);
 
-            // Token (şifrelenmiş)
+            // Token (XOR ile karıştırılmış — şifreleme değil)
             var rawToken = Reflect.field(parsed, "token");
             if (rawToken != null && Std.string(rawToken) != "") {
                 _cachedToken = _deobfuscate(Std.string(rawToken));
             }
 
-            // Refresh token (şifrelenmiş)
+            // Refresh token (XOR ile karıştırılmış — şifreleme değil)
             var rawRefresh = Reflect.field(parsed, "refresh_token");
             if (rawRefresh != null && Std.string(rawRefresh) != "") {
                 _cachedRefreshToken = _deobfuscate(Std.string(rawRefresh));

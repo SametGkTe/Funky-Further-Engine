@@ -50,7 +50,7 @@ typedef ECatalogEntry =
 class ExtensionPackManager
 {
 	/** Saglamali (curated) katalog dosyasi; internet yoksa gomulu kopya kullanilir. */
-	public static var CATALOG_URL:String = 'https://raw.githubusercontent.com/FNF-Further/Funky-Further-Engine/main/extensions.json';
+	public static var CATALOG_URL:String = 'https://raw.githubusercontent.com/SametGkTe/Funky-Further-Engine/main/extensions.json';
 	public static inline var CATALOG_FALLBACK:String = 'data/further/extensions.json';
 
 	static var packs:Array<EPack> = [];
